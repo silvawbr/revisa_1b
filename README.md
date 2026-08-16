@@ -67,6 +67,22 @@ Para rodar os testes:
 npm test
 ```
 
+Para gerar o pacote estático que será publicado:
+
+```bash
+npm run build
+```
+
+O build limpa somente `dist/` e recria uma árvore publicável com:
+
+- `dist/index.html`, `dist/styles.css` e `dist/app.js`;
+- `dist/src/`, com os módulos ES usados pelo frontend;
+- `dist/public/`, com os desenhos locais e suas atribuições.
+
+Arquivos de ambiente, código do servidor, funções, testes, scripts e
+configurações privadas não são copiados para `dist/`. A pasta `dist/` continua
+ignorada pelo Git.
+
 ## Estrutura
 
 - `index.html`: entrada da aplicação.
@@ -81,7 +97,12 @@ npm test
   para uso offline.
 - `public/coloring-pages/ATTRIBUTIONS.md`: origem, licença e auditoria visual de
   cada desenho, incluindo candidatos rejeitados.
-- `server.js`: servidor estático e endpoint `POST /api/tts`.
+- `server.js`: servidor HTTP local para os arquivos estáticos e o endpoint
+  `POST /api/tts`.
+- `api/tts.js`: entrypoint da função Node serverless da Vercel para
+  `POST /api/tts`.
+- `server/tts-handler.js`: handler HTTP compartilhado pelo servidor local e
+  pela função da Vercel.
 - `server/tts-provider.js`: adaptador do OpenRouter com Bearer, áudio binário,
   cache server-side, timeout, validação e tratamento seguro de erros.
 - `server/pcm-to-wav.js`: encapsulamento determinístico de PCM em WAV, sem
@@ -91,6 +112,8 @@ npm test
 - `tests/coloring-pages.test.mjs`: testes do catálogo, fallback, seleção,
   entrega local dos assets, atribuição e impressão A4.
 - `tests/tts.test.mjs`: testes do contrato HTTP, segurança e cache de voz.
+- `tests/vercel.test.mjs`: testes do build estático, função Vercel, assets e
+  ausência de segredos em `dist/`.
 
 Tudo funciona sem cadastro, armazenamento de dados ou imagens externas. Os
 desenhos da recompensa são instalados junto com o projeto; não há hotlink nem
@@ -134,3 +157,54 @@ reutilizados como se fossem o áudio atual.
 Os testes usam mocks e não consomem créditos do OpenRouter. Para uma validação
 manual, preencha `api_key` somente no `.env` local privado ou nas variáveis da
 hospedagem; nunca registre essa chave em logs ou relatórios.
+
+## Publicar na Vercel
+
+O repositório usa o preset `Other` e a configuração versionada em
+`vercel.json`. O build publica somente o conteúdo de `dist/`; a função
+`api/tts.js` é descoberta automaticamente pela Vercel e continua disponível
+em `/api/tts`. Não é necessário iniciar `server.js` na Vercel e não há rewrite
+para `index.html`.
+
+No painel do projeto, mantenha:
+
+| Configuração | Valor |
+| --- | --- |
+| Framework Preset | `Other` |
+| Build Command | `npm run build` |
+| Output Directory | `dist` |
+| Install Command | automático |
+
+Como o projeto não possui dependências externas, o Install Command deve
+continuar automático; não use `npm run dev` como comando de instalação.
+
+Configure na Vercel as cinco variáveis abaixo, no ambiente de deployment
+correto, sem colocá-las no Git ou no frontend:
+
+```env
+api_url=https://openrouter.ai/api/v1/audio/speech
+api_key=
+tts_model=google/gemini-3.1-flash-tts-preview
+tts_voice=Zephyr
+tts_response_format=pcm
+```
+
+`api_key` deve receber o valor real somente no painel da Vercel. O servidor
+monta a chamada para a OpenRouter; o navegador continua enviando apenas
+`{ "text": "..." }` para `/api/tts`. Alterações nas variáveis de ambiente só
+entram em vigor após um novo deployment.
+
+Após o deployment, valide sem expor a chave:
+
+```text
+GET /              → 200 e index.html
+GET /styles.css    → 200 e text/css
+GET /app.js        → 200 e JavaScript
+GET /api/tts       → 405 e Allow: POST
+POST /api/tts      → 200 audio/wav com configuração válida
+```
+
+Para o teste real de voz, use uma frase curta como `Olá, Marina!`, confirme
+antes que as cinco variáveis estão configuradas e verifique que a resposta
+binária começa com `RIFF` e contém `WAVE`. Os testes automatizados usam apenas
+mocks e nunca consomem créditos da OpenRouter.
