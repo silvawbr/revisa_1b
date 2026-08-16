@@ -21,6 +21,7 @@ const PUBLIC_FILES = new Set([
   'app.js',
   'src/game.js',
   'src/figures.js',
+  'src/association-interaction.js',
   'src/tts-client.js',
   'src/child-profile.js',
   'src/data/coloringPages.js',

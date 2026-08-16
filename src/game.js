@@ -136,8 +136,10 @@ export function createFlatQuestion(random = Math.random) {
     shapeName: shape.name,
     spokenShapeName: shape.spoken,
     representation,
-    prompt: 'Ligue o nome à figura.',
-    speech: `Ligue o nome ${shape.spoken} à figura.`,
+    optionKeys: shuffle(random, FLAT_SHAPES.map(({ key }) => key)),
+    prompt: `Selecione a figura plana correta: ${shape.name}`,
+    promptLabel: 'Selecione a figura plana correta:',
+    speech: `Selecione a figura plana correta: ${shape.spoken}.`,
     explanation: `Esta é a figura ${shape.spoken}. Ela é uma figura plana.`,
   };
 }
@@ -151,8 +153,10 @@ export function createSpatialQuestion(random = Math.random) {
     shapeName: shape.name,
     spokenShapeName: shape.spoken,
     representation,
-    prompt: 'Ligue o nome à forma geométrica.',
-    speech: `Ligue o nome ${shape.spoken} à forma geométrica.`,
+    optionKeys: shuffle(random, SPATIAL_SHAPES.map(({ key }) => key)),
+    prompt: `Selecione a figura geométrica espacial correta: ${shape.name}`,
+    promptLabel: 'Selecione a figura geométrica espacial correta:',
+    speech: `Selecione a figura geométrica espacial correta: ${shape.spoken}.`,
     explanation: `Muito bem! O ${shape.spoken} é uma forma geométrica espacial, com volume.`,
   };
 }

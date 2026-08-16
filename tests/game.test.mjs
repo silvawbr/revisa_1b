@@ -51,7 +51,45 @@ test('as figuras planas e espaciais pertencem a conjuntos sem ambiguidade', () =
     assert.ok(spatialKeys.has(spatial.shapeKey));
     assert.ok(['pure', 'object'].includes(flat.representation));
     assert.ok(['solid', 'object'].includes(spatial.representation));
+    assert.equal(flat.optionKeys.length, 4);
+    assert.equal(spatial.optionKeys.length, 5);
+    assert.deepEqual(new Set(flat.optionKeys), flatKeys);
+    assert.deepEqual(new Set(spatial.optionKeys), spatialKeys);
+    assert.equal(new Set(flat.optionKeys).size, 4);
+    assert.equal(new Set(spatial.optionKeys).size, 5);
+    assert.equal(flat.optionKeys.includes(flat.shapeKey), true);
+    assert.equal(spatial.optionKeys.includes(spatial.shapeKey), true);
+    assert.equal(flat.prompt, `Selecione a figura plana correta: ${flat.shapeName}`);
+    assert.equal(spatial.prompt, `Selecione a figura geométrica espacial correta: ${spatial.shapeName}`);
+    assert.equal(validateQuestionAnswer(flat, flat.shapeKey), true);
+    assert.equal(validateQuestionAnswer(spatial, spatial.shapeKey), true);
+    assert.equal(validateQuestionAnswer(flat, flat.optionKeys.find((key) => key !== flat.shapeKey)), false);
+    assert.equal(validateQuestionAnswer(spatial, spatial.optionKeys.find((key) => key !== spatial.shapeKey)), false);
   }
+});
+
+test('as alternativas das figuras mudam de posição entre rodadas', () => {
+  const flatOrders = new Set();
+  const spatialOrders = new Set();
+  const flatCorrectPositions = new Set();
+  const spatialCorrectPositions = new Set();
+  for (let index = 0; index < 24; index += 1) {
+    let seed = index + 1;
+    const random = () => {
+      seed = (seed * 73 + 41) % 997;
+      return seed / 997;
+    };
+    const flat = createFlatQuestion(random);
+    const spatial = createSpatialQuestion(random);
+    flatOrders.add(flat.optionKeys.join(','));
+    spatialOrders.add(spatial.optionKeys.join(','));
+    flatCorrectPositions.add(flat.optionKeys.indexOf(flat.shapeKey));
+    spatialCorrectPositions.add(spatial.optionKeys.indexOf(spatial.shapeKey));
+  }
+  assert.ok(flatOrders.size > 1);
+  assert.ok(spatialOrders.size > 1);
+  assert.ok(flatCorrectPositions.size > 1);
+  assert.ok(spatialCorrectPositions.size > 1);
 });
 
 test('toda adição gerada tem reserva e resultado até 140', () => {

@@ -1,5 +1,7 @@
 import {
   ACTIVITY_NAMES,
+  FLAT_SHAPES,
+  SPATIAL_SHAPES,
   createRound,
   numberToPortuguese,
   numberToDigits,
@@ -7,6 +9,7 @@ import {
   canAdvance,
 } from './src/game.js';
 import { renderSpatialSvg } from './src/figures.js';
+import { createVisualSelectionInteraction } from './src/association-interaction.js';
 import {
   REWARD_MESSAGE,
   getColoringPageById,
@@ -26,6 +29,7 @@ import {
 const app = document.querySelector('#app');
 const childProfile = createChildProfileStore();
 const storedChildName = childProfile.getName();
+let visualSelectionInteraction = null;
 
 const state = {
   screen: storedChildName ? 'home' : 'name',
@@ -38,7 +42,6 @@ const state = {
   correct: false,
   attempts: 0,
   selectedKey: null,
-  connection: null,
   answer: {},
   activeAddField: null,
   hintVisible: false,
@@ -239,7 +242,9 @@ function renderFlatGraphic(question) {
     square: 'azulejo quadrado',
   };
   const detail = question.representation === 'object' ? `<span class="object-detail" aria-hidden="true">${question.shapeKey === 'circle' ? '✦' : question.shapeKey === 'triangle' ? '!' : question.shapeKey === 'rectangle' ? 'ABC' : '＋'}</span>` : '';
-  const label = question.representation === 'object' ? objectNames[question.shapeKey] : `figura ${question.spokenShapeName}`;
+  const label = question.representation === 'object'
+    ? `Ilustração bidimensional inspirada em ${objectNames[question.shapeKey]}`
+    : 'Ilustração bidimensional de uma figura plana';
   return `<div class="flat-graphic ${question.shapeKey} ${question.representation}" role="img" aria-label="${label}"><span class="shape-surface"></span>${detail}</div>`;
 }
 
@@ -251,32 +256,61 @@ function renderSpatialGraphic(question) {
     cone: 'chapéu de festa',
     sphere: 'bola',
   };
-  const label = question.representation === 'object' ? objectNames[question.shapeKey] : `forma espacial ${question.spokenShapeName}`;
+  const label = question.representation === 'object'
+    ? `Ilustração tridimensional inspirada em ${objectNames[question.shapeKey]}`
+    : 'Ilustração tridimensional de um sólido geométrico';
   return `<div class="spatial-graphic ${question.shapeKey} ${question.representation}" role="img" aria-label="${label}">${renderSpatialSvg(question.shapeKey, question.representation)}</div>`;
 }
 
-function renderMatchingQuestion(question) {
+function questionForShape(question, shape) {
+  return {
+    ...question,
+    shapeKey: shape.key,
+    shapeName: shape.name,
+    spokenShapeName: shape.spoken,
+  };
+}
+
+function renderShapeSelectionQuestion(question) {
   const isFlat = question.type === 'flat';
-  const visual = isFlat ? renderFlatGraphic(question) : renderSpatialGraphic(question);
-  const selected = state.selectedKey === question.shapeKey;
-  return `<div class="matching-area">
-    <div class="matching-column">
-      <span class="column-title">Nome</span>
-      <button class="name-card ${selected ? 'is-selected' : ''}" type="button" draggable="true" data-match-source="${question.shapeKey}" aria-pressed="${selected}">
-        <span class="name-card-dot" aria-hidden="true">●</span>${question.shapeName}
-      </button>
-    </div>
-    <div class="matching-arrow" aria-hidden="true">${state.connection ? '✓' : '→'}</div>
-    <div class="matching-column">
-      <span class="column-title">Imagem</span>
-      <button class="visual-target ${state.connection ? 'is-connected' : ''}" type="button" data-match-target="${question.shapeKey}" aria-label="Imagem para ligar ao nome ${question.shapeName}">
+  const shapeCatalog = isFlat ? FLAT_SHAPES : SPATIAL_SHAPES;
+  const optionDescriptions = isFlat
+    ? {
+      circle: 'forma redonda',
+      triangle: 'forma com três lados',
+      rectangle: 'forma com dois lados longos e dois curtos',
+      square: 'forma com quatro lados iguais',
+    }
+    : {
+      cube: 'sólido com seis faces quadradas',
+      'rectangular-block': 'sólido com faces retangulares',
+      cylinder: 'sólido com duas bases redondas',
+      cone: 'sólido com uma ponta e uma base redonda',
+      sphere: 'sólido completamente redondo',
+    };
+  const shapes = (question.optionKeys ?? shapeCatalog.map(({ key }) => key))
+    .map((key) => shapeCatalog.find((shape) => shape.key === key))
+    .filter(Boolean);
+  const visualOptions = shapes.map((shape, index) => {
+    const shapeQuestion = questionForShape(question, shape);
+    const visual = isFlat ? renderFlatGraphic(shapeQuestion) : renderSpatialGraphic(shapeQuestion);
+    const selected = state.selectedKey === shape.key;
+    const incorrect = selected && !state.correct && state.attempts > 0;
+    return `<button class="shape-option ${selected ? 'is-selected' : ''} ${incorrect ? 'is-incorrect' : ''}" type="button" data-shape-option="${shape.key}" aria-label="Alternativa visual ${index + 1} de ${shapes.length}: ${optionDescriptions[shape.key]}" aria-describedby="shape-selection-instruction" aria-pressed="${selected}" ${state.correct ? 'disabled' : ''}>
         ${visual}
-      </button>
+      </button>`;
+  }).join('');
+  const status = state.correct
+    ? `Você acertou! Esta é a figura ${question.spokenShapeName}.`
+    : state.attempts > 0
+      ? 'Observe com calma e escolha outra figura.'
+      : 'Escolha a figura que corresponde ao nome.';
+  return `<div class="shape-selection ${isFlat ? 'flat-shape-selection' : 'spatial-shape-selection'}">
+    <p class="shape-selection-instruction" id="shape-selection-instruction">Selecione a figura correta.</p>
+    <div class="shape-options" role="group" aria-label="Alternativas visuais">
+      ${visualOptions}
     </div>
-  </div>
-  <div class="matching-actions">
-    <p class="interaction-hint" aria-live="polite">${state.selectedKey && !state.connection ? 'Agora toque na imagem.' : state.connection ? 'Ligação concluída! Está certinho.' : 'Toque no nome e depois na imagem.'}</p>
-    <button class="secondary-button" type="button" data-action="clear-connection" ${state.connection ? '' : 'disabled'}>↶ Desfazer ligação</button>
+    <p class="shape-selection-status" aria-live="polite">${status}</p>
   </div>`;
 }
 
@@ -452,7 +486,7 @@ function getHint(question) {
 }
 
 function renderExercise(question) {
-  if (question.type === 'flat' || question.type === 'spatial') return renderMatchingQuestion(question);
+  if (question.type === 'flat' || question.type === 'spatial') return renderShapeSelectionQuestion(question);
   if (question.type === 'addition') return renderAdditionQuestion(question);
   if (question.type === 'neighbor') return renderNeighborQuestion(question);
   if (question.type === 'word') return renderWordQuestion(question);
@@ -462,13 +496,16 @@ function renderExercise(question) {
 function renderGame() {
   const question = state.round[state.currentIndex];
   const guideMessage = state.correct ? 'Que conquista linda! Observe a explicação.' : 'Vamos com calma! Você consegue!';
+  const prompt = question.type === 'flat' || question.type === 'spatial'
+    ? `<span class="shape-prompt-label">${escapeHtml(question.promptLabel)}</span> <strong class="shape-name-prompt">${escapeHtml(question.shapeName)}</strong>`
+    : escapeHtml(question.prompt);
   return `<div class="site-shell game-screen">
     ${renderHeader()}
     <main class="main-content">
       <div class="question-topline"><span class="activity-badge">Atividade ${state.currentIndex + 1}</span><span class="activity-count">${ACTIVITY_NAMES[state.currentIndex]}</span></div>
       <div class="question-heading"><div><h1 id="question-title">${ACTIVITY_NAMES[state.currentIndex]}</h1></div>${renderGuide(guideMessage)}</div>
       <section class="question-card" aria-labelledby="question-title">
-        <div class="prompt-row"><p class="prompt" id="question-prompt">${question.prompt}</p>${renderSpeechButton('question', question.speech)}</div>
+        <div class="prompt-row"><p class="prompt" id="question-prompt">${prompt}</p>${renderSpeechButton('question', question.speech)}</div>
         <span class="speech-status" data-speech-status role="status" aria-live="polite"></span>
         <div class="exercise-area">${renderExercise(question)}</div>
         ${renderFeedback(question)}
@@ -483,7 +520,7 @@ function renderNameScreen() {
   return `<div class="site-shell home-screen name-screen">
     <main class="home-main">
       <div class="home-decor decor-one" aria-hidden="true">2</div><div class="home-decor decor-two" aria-hidden="true">★</div><div class="home-decor decor-three" aria-hidden="true">5</div>
-      <section class="home-card name-card-panel" aria-labelledby="child-name-title">
+      <section class="home-card profile-name-panel" aria-labelledby="child-name-title">
         <div class="home-art" aria-hidden="true"><span class="home-circle">6</span><span class="home-triangle"></span><span class="home-square">＋</span><span class="home-star">★</span></div>
         <p class="eyebrow">1º ano Vita</p>
         <h1 id="child-name-title">Bem-vinda! Bem-vindo! 🌟</h1>
@@ -595,7 +632,13 @@ function updateDocumentTitle() {
   document.title = `Revisão de Matemática de ${currentChildName()} | 1º ano Vita`;
 }
 
+function destroyVisualSelectionInteraction() {
+  visualSelectionInteraction?.destroy();
+  visualSelectionInteraction = null;
+}
+
 function render() {
+  destroyVisualSelectionInteraction();
   if (state.screen === 'name') app.innerHTML = renderNameScreen();
   else if (state.screen === 'home') app.innerHTML = renderHome();
   else if (state.screen === 'reward') app.innerHTML = renderReward();
@@ -613,7 +656,6 @@ function resetRoundState() {
   state.correct = false;
   state.attempts = 0;
   state.selectedKey = null;
-  state.connection = null;
   state.answer = {};
   state.activeAddField = null;
   state.hintVisible = false;
@@ -670,7 +712,6 @@ function beginRound() {
   state.correct = false;
   state.attempts = 0;
   state.selectedKey = null;
-  state.connection = null;
   state.answer = {};
   state.activeAddField = null;
   state.hintVisible = false;
@@ -694,7 +735,6 @@ function nextQuestion() {
   state.correct = false;
   state.attempts = 0;
   state.selectedKey = null;
-  state.connection = null;
   state.answer = {};
   state.activeAddField = null;
   state.hintVisible = false;
@@ -721,6 +761,23 @@ function currentQuestion() {
   return state.round[state.currentIndex];
 }
 
+function focusVisualOption(shapeKey) {
+  document.querySelector(`[data-shape-option="${shapeKey}"]`)?.focus();
+}
+
+function selectVisualOption(shapeKey) {
+  if (state.correct) return;
+  const question = currentQuestion();
+  state.selectedKey = shapeKey;
+  state.answer = shapeKey;
+  if (validateQuestionAnswer(question, shapeKey)) {
+    correctAnswer();
+    return;
+  }
+  wrongAnswer();
+  focusVisualOption(shapeKey);
+}
+
 function collectInputAnswers() {
   const question = currentQuestion();
   if (question.type === 'addition') {
@@ -739,20 +796,6 @@ function checkAnswer() {
   state.answer = answer;
   if (validateQuestionAnswer(question, answer)) correctAnswer();
   else wrongAnswer();
-}
-
-function connectToTarget(targetKey) {
-  if (!state.selectedKey) {
-    state.attempts += 1;
-    render();
-    return;
-  }
-  if (state.selectedKey === targetKey) {
-    state.connection = targetKey;
-    correctAnswer();
-  } else {
-    wrongAnswer();
-  }
 }
 
 function focusNextInput(input, selector, maxLength = 1) {
@@ -781,12 +824,6 @@ function bindEvents() {
       }
       if (action === 'next') nextQuestion();
       if (action === 'check-answer') checkAnswer();
-      if (action === 'clear-connection') {
-        state.connection = null;
-        state.selectedKey = null;
-        state.attempts = 0;
-        render();
-      }
       if (action === 'hint') {
         state.hintVisible = true;
         state.parentHelp = false;
@@ -831,28 +868,13 @@ function bindEvents() {
     });
   });
 
-  document.querySelectorAll('[data-match-source]').forEach((source) => {
-    source.addEventListener('click', () => {
-      if (state.correct) return;
-      state.selectedKey = source.dataset.matchSource;
-      render();
+  const visualOptions = [...document.querySelectorAll('[data-shape-option]')];
+  if (visualOptions.length > 0) {
+    visualSelectionInteraction = createVisualSelectionInteraction({
+      options: visualOptions,
+      onSelect: (shapeKey) => selectVisualOption(shapeKey),
     });
-    source.addEventListener('dragstart', (event) => {
-      event.dataTransfer?.setData('text/plain', source.dataset.matchSource);
-      state.selectedKey = source.dataset.matchSource;
-    });
-  });
-
-  document.querySelectorAll('[data-match-target]').forEach((target) => {
-    target.addEventListener('click', () => connectToTarget(target.dataset.matchTarget));
-    target.addEventListener('dragover', (event) => event.preventDefault());
-    target.addEventListener('drop', (event) => {
-      event.preventDefault();
-      const key = event.dataTransfer?.getData('text/plain');
-      if (key) state.selectedKey = key;
-      connectToTarget(target.dataset.matchTarget);
-    });
-  });
+  }
 
   document.querySelectorAll('[data-add-field]').forEach((input) => {
     input.addEventListener('focus', () => {
