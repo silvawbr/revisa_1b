@@ -538,8 +538,8 @@ h1 span { color: var(--blue-deep); }
 .carry-row { min-height: 48px; color: var(--pink-deep); font-size: 1rem; }
 .carry-label { justify-self: end; padding-right: 8px; font-size: 0.75rem; color: var(--muted); font-weight: 700; }
 .carry-input,
-.digit-input { width: 42px; height: 44px; border: 3px solid var(--pink-deep); border-radius: 10px; color: var(--ink); background: #fff; text-align: center; font-size: 1.6rem; font-weight: 900; }
-.carry-empty { width: 42px; height: 44px; }
+.digit-input { width: 48px; min-width: 48px; height: 44px; padding: 0; border: 3px solid var(--pink-deep); border-radius: 10px; color: var(--ink); background: #fff; text-align: center; font-size: 1.6rem; font-weight: 900; }
+.carry-empty { width: 48px; min-width: 48px; height: 44px; }
 .operator { color: var(--pink-deep); }
 .addition-line { height: 5px; margin: 2px 10px 4px 70px; border-radius: 99px; background: var(--ink); }
 .answer-row .digit-input { border-color: var(--green-deep); background: #f1fff0; }
@@ -554,7 +554,7 @@ h1 span { color: var(--blue-deep); }
 
 .neighbor-wrap { width: min(100%, 690px); margin: 0 auto; text-align: center; }
 .number-sequence { display: flex; justify-content: center; align-items: center; gap: clamp(10px, 3vw, 28px); padding: 32px 20px; border-radius: 25px; background: #f6f2ff; color: #4f426d; font-size: clamp(2rem, 8vw, 4.1rem); font-weight: 900; }
-.sequence-input { width: 1.75em; min-width: 1.55em; height: 1.5em; border: 4px solid var(--pink-deep); border-radius: 14px; color: var(--ink); background: #fff; text-align: center; font-size: inherit; font-weight: 900; }
+.sequence-input { width: 2.2em; min-width: 2.2em; flex: 0 0 2.2em; height: 1.5em; padding: 0; border: 4px solid var(--pink-deep); border-radius: 14px; color: var(--ink); background: #fff; text-align: center; font-size: inherit; font-weight: 900; }
 .sequence-reveal { text-align: center; }
 .sequence-reveal > span,
 .sequence-reveal > b { display: inline-grid; place-items: center; width: 70px; height: 70px; margin: 0 5px; border-radius: 18px; font-size: 2rem; font-weight: 900; }
@@ -581,7 +581,7 @@ h1 span { color: var(--blue-deep); }
 
 .unknown-wrap { width: min(100%, 730px); margin: 0 auto; text-align: center; }
 .unknown-equation { display: flex; justify-content: center; align-items: center; gap: clamp(8px, 2vw, 18px); padding: 36px 16px; border-radius: 25px; color: #4f426d; background: #f6f2ff; font-size: clamp(2.4rem, 9vw, 5.1rem); font-weight: 900; }
-.unknown-input { width: 1.1em; height: 1.15em; border: 5px solid var(--pink-deep); border-radius: 16px; color: var(--ink); background: #fff; text-align: center; font-size: inherit; font-weight: 900; }
+.unknown-input { width: 1.35em; min-width: 1.35em; flex: 0 0 1.35em; height: 1.15em; padding: 0; border: 5px solid var(--pink-deep); border-radius: 16px; color: var(--ink); background: #fff; text-align: center; font-size: inherit; font-weight: 900; }
 .counting-dots { display: flex; justify-content: center; gap: 8px; min-height: 22px; margin: 22px 0 0; }
 .counting-dots i,
 .inverse-dots i { width: 18px; height: 18px; border-radius: 50%; background: var(--yellow); border: 3px solid #d39f1e; }
@@ -658,7 +658,7 @@ h1 span { color: var(--blue-deep); }
   .legend { gap: 8px; font-size: 0.75rem; }
   .addition-row { grid-template-columns: 51px repeat(3, minmax(45px, 58px)); }
   .addition-line { margin-left: 59px; }
-  .carry-input, .digit-input { width: 38px; height: 40px; }
+  .carry-input, .digit-input { width: 44px; min-width: 44px; height: 40px; }
   .word-options { grid-template-columns: 1fr; }
   .word-option { min-height: 64px; }
   .guide { margin-top: 20px; }
