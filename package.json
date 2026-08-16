@@ -1,0 +1,11 @@
+{
+  "name": "revisao-matematica-marina",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node scripts/dev.js",
+    "test": "node --test"
+  }
+}
