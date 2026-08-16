@@ -22,6 +22,7 @@ const PUBLIC_FILES = new Set([
   'src/game.js',
   'src/figures.js',
   'src/tts-client.js',
+  'src/child-profile.js',
   'src/data/coloringPages.js',
   'public/coloring-pages/ATTRIBUTIONS.md',
   'public/coloring-pages/animals-bunny-02.svg',

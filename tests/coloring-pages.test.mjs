@@ -62,6 +62,8 @@ test('o servidor entrega o catálogo e os quatro SVGs localmente', async () => {
     }
     const manifestResponse = await fetch(`${base}/src/data/coloringPages.js`);
     assert.equal(manifestResponse.status, 200);
+    const profileResponse = await fetch(`${base}/src/child-profile.js`);
+    assert.equal(profileResponse.status, 200);
     const attributionResponse = await fetch(`${base}/public/coloring-pages/ATTRIBUTIONS.md`);
     assert.equal(attributionResponse.status, 200);
   } finally {
@@ -94,8 +96,8 @@ test('a seleção pula assets indisponíveis e usa outro item válido', () => {
 });
 
 test('a recompensa expõe mensagem, outro desenho, fallback e impressão sem internet', () => {
-  assert.equal(REWARD_MESSAGE, 'Você terminou a revisão! Parabéns, Marina! Escolha suas cores e divirta-se! 🎉');
-  assert.match(appSource, /<h1 id="reward-title">\$\{REWARD_MESSAGE\}<\/h1>/);
+  assert.equal(REWARD_MESSAGE, 'Você terminou a revisão! Parabéns, {name}! Escolha suas cores e divirta-se! 🎉');
+  assert.match(appSource, /<h1 id="reward-title">\$\{escapeHtml\(rewardMessage\.visualText\)\}<\/h1>/);
   assert.match(appSource, /data-action="another-coloring-page"/);
   assert.match(appSource, /data-coloring-image/);
   assert.match(appSource, /handleColoringAssetError/);

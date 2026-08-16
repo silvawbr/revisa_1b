@@ -71,7 +71,7 @@ export const COLORING_PAGES = Object.freeze([
   },
 ]);
 
-export const REWARD_MESSAGE = 'Você terminou a revisão! Parabéns, Marina! Escolha suas cores e divirta-se! 🎉';
+export const REWARD_MESSAGE = 'Você terminou a revisão! Parabéns, {name}! Escolha suas cores e divirta-se! 🎉';
 
 export function getColoringPageById(id, pages = COLORING_PAGES) {
   return pages.find((page) => page.id === id) ?? null;

@@ -49,7 +49,7 @@ function responseMock() {
   };
 }
 
-function requestMock({ method = 'POST', payload = { text: 'Olá, Marina!' } } = {}) {
+function requestMock({ method = 'POST', payload = { text: 'Olá, criança!' } } = {}) {
   const body = JSON.stringify(payload);
   return {
     method,
@@ -86,6 +86,13 @@ test('npm run build gera uma árvore estática publicável', async () => {
   for (const relativePath of ['index.html', 'styles.css', 'app.js']) {
     await assert.doesNotReject(fs.access(path.join(dist, relativePath)));
   }
+  await assert.doesNotReject(fs.access(path.join(dist, 'src/child-profile.js')));
+  const publicSources = await Promise.all([
+    fs.readFile(path.join(dist, 'index.html'), 'utf8'),
+    fs.readFile(path.join(dist, 'app.js'), 'utf8'),
+    fs.readFile(path.join(dist, 'src/child-profile.js'), 'utf8'),
+  ]);
+  assert.doesNotMatch(publicSources.join('\n'), /Marina|João|Ana/);
 });
 
 test('dist preserva todos os imports relativos do frontend e os assets do catálogo', async () => {

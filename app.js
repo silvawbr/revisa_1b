@@ -14,11 +14,25 @@ import {
   pickColoringPage,
 } from './src/data/coloringPages.js';
 import { createTtsClient } from './src/tts-client.js';
+import {
+  createChildProfileStore,
+  createPersonalizedMessage,
+  formatChildText,
+  getNeutralSpeechText,
+  isValidChildName,
+  normalizeChildName,
+} from './src/child-profile.js';
 
 const app = document.querySelector('#app');
+const childProfile = createChildProfileStore();
+const storedChildName = childProfile.getName();
 
 const state = {
-  screen: 'home',
+  screen: storedChildName ? 'home' : 'name',
+  childName: storedChildName,
+  childNameDraft: storedChildName ?? '',
+  childNameError: false,
+  changeChildDialogOpen: false,
   round: [],
   currentIndex: 0,
   correct: false,
@@ -35,11 +49,11 @@ const state = {
   rewardFallback: false,
 };
 
-const positiveMessages = [
-  'Você acertou! Parabéns! 🌟',
-  'Muito bem, Marina! 💛',
-  'Excelente! Vamos continuar?',
-  'Mandou muito bem! ✨',
+const positiveMessageTemplates = [
+  ['Você acertou! Parabéns! 🌟', 'Você acertou! Parabéns! Vamos continuar?'],
+  ['Muito bem, {name}! 💛', 'Muito bem! Vamos continuar?'],
+  ['Excelente! Vamos continuar?', 'Excelente! Vamos continuar?'],
+  ['Mandou muito bem! ✨', 'Mandou muito bem! Vamos continuar?'],
 ];
 
 const retryMessages = [
@@ -147,15 +161,47 @@ async function speak(kind, text) {
 
 if (typeof window !== 'undefined') window.addEventListener('beforeunload', cancelSpeech);
 
-function escapeAttribute(value) {
-  return String(value).replaceAll('&', '&amp;').replaceAll('"', '&quot;');
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[character]));
 }
 
-function renderSpeechButton(kind, text, customLabel = null) {
+function escapeAttribute(value) {
+  return escapeHtml(value);
+}
+
+function currentChildName() {
+  return normalizeChildName(state.childName) ?? '';
+}
+
+function createPositiveMessage(index) {
+  const [visualTemplate, speechText] = positiveMessageTemplates[index % positiveMessageTemplates.length];
+  return createPersonalizedMessage({
+    childName: currentChildName(),
+    visualTemplate,
+    speechText,
+  });
+}
+
+function createRewardMessage() {
+  return createPersonalizedMessage({
+    childName: currentChildName(),
+    visualTemplate: REWARD_MESSAGE,
+    speechText: 'Você terminou a revisão! Escolha suas cores e divirta-se!',
+  });
+}
+
+function renderSpeechButton(kind, speechText, customLabel = null) {
   const label = customLabel ?? (kind === 'question' ? 'Ouvir pergunta' : kind === 'celebration' ? 'Ouvir parabéns' : 'Ouvir explicação');
+  const neutralSpeechText = getNeutralSpeechText(speechText);
   const active = speech.active?.kind === kind;
   const loading = active && speech.active.phase === 'loading';
-  return `<button class="speech-button${active ? ' is-speaking' : ''}" type="button" data-speech-button="${kind}" data-speech-text="${escapeAttribute(text)}" data-default-label="${label}" aria-label="${active ? 'Parar leitura' : label}" aria-pressed="${active}" aria-busy="${loading}" data-speaking="${active}"${loading ? ' disabled' : ''}>
+  return `<button class="speech-button${active ? ' is-speaking' : ''}" type="button" data-speech-button="${kind}" data-speech-text="${escapeAttribute(neutralSpeechText)}" data-default-label="${label}" aria-label="${active ? 'Parar leitura' : label}" aria-pressed="${active}" aria-busy="${loading}" data-speaking="${active}"${loading ? ' disabled' : ''}>
     <span class="speech-icon" aria-hidden="true">${active ? '■' : '🔊'}</span><span class="speech-label">${active ? 'Parar leitura' : label}</span>
   </button>`;
 }
@@ -167,17 +213,21 @@ function renderProgress() {
 }
 
 function renderGuide(message = 'Vamos com calma! Você consegue!') {
-  return `<div class="guide" role="img" aria-label="Luna, uma gatinha professora, está torcendo por Marina.">
+  const guideLabel = formatChildText('Luna, uma gatinha professora, está torcendo por {name}.', currentChildName());
+  return `<div class="guide" role="img" aria-label="${escapeAttribute(guideLabel || 'Luna, uma gatinha professora está aqui para ajudar.')}">
     <div class="cat-avatar" aria-hidden="true"><span class="cat-ear left"></span><span class="cat-ear right"></span><span class="cat-face"><i></i><i></i><b></b><em></em></span><span class="cat-book">＋</span></div>
-    <p class="guide-bubble">${message}</p>
+    <p class="guide-bubble">${escapeHtml(message)}</p>
   </div>`;
 }
 
 function renderHeader() {
   return `<header class="topbar">
-    <a class="brand" href="#" data-action="home" aria-label="Voltar para a apresentação">Marina <span>★</span></a>
+    <a class="brand" href="#" data-action="home" aria-label="Voltar para a apresentação">${escapeHtml(currentChildName())} <span>★</span></a>
     ${renderProgress()}
-    <button class="restart-button" type="button" data-action="restart" aria-label="Começar uma nova rodada">↻ <span>Recomeçar</span></button>
+    <div class="header-actions">
+      <button class="change-child-button" type="button" data-action="change-child" aria-label="Trocar criança">Trocar criança</button>
+      <button class="restart-button" type="button" data-action="restart" aria-label="Começar uma nova rodada">↻ <span>Recomeçar</span></button>
+    </div>
   </header>`;
 }
 
@@ -369,8 +419,9 @@ function renderExplanation(question) {
 
 function renderFeedback(question) {
   if (state.correct) {
+    const positiveMessage = createPositiveMessage(state.currentIndex);
     return `<div class="feedback success-feedback" role="status" aria-live="polite">
-      <p class="feedback-title">${positiveMessages[state.currentIndex % positiveMessages.length]}</p>
+      <p class="feedback-title">${escapeHtml(positiveMessage.visualText)}</p>
       ${renderExplanation(question)}
       <div class="feedback-actions">
         ${renderSpeechButton('explanation', question.explanation)}
@@ -426,17 +477,43 @@ function renderGame() {
   </div>`;
 }
 
+function renderNameScreen() {
+  const hasError = state.childNameError;
+  const errorMessage = 'Digite seu primeiro nome ou apelido para continuar. 💛';
+  return `<div class="site-shell home-screen name-screen">
+    <main class="home-main">
+      <div class="home-decor decor-one" aria-hidden="true">2</div><div class="home-decor decor-two" aria-hidden="true">★</div><div class="home-decor decor-three" aria-hidden="true">5</div>
+      <section class="home-card name-card-panel" aria-labelledby="child-name-title">
+        <div class="home-art" aria-hidden="true"><span class="home-circle">6</span><span class="home-triangle"></span><span class="home-square">＋</span><span class="home-star">★</span></div>
+        <p class="eyebrow">1º ano Vita</p>
+        <h1 id="child-name-title">Bem-vinda! Bem-vindo! 🌟</h1>
+        <p class="home-subtitle">Como você gostaria de ser chamada ou chamado?</p>
+        <form class="child-name-form" data-child-name-form novalidate>
+          <label for="child-name">Seu primeiro nome ou apelido</label>
+          <input id="child-name" name="childName" type="text" maxlength="40" autocomplete="nickname" placeholder="Seu primeiro nome ou apelido" value="${escapeAttribute(state.childNameDraft)}" aria-describedby="child-name-help${hasError ? ' child-name-error' : ''}"${hasError ? ' aria-invalid="true"' : ''} autofocus>
+          <p id="child-name-help" class="name-help">Use apenas seu primeiro nome ou apelido.</p>
+          <p id="child-name-error" class="name-error" role="alert"${hasError ? '' : ' hidden'}>${errorMessage}</p>
+          <button class="primary-button start-button" type="submit" data-child-name-submit ${isValidChildName(state.childNameDraft) ? '' : 'disabled'}>Continuar <span aria-hidden="true">→</span></button>
+        </form>
+        ${renderGuide('Estou aqui para torcer por você!')}
+        <p class="privacy-note">Seu nome fica somente neste navegador.</p>
+      </section>
+    </main>
+  </div>`;
+}
+
 function renderHome() {
   return `<div class="site-shell home-screen">
     <main class="home-main">
       <div class="home-decor decor-one" aria-hidden="true">2</div><div class="home-decor decor-two" aria-hidden="true">★</div><div class="home-decor decor-three" aria-hidden="true">5</div>
       <section class="home-card" aria-labelledby="home-title">
         <div class="home-art" aria-hidden="true"><span class="home-circle">6</span><span class="home-triangle"></span><span class="home-square">＋</span><span class="home-star">★</span></div>
-        <p class="eyebrow">Uma aventura de aprender</p>
-        <h1 id="home-title">Revisão de Matemática<br><span>da Marina</span></h1>
+        <p class="eyebrow">1º ano Vita · Uma aventura de aprender</p>
+        <h1 id="home-title">Revisão de Matemática<br><span>de ${escapeHtml(currentChildName())}</span></h1>
         <p class="home-subtitle">Vamos aprender, brincar e conquistar estrelas?</p>
         <button class="primary-button start-button" type="button" data-action="start">Começar <span aria-hidden="true">→</span></button>
         ${renderGuide('Estou aqui para torcer por você!')}
+        <button class="change-child-home" type="button" data-action="change-child">Trocar criança</button>
         <p class="privacy-note">Sem cadastro. Só brincadeira e aprendizado.</p>
       </section>
     </main>
@@ -476,30 +553,113 @@ function handleColoringAssetError(pageId) {
 
 function renderReward() {
   const rewardPage = getColoringPageById(state.rewardPageId);
+  const rewardMessage = createRewardMessage();
   return `<div class="site-shell reward-screen">
     <main class="reward-main">
       <section class="reward-card" aria-labelledby="reward-title">
         <div class="reward-stars" aria-label="Seis estrelas conquistadas">★ ★ ★ ★ ★ ★</div>
         <p class="eyebrow">Missão cumprida!</p>
-        <h1 id="reward-title">${REWARD_MESSAGE}</h1>
+        <h1 id="reward-title">${escapeHtml(rewardMessage.visualText)}</h1>
         <p class="reward-copy">Você passou por todas as atividades. Agora é hora de colorir!</p>
         ${state.rewardFallback ? renderColoringPage(null) : renderColoringPage(rewardPage)}
         <div class="reward-actions">
           <button class="primary-button" type="button" data-action="print">🖨 Imprimir meu desenho</button>
           <button class="secondary-button" type="button" data-action="another-coloring-page">🎨 Ver outro desenho</button>
           <button class="secondary-button" type="button" data-action="restart">↻ Jogar novamente</button>
+          <button class="change-child-home" type="button" data-action="change-child">Trocar criança</button>
         </div>
       </section>
     </main>
   </div>`;
 }
 
+function renderChangeChildDialog() {
+  if (!state.changeChildDialogOpen) return '';
+  return `<div class="dialog-backdrop" data-change-child-dialog>
+    <section class="change-child-dialog" role="dialog" aria-modal="true" aria-labelledby="change-child-title">
+      <h2 id="change-child-title">Trocar criança</h2>
+      <p>Deseja trocar o nome da criança neste dispositivo?</p>
+      <div class="dialog-actions">
+        <button class="secondary-button" type="button" data-action="cancel-change-child">Cancelar</button>
+        <button class="primary-button" type="button" data-action="confirm-change-child">Trocar criança</button>
+      </div>
+    </section>
+  </div>`;
+}
+
+function updateDocumentTitle() {
+  if (state.screen === 'name') {
+    document.title = 'Revisão de Matemática | 1º ano Vita';
+    return;
+  }
+  document.title = `Revisão de Matemática de ${currentChildName()} | 1º ano Vita`;
+}
+
 function render() {
-  if (state.screen === 'home') app.innerHTML = renderHome();
+  if (state.screen === 'name') app.innerHTML = renderNameScreen();
+  else if (state.screen === 'home') app.innerHTML = renderHome();
   else if (state.screen === 'reward') app.innerHTML = renderReward();
   else app.innerHTML = renderGame();
+  app.insertAdjacentHTML('beforeend', renderChangeChildDialog());
+  updateDocumentTitle();
   updateSpeechButtons();
   bindEvents();
+  if (state.changeChildDialogOpen) document.querySelector('[data-action="cancel-change-child"]')?.focus();
+}
+
+function resetRoundState() {
+  state.round = [];
+  state.currentIndex = 0;
+  state.correct = false;
+  state.attempts = 0;
+  state.selectedKey = null;
+  state.connection = null;
+  state.answer = {};
+  state.activeAddField = null;
+  state.hintVisible = false;
+  state.parentHelp = false;
+  state.rewardPageId = null;
+  state.unavailableRewardPageIds = new Set();
+  state.rewardFallback = false;
+}
+
+function requestChangeChild() {
+  state.changeChildDialogOpen = true;
+  render();
+}
+
+function cancelChangeChild() {
+  state.changeChildDialogOpen = false;
+  render();
+}
+
+function confirmChangeChild() {
+  cancelSpeech();
+  childProfile.clearName();
+  state.childName = null;
+  state.childNameDraft = '';
+  state.childNameError = false;
+  state.changeChildDialogOpen = false;
+  resetRoundState();
+  state.screen = 'name';
+  render();
+  document.querySelector('#child-name')?.focus();
+}
+
+function submitChildName(event) {
+  event.preventDefault();
+  const savedName = childProfile.saveName(state.childNameDraft);
+  if (!savedName) {
+    state.childNameError = true;
+    render();
+    document.querySelector('#child-name')?.focus();
+    return;
+  }
+  state.childName = savedName;
+  state.childNameDraft = savedName;
+  state.childNameError = false;
+  state.screen = 'home';
+  render();
 }
 
 function beginRound() {
@@ -611,6 +771,9 @@ function bindEvents() {
     element.addEventListener('click', () => {
       const action = element.dataset.action;
       if (action === 'start' || action === 'restart') beginRound();
+      if (action === 'change-child') requestChangeChild();
+      if (action === 'cancel-change-child') cancelChangeChild();
+      if (action === 'confirm-change-child') confirmChangeChild();
       if (action === 'home') {
         cancelSpeech();
         state.screen = 'home';
@@ -637,6 +800,25 @@ function bindEvents() {
       if (action === 'another-coloring-page') showAnotherColoringPage();
       if (action === 'print') window.print();
     });
+  });
+
+  document.querySelector('[data-child-name-form]')?.addEventListener('submit', submitChildName);
+  const childNameInput = document.querySelector('#child-name');
+  const childNameSubmit = document.querySelector('[data-child-name-submit]');
+  childNameInput?.addEventListener('input', () => {
+    state.childNameDraft = childNameInput.value;
+    childNameSubmit.disabled = !isValidChildName(childNameInput.value);
+    if (state.childNameError) {
+      state.childNameError = false;
+      childNameInput.removeAttribute('aria-invalid');
+      const error = document.querySelector('#child-name-error');
+      if (error) error.hidden = true;
+    }
+  });
+  childNameInput?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || !isValidChildName(childNameInput.value)) return;
+    event.preventDefault();
+    submitChildName(event);
   });
 
   document.querySelectorAll('[data-coloring-image]').forEach((image) => {

@@ -1,7 +1,7 @@
-# Revisão de Matemática da Marina
+# Revisão de Matemática | 1º ano Vita
 
 Aplicação web infantil, responsiva e em português do Brasil para revisar
-conteúdos de Matemática do 1º ano do Ensino Fundamental. Uma rodada reúne seis
+conteúdos de Matemática do 1º ano Vita. Uma rodada reúne seis
 atividades: figuras planas, figuras espaciais, antecessor e sucessor, números
 por extenso, adição com reserva e soma com número desconhecido.
 
@@ -92,6 +92,9 @@ ignorada pelo Git.
 - `src/figures.js`: renderização das figuras espaciais em SVG.
 - `src/data/coloringPages.js`: catálogo local, seleção aleatória e metadados de
   licença dos desenhos da recompensa.
+- `src/child-profile.js`: validação, normalização e persistência local do nome
+  da criança, além da separação entre mensagens visuais e textos neutros de
+  voz.
 - `src/tts-client.js`: cliente do endpoint interno de voz, com cache de sessão.
 - `public/coloring-pages/*.svg`: desenhos aprovados, armazenados localmente
   para uso offline.
@@ -111,14 +114,24 @@ ignorada pelo Git.
 - `tests/figures.test.mjs`: testes das figuras espaciais em SVG.
 - `tests/coloring-pages.test.mjs`: testes do catálogo, fallback, seleção,
   entrega local dos assets, atribuição e impressão A4.
+- `tests/child-profile.test.mjs`: testes do perfil local, personalização e
+  privacidade do texto enviado ao TTS.
 - `tests/tts.test.mjs`: testes do contrato HTTP, segurança e cache de voz.
 - `tests/vercel.test.mjs`: testes do build estático, função Vercel, assets e
   ausência de segredos em `dist/`.
 
-Tudo funciona sem cadastro, armazenamento de dados ou imagens externas. Os
+Tudo funciona sem cadastro, sem armazenamento server-side e sem imagens externas. O
+primeiro acesso solicita somente o primeiro nome ou apelido e o mantém
+exclusivamente no `localStorage` do navegador, na chave versionada
+`revisao-matematica.childName.v1`. Em dispositivos compartilhados, a ação
+“Trocar criança” remove somente esse nome e volta à tela de identificação. Os
 desenhos da recompensa são instalados junto com o projeto; não há hotlink nem
 download durante o uso. A origem, licença e auditoria visual dos desenhos estão
 registradas em `public/coloring-pages/ATTRIBUTIONS.md`.
+
+Mensagens personalizadas ficam apenas na interface. A versão enviada ao
+`/api/tts` é sempre um texto pedagógico neutro, sem o nome da criança, e o
+frontend continua enviando somente a propriedade `text`.
 
 ## Segurança da configuração
 
@@ -204,7 +217,7 @@ GET /api/tts       → 405 e Allow: POST
 POST /api/tts      → 200 audio/wav com configuração válida
 ```
 
-Para o teste real de voz, use uma frase curta como `Olá, Marina!`, confirme
+Para o teste real de voz, use uma frase curta como `Olá, criança!`, confirme
 antes que as cinco variáveis estão configuradas e verifique que a resposta
 binária começa com `RIFF` e contém `WAVE`. Os testes automatizados usam apenas
 mocks e nunca consomem créditos da OpenRouter.
