@@ -113,6 +113,9 @@ test('dist preserva todos os imports relativos do frontend e os assets do catál
     const assetPath = path.join(dist, page.src.replace(/^\//, ''));
     await assert.doesNotReject(fs.access(assetPath), `${page.id} está ausente em dist/`);
   }
+  const officialCatalog = await import(path.join(dist, 'src/data/officialColoringPages.js'));
+  assert.ok(officialCatalog.OFFICIAL_COLORING_PAGES.length >= 7);
+  await assert.doesNotReject(fs.access(path.join(dist, 'src/data/officialColoringPages.js')));
 });
 
 test('dist não contém código privado, configurações ou segredos', async () => {

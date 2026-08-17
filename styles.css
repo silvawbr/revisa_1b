@@ -613,6 +613,12 @@ h1 span { color: var(--blue-deep); }
 .coloring-attribution { max-width: 100%; margin: 0; color: var(--muted); font-size: 0.68rem; line-height: 1.3; }
 .coloring-attribution a { color: #315c7e; }
 .reward-actions { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 13px; }
+.official-reward-option { max-width: 650px; margin: 23px auto 0; padding-top: 18px; border-top: 2px dashed #ddd2f2; }
+.official-coloring-button { min-width: min(100%, 310px); }
+.official-coloring-help,
+.official-open-message { margin: 11px auto 0; color: var(--muted); font-size: 0.82rem; line-height: 1.4; }
+.official-open-message { color: #72545c; }
+.official-open-message a { color: #315c7e; font-weight: 800; }
 
 .dialog-backdrop {
   position: fixed;
@@ -716,6 +722,8 @@ h1 span { color: var(--blue-deep); }
   .reward-main { display: block; overflow: visible; }
   .reward-card { width: 0; border: 0; border-radius: 0; box-shadow: none; }
   .reward-card > *:not(.print-sheet) { display: none !important; }
+  .official-reward-option,
+  .official-open-message { display: none !important; }
   .print-sheet { position: fixed; inset: 10mm; width: auto; height: auto; min-height: 0; margin: 0; padding: 0; border-radius: 0; box-shadow: none; background: #fff; justify-content: center; gap: 4mm; }
   .coloring-image,
   .coloring-svg { display: block; width: auto; max-width: 100%; max-height: calc(100% - 8mm); height: auto; object-fit: contain; }

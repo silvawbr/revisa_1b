@@ -25,12 +25,18 @@ const PUBLIC_FILES = new Set([
   'src/tts-client.js',
   'src/child-profile.js',
   'src/data/coloringPages.js',
+  'src/data/officialColoringPages.js',
   'public/coloring-pages/ATTRIBUTIONS.md',
   'public/coloring-pages/animals-bunny-02.svg',
   'public/coloring-pages/kitten-telescope-07.svg',
   'public/coloring-pages/school-bear-03.svg',
   'public/coloring-pages/student-writing-02.svg',
 ]);
+
+function isPublicFile(relativePath) {
+  return PUBLIC_FILES.has(relativePath)
+    || /^public\/coloring-pages\/[^/]+\.svg$/.test(relativePath);
+}
 
 function safeStaticPath(urlPath) {
   let decoded;
@@ -53,7 +59,7 @@ export async function serveStatic(request, response) {
   const pathname = new URL(request.url, 'http://localhost').pathname;
   const filePath = safeStaticPath(pathname);
   const relativePath = filePath ? path.relative(ROOT, filePath) : null;
-  if (!relativePath || !PUBLIC_FILES.has(relativePath)) {
+  if (!relativePath || !isPublicFile(relativePath)) {
     response.writeHead(404);
     response.end();
     return;

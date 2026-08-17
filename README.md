@@ -92,6 +92,8 @@ ignorada pelo Git.
 - `src/figures.js`: renderização das figuras espaciais em SVG.
 - `src/data/coloringPages.js`: catálogo local, seleção aleatória e metadados de
   licença dos desenhos da recompensa.
+- `src/data/officialColoringPages.js`: catálogo separado de páginas oficiais
+  externas; ele contém somente URLs HTTPS, sem cópias locais ou `iframe`.
 - `src/child-profile.js`: validação, normalização e persistência local do nome
   da criança, além da separação entre mensagens visuais e textos neutros de
   voz.
@@ -120,14 +122,23 @@ ignorada pelo Git.
 - `tests/vercel.test.mjs`: testes do build estático, função Vercel, assets e
   ausência de segredos em `dist/`.
 
-Tudo funciona sem cadastro, sem armazenamento server-side e sem imagens externas. O
-primeiro acesso solicita somente o primeiro nome ou apelido e o mantém
-exclusivamente no `localStorage` do navegador, na chave versionada
-`revisao-matematica.childName.v1`. Em dispositivos compartilhados, a ação
-“Trocar criança” remove somente esse nome e volta à tela de identificação. Os
-desenhos da recompensa são instalados junto com o projeto; não há hotlink nem
-download durante o uso. A origem, licença e auditoria visual dos desenhos estão
-registradas em `public/coloring-pages/ATTRIBUTIONS.md`.
+Tudo funciona sem cadastro, sem armazenamento server-side e sem imagens externas
+para o catálogo local. O primeiro acesso solicita somente o primeiro nome ou
+apelido e o mantém exclusivamente no `localStorage` do navegador, na chave
+versionada `revisao-matematica.childName.v1`. Em dispositivos compartilhados, a
+ação “Trocar criança” remove somente esse nome e volta à tela de identificação.
+Os desenhos locais da recompensa são instalados junto com o projeto; não há
+hotlink nem download durante o uso. A seleção mantém apenas os IDs recentes dos
+desenhos locais e dos destinos oficiais em chaves separadas do `localStorage`,
+com fallback em memória quando o armazenamento não estiver disponível.
+
+Na tela final, “Abrir desenho oficial surpresa ↗” só abre uma página externa
+depois de um clique explícito. O destino é escolhido do manifesto oficial, abre
+em nova aba com `noopener,noreferrer` e recebe um link acessível de fallback se
+o navegador bloquear pop-ups. O botão e suas mensagens ficam ocultos na
+impressão; a impressão contém somente o desenho local e a atribuição obrigatória.
+As origens, licenças e auditorias visuais dos desenhos locais estão registradas
+em `public/coloring-pages/ATTRIBUTIONS.md`.
 
 Mensagens personalizadas ficam apenas na interface. A versão enviada ao
 `/api/tts` é sempre um texto pedagógico neutro, sem o nome da criança, e o

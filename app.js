@@ -12,10 +12,18 @@ import { renderSpatialSvg } from './src/figures.js';
 import { createVisualSelectionInteraction } from './src/association-interaction.js';
 import {
   REWARD_MESSAGE,
+  COLORING_PAGE_HISTORY_KEY,
+  LOCAL_COLORING_PAGE_HISTORY_LIMIT,
+  createRecentIdStore,
   getColoringPageById,
   isLocalColoringPage,
   pickColoringPage,
 } from './src/data/coloringPages.js';
+import {
+  OFFICIAL_COLORING_PAGE_HISTORY_KEY,
+  OFFICIAL_COLORING_PAGE_HISTORY_LIMIT,
+  pickOfficialColoringPage,
+} from './src/data/officialColoringPages.js';
 import { createTtsClient } from './src/tts-client.js';
 import {
   createChildProfileStore,
@@ -29,6 +37,14 @@ import {
 const app = document.querySelector('#app');
 const childProfile = createChildProfileStore();
 const storedChildName = childProfile.getName();
+const coloringPageHistory = createRecentIdStore({
+  key: COLORING_PAGE_HISTORY_KEY,
+  limit: LOCAL_COLORING_PAGE_HISTORY_LIMIT,
+});
+const officialColoringPageHistory = createRecentIdStore({
+  key: OFFICIAL_COLORING_PAGE_HISTORY_KEY,
+  limit: OFFICIAL_COLORING_PAGE_HISTORY_LIMIT,
+});
 let visualSelectionInteraction = null;
 
 const state = {
@@ -50,6 +66,8 @@ const state = {
   lastRewardPageId: null,
   unavailableRewardPageIds: new Set(),
   rewardFallback: false,
+  lastOfficialColoringPageId: null,
+  officialOpenFailure: null,
 };
 
 const positiveMessageTemplates = [
@@ -559,15 +577,21 @@ function renderHome() {
 
 function selectRewardPage() {
   state.unavailableRewardPageIds = new Set();
-  const page = pickColoringPage({ excludeId: state.lastRewardPageId });
+  const page = pickColoringPage({
+    excludeId: state.lastRewardPageId,
+    recentIds: coloringPageHistory.get(),
+    unavailableIds: state.unavailableRewardPageIds,
+  });
   state.rewardPageId = page?.id ?? null;
   state.lastRewardPageId = page?.id ?? state.lastRewardPageId;
   state.rewardFallback = !page;
+  if (page) coloringPageHistory.remember(page.id);
 }
 
 function showAnotherColoringPage() {
   const page = pickColoringPage({
     excludeId: state.rewardPageId,
+    recentIds: coloringPageHistory.get(),
     unavailableIds: state.unavailableRewardPageIds,
   });
   if (!page) {
@@ -579,6 +603,7 @@ function showAnotherColoringPage() {
   state.rewardPageId = page.id;
   state.lastRewardPageId = page.id;
   state.rewardFallback = false;
+  coloringPageHistory.remember(page.id);
   render();
 }
 
@@ -586,6 +611,32 @@ function handleColoringAssetError(pageId) {
   if (state.screen !== 'reward' || state.rewardPageId !== pageId) return;
   state.unavailableRewardPageIds.add(pageId);
   showAnotherColoringPage();
+}
+
+function openOfficialColoringPage() {
+  const page = pickOfficialColoringPage({
+    excludeId: state.lastOfficialColoringPageId,
+    recentIds: officialColoringPageHistory.get(),
+  });
+  if (!page) return;
+
+  state.lastOfficialColoringPageId = page.id;
+  state.officialOpenFailure = null;
+  officialColoringPageHistory.remember(page.id);
+  const openedWindow = window.open(page.url, '_blank', 'noopener,noreferrer');
+  if (openedWindow) return;
+
+  state.officialOpenFailure = page;
+  render();
+}
+
+function renderOfficialColoringAction() {
+  const failure = state.officialOpenFailure;
+  return `<div class="official-reward-option" data-official-reward-option>
+    <button class="secondary-button official-coloring-button" type="button" data-action="open-official-coloring" aria-describedby="official-coloring-help">🖍 Abrir desenho oficial surpresa ↗</button>
+    <p id="official-coloring-help" class="official-coloring-help">Abre uma página oficial da Disney ou de outros amigos em uma nova aba. Precisa de internet.</p>
+    ${failure ? `<p class="official-open-message" role="alert">O navegador não abriu a nova página. <a href="${escapeAttribute(failure.url)}" target="_blank" rel="noopener noreferrer">Toque aqui para acessar o desenho oficial.</a></p>` : ''}
+  </div>`;
 }
 
 function renderReward() {
@@ -605,6 +656,7 @@ function renderReward() {
           <button class="secondary-button" type="button" data-action="restart">↻ Jogar novamente</button>
           <button class="change-child-home" type="button" data-action="change-child">Trocar criança</button>
         </div>
+        ${renderOfficialColoringAction()}
       </section>
     </main>
   </div>`;
@@ -663,6 +715,7 @@ function resetRoundState() {
   state.rewardPageId = null;
   state.unavailableRewardPageIds = new Set();
   state.rewardFallback = false;
+  state.officialOpenFailure = null;
 }
 
 function requestChangeChild() {
@@ -719,6 +772,7 @@ function beginRound() {
   state.rewardPageId = null;
   state.unavailableRewardPageIds = new Set();
   state.rewardFallback = false;
+  state.officialOpenFailure = null;
   render();
 }
 
@@ -835,6 +889,7 @@ function bindEvents() {
         render();
       }
       if (action === 'another-coloring-page') showAnotherColoringPage();
+      if (action === 'open-official-coloring') openOfficialColoringPage();
       if (action === 'print') window.print();
     });
   });

@@ -5,11 +5,20 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from '../server.js';
 import {
+  COLORING_PAGE_HISTORY_KEY,
   COLORING_PAGES,
+  LOCAL_COLORING_PAGE_HISTORY_LIMIT,
   REWARD_MESSAGE,
+  createRecentIdStore,
   isLocalColoringPage,
   pickColoringPage,
 } from '../src/data/coloringPages.js';
+import {
+  OFFICIAL_COLORING_PAGE_HISTORY_KEY,
+  OFFICIAL_COLORING_PAGE_HISTORY_LIMIT,
+  OFFICIAL_COLORING_PAGES,
+  pickOfficialColoringPage,
+} from '../src/data/officialColoringPages.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const appSource = await fs.readFile(path.join(root, 'app.js'), 'utf8');
@@ -26,8 +35,8 @@ async function close(server) {
   await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
 }
 
-test('o catálogo tem de quatro a oito desenhos locais', async () => {
-  assert.ok(COLORING_PAGES.length >= 4 && COLORING_PAGES.length <= 8);
+test('o catálogo local tem entre 20 e 30 desenhos aprovados', async () => {
+  assert.ok(COLORING_PAGES.length >= 20 && COLORING_PAGES.length <= 30);
   for (const page of COLORING_PAGES) {
     assert.equal(isLocalColoringPage(page), true);
     assert.equal(/^https?:\/\//i.test(page.src), false);
@@ -38,6 +47,7 @@ test('o catálogo tem de quatro a oito desenhos locais', async () => {
 test('cada desenho tem origem, licença e registro correspondente', () => {
   for (const page of COLORING_PAGES) {
     assert.ok(page.title);
+    assert.ok(page.alt);
     assert.ok(page.author);
     assert.match(page.sourceUrl, /^https?:\/\//);
     assert.match(page.sourceFileUrl, /^https?:\/\//);
@@ -48,10 +58,11 @@ test('cada desenho tem origem, licença e registro correspondente', () => {
       assert.match(attributions, new RegExp(`${page.author}`));
       assert.match(attributions, new RegExp(`${page.license.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
     }
+    if (page.sourceUrl.includes('openclipart.org')) assert.match(page.license, /^CC0 1\.0/);
   }
 });
 
-test('o servidor entrega o catálogo e os quatro SVGs localmente', async () => {
+test('o servidor entrega o catálogo e todos os SVGs localmente', async () => {
   const server = createServer({ env: {}, fetchImpl: async () => new Response('audio', { status: 200, headers: { 'content-type': 'audio/wav' } }) });
   const base = await listen(server);
   try {
@@ -62,6 +73,8 @@ test('o servidor entrega o catálogo e os quatro SVGs localmente', async () => {
     }
     const manifestResponse = await fetch(`${base}/src/data/coloringPages.js`);
     assert.equal(manifestResponse.status, 200);
+    const officialManifestResponse = await fetch(`${base}/src/data/officialColoringPages.js`);
+    assert.equal(officialManifestResponse.status, 200);
     const profileResponse = await fetch(`${base}/src/child-profile.js`);
     assert.equal(profileResponse.status, 200);
     const attributionResponse = await fetch(`${base}/public/coloring-pages/ATTRIBUTIONS.md`);
@@ -80,6 +93,66 @@ test('a seleção evita repetição imediata e continua aleatória', () => {
     pickColoringPage({ random: () => (index + 0.5) / COLORING_PAGES.length }).id
   )));
   assert.ok(selectedIds.size > 1);
+});
+
+test('a seleção local evita os cinco IDs recentes quando há alternativas', () => {
+  const recentIds = COLORING_PAGES.slice(0, 5).map((page) => page.id);
+  const selected = pickColoringPage({ recentIds, random: () => 0 });
+  assert.equal(recentIds.includes(selected.id), false);
+
+  const current = selected;
+  const next = pickColoringPage({
+    excludeId: current.id,
+    recentIds: [current.id],
+    random: () => 0,
+  });
+  assert.notEqual(next.id, current.id);
+});
+
+test('o histórico local persiste somente IDs e cai para memória se o storage falhar', () => {
+  const values = new Map();
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+  };
+  const store = createRecentIdStore({ key: COLORING_PAGE_HISTORY_KEY, limit: LOCAL_COLORING_PAGE_HISTORY_LIMIT, storage });
+  store.remember('cat-line-art');
+  store.remember('owl-line-art');
+  assert.deepEqual(JSON.parse(values.get(COLORING_PAGE_HISTORY_KEY)), ['owl-line-art', 'cat-line-art']);
+  assert.deepEqual(createRecentIdStore({ key: COLORING_PAGE_HISTORY_KEY, limit: LOCAL_COLORING_PAGE_HISTORY_LIMIT, storage }).get(), ['owl-line-art', 'cat-line-art']);
+
+  const brokenStorage = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
+  const memoryStore = createRecentIdStore({ key: COLORING_PAGE_HISTORY_KEY, limit: LOCAL_COLORING_PAGE_HISTORY_LIMIT, storage: brokenStorage });
+  memoryStore.remember('bunny-outline');
+  assert.deepEqual(memoryStore.get(), ['bunny-outline']);
+});
+
+test('o catálogo oficial é separado, HTTPS, oficial e não leva dados pessoais', () => {
+  const allowedHosts = new Set(['books.disney.com', 'news.disney.com', 'www.legoland.com', 'www.pbs.org', 'www.crayola.com']);
+  assert.ok(OFFICIAL_COLORING_PAGES.length >= 7);
+  for (const page of OFFICIAL_COLORING_PAGES) {
+    const url = new URL(page.url);
+    const sourcePage = new URL(page.sourcePage);
+    assert.equal(page.external, true);
+    assert.equal(url.protocol, 'https:');
+    assert.equal(sourcePage.protocol, 'https:');
+    assert.equal(allowedHosts.has(url.hostname), true, page.url);
+    assert.equal(allowedHosts.has(sourcePage.hostname), true, page.sourcePage);
+    assert.equal(url.search, '');
+    assert.equal(url.hash, '');
+    assert.equal('src' in page, false);
+    assert.doesNotMatch(page.url, /name|child|criança|nome|tracking|utm_/i);
+  }
+  assert.equal(OFFICIAL_COLORING_PAGE_HISTORY_KEY, 'revisao-matematica.officialColoringPages.v1');
+  assert.equal(OFFICIAL_COLORING_PAGE_HISTORY_LIMIT, 3);
+});
+
+test('o sorteio oficial evita o último destino e o histórico recente', () => {
+  const recentIds = OFFICIAL_COLORING_PAGES.slice(0, 3).map((page) => page.id);
+  const selected = pickOfficialColoringPage({ recentIds, random: () => 0 });
+  assert.equal(recentIds.includes(selected.id), false);
+  const next = pickOfficialColoringPage({ excludeId: selected.id, recentIds: [selected.id], random: () => 0 });
+  assert.notEqual(next.id, selected.id);
 });
 
 test('a seleção pula assets indisponíveis e usa outro item válido', () => {
@@ -108,18 +181,36 @@ test('a recompensa expõe mensagem, outro desenho, fallback e impressão sem int
   assert.match(cssSource, /\.reward-card > \*:not\(.print-sheet\) \{ display: none !important; \}/);
 });
 
-test('os assets são SVGs verticais, autossuficientes e adequados ao A4', async () => {
+test('os assets são SVGs autossuficientes e adequados a uma página A4', async () => {
   for (const page of COLORING_PAGES) {
-    assert.equal(page.orientation, 'portrait');
+    assert.match(page.orientation, /^(portrait|landscape)$/);
     const source = await fs.readFile(path.join(root, page.src.replace(/^\//, '')), 'utf8');
     const viewBox = source.match(/viewBox=["']\s*([\d.e+-]+)[ ,]+([\d.e+-]+)[ ,]+([\d.e+-]+)[ ,]+([\d.e+-]+)\s*["']/i);
     assert.ok(viewBox, `${page.id} precisa de viewBox`);
-    assert.ok(Number(viewBox[3]) < Number(viewBox[4]), `${page.id} precisa ser vertical`);
-    assert.doesNotMatch(source, /<image\b|<text\b|foreignObject|pinterest|watermark|disney|pixar|mickey/i);
-    assert.doesNotMatch(source, /(?:href|xlink:href)=["']https?:/i);
+    assert.equal(page.orientation, Number(viewBox[3]) <= Number(viewBox[4]) ? 'portrait' : 'landscape');
+    assert.doesNotMatch(source, /<image\b|<text\b|foreignObject|pinterest|watermark|disney|pixar|bluey|lego|pbs|mickey/i);
+    assert.doesNotMatch(source, /(?:href|xlink:href)=["'](?:https?:|[A-Za-z]:)/i);
+    assert.doesNotMatch(source, /url\(\s*https?:/i);
   }
   assert.match(cssSource, /@page \{ size: A4 portrait; margin: 10mm; \}/);
   assert.match(cssSource, /max-width: 100%;[\s\S]*max-height: calc\(100% - 8mm\)/);
   assert.match(cssSource, /object-fit: contain/);
   assert.match(cssSource, /width: auto;[\s\S]*height: auto/);
+});
+
+test('a opção externa só abre após clique, em nova aba segura, e oferece fallback acessível', () => {
+  assert.match(appSource, /data-action="open-official-coloring"/);
+  assert.match(appSource, /window\.open\(page\.url, '_blank', 'noopener,noreferrer'\)/);
+  assert.match(appSource, /officialOpenFailure/);
+  assert.match(appSource, /Toque aqui para acessar o desenho oficial/);
+  assert.match(appSource, /action === 'open-official-coloring'/);
+  assert.doesNotMatch(appSource, /openOfficialColoringPage\(\)\s*;[\s\S]{0,80}setTimeout/);
+  assert.match(cssSource, /\.official-reward-option/);
+  assert.match(cssSource, /\.official-reward-option,\s*\.official-open-message \{ display: none !important; \}/);
+});
+
+test('os assets externos não foram copiados para o catálogo local', async () => {
+  const files = await fs.readdir(path.join(root, 'public/coloring-pages'));
+  assert.equal(files.some((file) => /disney|pixar|bluey|lego|pbs|daniel/i.test(file)), false);
+  assert.equal(files.some((file) => file.endsWith('.jpg') || file.endsWith('.pdf') || file.endsWith('.png')), false);
 });
