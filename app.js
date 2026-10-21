@@ -779,7 +779,9 @@ function renderShoppingVisuals(question) {
     return `${productRow}<div class="shopping-amount-row">${renderShoppingAmount('Preço', values.price)}${renderShoppingAmount('Já tem', values.available)}</div>`;
   }
   if (question.family === 'change') {
-    return `${productRow}<div class="shopping-payment-row"><span>Pagou com</span>${renderMoneyIllustration(values.payment)}</div>`;
+    const paymentItems = values.payment.items ?? [values.payment];
+    const paymentIllustrations = paymentItems.map(({ denomination }, index) => `<div class="shopping-money-item" data-payment-item-index="${index}">${renderMoneyIllustration(denomination ?? values.payment)}</div>`).join('');
+    return `${productRow}<div class="shopping-payment-row"><span>Pagou com</span><div class="shopping-money-group" role="group" aria-label="Dinheiro usado no pagamento">${paymentIllustrations}</div></div>`;
   }
   return productRow;
 }

@@ -3,6 +3,9 @@ import {
   MONEY_DENOMINATIONS,
   formatMoneyAmount,
 } from './money.js';
+import { AV2_MAT_RULE_AV2_MAT_01, isMoneyAmountInUnit } from './money-rules.js';
+
+export { AV2_MAT_RULE_AV2_MAT_01 } from './money-rules.js';
 
 export const AV2_SHOPPING_ACTIVITY_ID = 'compras-e-troco';
 export const AV2_SHOPPING_PROGRESS_STORAGE_KEY = 'av2-matematica.block-02.compras-troco.progress.v1';
@@ -46,7 +49,26 @@ export const SHOPPING_PRODUCTS = Object.freeze([
 
 const CHARACTERS = ['Bia', 'Davi', 'Lia', 'Ravi'];
 const WHOLE_REAL_PRICES = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1200, 1500];
-const CENTAVO_PRICES = [25, 50, 75, 125, 150, 175, 225, 250, 275, 350, 450, 550, 650, 750];
+const CENTAVO_PRICES = [25, 50, 75];
+
+// AV2-MAT-01: each generated operation and its answer choices stay in one unit.
+function unitForLevel(level, random) {
+  if (level <= 1) return 'reais';
+  if (level === 2) return 'centavos';
+  return random() < 0.5 ? 'reais' : 'centavos';
+}
+
+function pricesForUnit(unit) {
+  return unit === 'reais' ? WHOLE_REAL_PRICES : CENTAVO_PRICES;
+}
+
+function chooseTwoPrices(random, unit) {
+  const prices = pricesForUnit(unit);
+  const pairs = prices.flatMap((first) => prices
+    .filter((second) => unit === 'reais' || first + second < 100)
+    .map((second) => [first, second]));
+  return pick(random, pairs);
+}
 
 function randomIndex(random, length) {
   const value = Math.max(0, Math.min(0.999999999, Number(random()) || 0));
@@ -92,14 +114,6 @@ export function subtractMoney(minuend, subtrahend) {
   return minuend - subtrahend;
 }
 
-function pricesForLevel(level) {
-  return level === 1 ? WHOLE_REAL_PRICES : level === 2 ? CENTAVO_PRICES : [...WHOLE_REAL_PRICES, ...CENTAVO_PRICES];
-}
-
-function storyPricesForLevel(level) {
-  return level === 1 ? WHOLE_REAL_PRICES : level === 2 ? [25, 50, 75, 100] : [...WHOLE_REAL_PRICES, ...CENTAVO_PRICES];
-}
-
 function getProduct(random, usedIds = new Set()) {
   const available = SHOPPING_PRODUCTS.filter(({ id }) => !usedIds.has(id));
   return pick(random, available.length ? available : SHOPPING_PRODUCTS);
@@ -109,12 +123,14 @@ function withProductArticle(product) {
   return `${product.article} ${product.name}`;
 }
 
-function makeNumericOptions(answer, random) {
-  const steps = answer >= 100 && answer % 100 === 0 ? [100, 200, 300] : [100, 200, 50, 25, 300];
+function makeNumericOptions(answer, unit, random) {
+  const steps = unit === 'reais' ? [100, 200, 300] : [5, 10, 15, 20, 25];
   const candidates = steps.flatMap((step) => [answer - step, answer + step]);
-  const distractors = [...new Set(candidates.filter((value) => Number.isSafeInteger(value) && value >= 0 && value !== answer))].slice(0, 3);
+  const distractors = [...new Set(candidates.filter((value) => isMoneyAmountInUnit(value, unit) && value !== answer))].slice(0, 3);
   if (distractors.length < 3) {
-    for (let value = 0; distractors.length < 3; value += 25) {
+    const step = unit === 'reais' ? 100 : 5;
+    const limit = unit === 'reais' ? Number.MAX_SAFE_INTEGER : 100;
+    for (let value = 0; value < limit && distractors.length < 3; value += step) {
       if (value !== answer && !distractors.includes(value)) distractors.push(value);
     }
   }
@@ -122,8 +138,8 @@ function makeNumericOptions(answer, random) {
   return { options, correctIndex: options.findIndex(({ value }) => value === answer) };
 }
 
-function finishNumericQuestion({ family, subtype, answer, explanation, prompt, speech, signature, values, random }) {
-  const { options, correctIndex } = makeNumericOptions(answer, random);
+function finishNumericQuestion({ family, subtype, answer, operationUnit, explanation, prompt, speech, signature, values, random }) {
+  const { options, correctIndex } = makeNumericOptions(answer, operationUnit, random);
   return {
     revisionId: AV2_REVISION_ID,
     activityId: AV2_SHOPPING_ACTIVITY_ID,
@@ -135,6 +151,8 @@ function finishNumericQuestion({ family, subtype, answer, explanation, prompt, s
     speech,
     answer,
     answerType: 'money',
+    operationUnit,
+    ruleId: AV2_MAT_RULE_AV2_MAT_01,
     options,
     correctIndex,
     operation: ['money-addition', 'price-addition'].includes(family) ? 'addition'
@@ -147,27 +165,33 @@ function finishNumericQuestion({ family, subtype, answer, explanation, prompt, s
 }
 
 function createMoneyAddition(random, level, variant) {
-  const count = level === 1 ? 2 : 3;
+  const count = level <= 2 ? 2 : 3;
+  const operationUnit = variant === 0 || level === 1 || level >= 3 ? 'reais' : 'centavos';
   const bills = CURRENCY_DENOMINATIONS.filter(({ kind, value }) => kind === 'bill' && value <= 1000);
-  const coins = CURRENCY_DENOMINATIONS.filter(({ kind, value }) => kind === 'coin' && value >= 25 && value <= 100);
-  let denominations;
+  const centavoCoins = CURRENCY_DENOMINATIONS.filter(({ kind, value }) => kind === 'coin' && value >= 25 && value < 100);
+  const realCoins = CURRENCY_DENOMINATIONS.filter(({ kind, value }) => kind === 'coin' && value === 100);
   let items;
   if (variant === 0 || level === 1) {
-    denominations = bills;
     items = Array.from({ length: count }, () => {
-      const denomination = pick(random, denominations);
+      const denomination = pick(random, bills);
       return { denomination, value: denomination.value };
     });
   } else if (level === 2) {
-    denominations = coins;
-    items = Array.from({ length: count }, () => {
-      const denomination = pick(random, denominations);
+    // Keep the centavo total below one real so no conversion is needed.
+    const combinations = Array.from({ length: 500 }, () => Array.from({ length: count }, () => {
+      const denomination = pick(random, centavoCoins);
       return { denomination, value: denomination.value };
-    });
+    })).filter((group) => group.reduce((total, item) => total + item.value, 0) < 100);
+    items = combinations.length
+      ? pick(random, combinations)
+      : Array.from({ length: count }, () => {
+        const denomination = centavoCoins.find(({ value }) => value === 25);
+        return { denomination, value: denomination.value };
+      });
   } else {
-    const coin = pick(random, coins);
+    const coin = pick(random, realCoins);
     const bill = pick(random, bills);
-    const third = pick(random, [...coins, ...bills]);
+    const third = pick(random, [...realCoins, ...bills]);
     items = [coin, bill, third].map((denomination) => ({ denomination, value: denomination.value }));
   }
   const answer = addMoney(...items.map((item) => item.value));
@@ -176,6 +200,7 @@ function createMoneyAddition(random, level, variant) {
     family: 'money-addition',
     subtype: 'sum-currency-items',
     answer,
+    operationUnit,
     prompt: 'Quanto dinheiro temos ao todo?',
     speech: 'Quanto dinheiro temos ao todo?',
     explanation: `Vamos juntar os valores: ${descriptions.join(' mais ')} são ${formatMoney(answer)}.`,
@@ -186,13 +211,16 @@ function createMoneyAddition(random, level, variant) {
 }
 
 function createPriceQuestion(random, level, variant, childName) {
+  const operationUnit = unitForLevel(level, random);
+  const prices = pricesForUnit(operationUnit);
   if (variant === 0) {
     const product = getProduct(random);
-    const price = pick(random, pricesForLevel(level));
+    const price = pick(random, prices);
     return finishNumericQuestion({
       family: 'price-addition',
       subtype: 'read-price',
       answer: price,
+      operationUnit,
       prompt: `Quanto custa ${product.article} ${product.name}?`,
       speech: `Quanto custa ${product.article} ${product.name}?`,
       explanation: `O preço d${product.article === 'a' ? 'a' : 'o'} ${product.name} é ${formatMoney(price)}.`,
@@ -204,15 +232,14 @@ function createPriceQuestion(random, level, variant, childName) {
 
   const first = getProduct(random);
   const second = getProduct(random, new Set([first.id]));
-  const prices = pricesForLevel(level);
-  const firstPrice = pick(random, prices);
-  const secondPrice = pick(random, prices);
+  const [firstPrice, secondPrice] = chooseTwoPrices(random, operationUnit);
   const answer = addMoney(firstPrice, secondPrice);
   const character = childName || pick(random, CHARACTERS);
   return finishNumericQuestion({
     family: 'price-addition',
     subtype: 'add-prices',
     answer,
+    operationUnit,
     prompt: `${character} comprou ${withProductArticle(first)} por ${formatMoney(firstPrice)} e ${withProductArticle(second)} por ${formatMoney(secondPrice)}. Quanto gastou ao todo?`,
     speech: `Uma criança comprou ${withProductArticle(first)} por ${formatMoney(firstPrice)} e ${withProductArticle(second)} por ${formatMoney(secondPrice)}. Quanto gastou ao todo?`,
     explanation: `Para descobrir o total, somamos os preços: ${formatMoney(firstPrice)} mais ${formatMoney(secondPrice)} são ${formatMoney(answer)}.`,
@@ -223,7 +250,8 @@ function createPriceQuestion(random, level, variant, childName) {
 }
 
 function createRemainingQuestion(random, level, childName) {
-  const prices = storyPricesForLevel(level);
+  const operationUnit = unitForLevel(level, random);
+  const prices = pricesForUnit(operationUnit);
   let available = pick(random, prices);
   let cost = pick(random, prices);
   for (let attempt = 0; available <= cost && attempt < 20; attempt += 1) {
@@ -231,8 +259,7 @@ function createRemainingQuestion(random, level, childName) {
     cost = pick(random, prices);
   }
   if (available <= cost) {
-    available = level === 1 ? 1000 : 750;
-    cost = level === 1 ? 500 : 250;
+    [available, cost] = operationUnit === 'reais' ? [1000, 500] : [75, 25];
   }
   const product = getProduct(random);
   const answer = subtractMoney(available, cost);
@@ -241,6 +268,7 @@ function createRemainingQuestion(random, level, childName) {
     family: 'remaining',
     subtype: 'spend-and-keep',
     answer,
+    operationUnit,
     prompt: `${character} tinha ${formatMoney(available)} e comprou ${withProductArticle(product)} por ${formatMoney(cost)}. Quanto dinheiro sobrou?`,
     speech: 'Uma criança tinha dinheiro e comprou um produto. Quanto dinheiro sobrou?',
     explanation: `Para saber quanto sobrou, tiramos o que foi gasto: ${formatMoney(available)} menos ${formatMoney(cost)} são ${formatMoney(answer)}.`,
@@ -251,7 +279,8 @@ function createRemainingQuestion(random, level, childName) {
 }
 
 function createMissingQuestion(random, level, childName) {
-  const prices = storyPricesForLevel(level);
+  const operationUnit = unitForLevel(level, random);
+  const prices = pricesForUnit(operationUnit);
   let price = pick(random, prices);
   let available = pick(random, prices);
   for (let attempt = 0; available >= price && attempt < 20; attempt += 1) {
@@ -259,8 +288,7 @@ function createMissingQuestion(random, level, childName) {
     available = pick(random, prices);
   }
   if (available >= price) {
-    price = level === 1 ? 1000 : 750;
-    available = level === 1 ? 500 : 250;
+    [price, available] = operationUnit === 'reais' ? [1000, 500] : [75, 25];
   }
   const product = getProduct(random);
   const answer = subtractMoney(price, available);
@@ -269,6 +297,7 @@ function createMissingQuestion(random, level, childName) {
     family: 'missing',
     subtype: 'save-toward-price',
     answer,
+    operationUnit,
     prompt: `${product.article[0].toUpperCase()}${product.article.slice(1)} ${product.name} custa ${formatMoney(price)}. ${character} tem ${formatMoney(available)}. Quanto falta para comprar?`,
     speech: `Um produto custa ${formatMoney(price)}. Uma criança tem ${formatMoney(available)}. Quanto falta para comprar?`,
     explanation: `${product.article[0].toUpperCase()}${product.article.slice(1)} ${product.name} custa ${formatMoney(price)} e você tem ${formatMoney(available)}. Faltam ${formatMoney(answer)}.`,
@@ -278,46 +307,43 @@ function createMissingQuestion(random, level, childName) {
   });
 }
 
-function paymentDenominations(level) {
-  if (level === 1) return CURRENCY_DENOMINATIONS.filter(({ kind, value }) => kind === 'bill' && value <= 1000);
-  if (level === 2) return CURRENCY_DENOMINATIONS.filter(({ kind, value }) => kind === 'coin' && value >= 50 && value <= 100);
-  return CURRENCY_DENOMINATIONS.filter(({ value }) => value <= 1000);
-}
-
 function createChangeQuestion(random, level, childName) {
-  if (level >= 3) {
-    const useWholeReais = random() < 0.5;
-    const payment = useWholeReais
-      ? pick(random, CURRENCY_DENOMINATIONS.filter(({ kind, value }) => kind === 'bill' && value >= 500 && value <= 1000))
-      : CURRENCY_DENOMINATIONS.find(({ id }) => id === 'coin-1-real');
-    const priceCatalog = useWholeReais ? [200, 300, 400, 500, 700, 800] : [25, 50, 75];
-    const price = pick(random, priceCatalog.filter((value) => value < payment.value));
-    const product = getProduct(random);
-    const answer = subtractMoney(payment.value, price);
-    const character = childName || pick(random, CHARACTERS);
-    return finishNumericQuestion({
-      family: 'change',
-      subtype: 'pay-and-receive-change',
-      answer,
-      prompt: `${product.article[0].toUpperCase()}${product.article.slice(1)} ${product.name} custa ${formatMoney(price)}. ${character} pagou com ${formatMoney(payment.value)}. Quanto recebeu de troco?`,
-      speech: `Um produto custa ${formatMoney(price)}. Uma criança pagou com ${formatMoney(payment.value)}. Quanto recebeu de troco?`,
-      explanation: `O troco é o dinheiro que volta. Você pagou ${formatMoney(payment.value)} por algo que custa ${formatMoney(price)}. O troco é ${formatMoney(answer)}.`,
-      values: { product: { ...product, price }, payment: { ...payment, value: payment.value }, change: answer },
-      signature: [price, payment.id, product.id],
-      random,
-    });
+  const operationUnit = unitForLevel(level, random);
+  let payment;
+  if (operationUnit === 'reais') {
+    const notes = CURRENCY_DENOMINATIONS.filter(({ kind, value }) => kind === 'bill' && value <= 1000);
+    const denomination = pick(random, notes);
+    payment = {
+      ...denomination,
+      value: denomination.value,
+      items: [{ denomination, value: denomination.value }],
+    };
+  } else {
+    const coins = CURRENCY_DENOMINATIONS.filter(({ kind, value }) => kind === 'coin' && value > 0 && value < 100);
+    let items = [];
+    let total = 100;
+    for (let attempt = 0; attempt < 100 && (total >= 100 || total < 50); attempt += 1) {
+      items = Array.from({ length: 2 + randomIndex(random, 2) }, () => {
+        const denomination = pick(random, coins);
+        return { denomination, value: denomination.value };
+      });
+      total = items.reduce((sum, item) => sum + item.value, 0);
+    }
+    if (total >= 100 || total < 50) {
+      const denomination = coins.find(({ value }) => value === 25);
+      items = [{ denomination, value: 25 }, { denomination, value: 25 }];
+      total = 50;
+    }
+    payment = {
+      id: items.map(({ denomination }) => denomination.id).join('+'),
+      kind: 'group',
+      value: total,
+      items,
+      description: `Grupo de moedas que totaliza ${formatMoney(total)}.`,
+    };
   }
-  const priceCatalog = level === 2 ? [25, 50, 75] : pricesForLevel(level);
-  let payment = pick(random, paymentDenominations(level));
-  let price = pick(random, priceCatalog);
-  for (let attempt = 0; price >= payment.value && attempt < 20; attempt += 1) {
-    payment = pick(random, paymentDenominations(level));
-    price = pick(random, priceCatalog);
-  }
-  if (price >= payment.value) {
-    payment = CURRENCY_DENOMINATIONS.find(({ id }) => id === (level === 1 ? 'note-10-reais' : 'coin-1-real'));
-    price = level === 1 ? 700 : 50;
-  }
+  const validPrices = pricesForUnit(operationUnit).filter((value) => value < payment.value);
+  const price = pick(random, validPrices);
   const product = getProduct(random);
   const answer = subtractMoney(payment.value, price);
   const character = childName || pick(random, CHARACTERS);
@@ -325,10 +351,11 @@ function createChangeQuestion(random, level, childName) {
     family: 'change',
     subtype: 'pay-and-receive-change',
     answer,
+    operationUnit,
     prompt: `${product.article[0].toUpperCase()}${product.article.slice(1)} ${product.name} custa ${formatMoney(price)}. ${character} pagou com ${formatMoney(payment.value)}. Quanto recebeu de troco?`,
     speech: `Um produto custa ${formatMoney(price)}. Uma criança pagou com ${formatMoney(payment.value)}. Quanto recebeu de troco?`,
     explanation: `O troco é o dinheiro que volta. Você pagou ${formatMoney(payment.value)} por algo que custa ${formatMoney(price)}. O troco é ${formatMoney(answer)}.`,
-    values: { product: { ...product, price }, payment: { ...payment, value: payment.value }, change: answer },
+    values: { product: { ...product, price }, payment, change: answer },
     signature: [price, payment.id, product.id],
     random,
   });
@@ -337,13 +364,14 @@ function createChangeQuestion(random, level, childName) {
 function createComparisonQuestion(random, level, variant) {
   const first = getProduct(random);
   const second = getProduct(random, new Set([first.id]));
-  const prices = pricesForLevel(level);
+  const operationUnit = unitForLevel(level, random);
+  const prices = pricesForUnit(operationUnit);
   let firstPrice = pick(random, prices);
   let secondPrice = pick(random, prices);
   for (let attempt = 0; firstPrice === secondPrice && attempt < 20; attempt += 1) {
     secondPrice = pick(random, prices);
   }
-  if (firstPrice === secondPrice) secondPrice = firstPrice === 100 ? 200 : 100;
+  if (firstPrice === secondPrice) secondPrice = prices.find((price) => price !== firstPrice);
   const products = [{ ...first, price: firstPrice }, { ...second, price: secondPrice }];
   const moreExpensive = firstPrice > secondPrice ? products[0] : products[1];
   const lessExpensive = firstPrice < secondPrice ? products[0] : products[1];
@@ -367,6 +395,8 @@ function createComparisonQuestion(random, level, variant) {
       speech: `Qual produto é ${target}?`,
       answer,
       answerType: 'product',
+      operationUnit,
+      ruleId: AV2_MAT_RULE_AV2_MAT_01,
       options,
       correctIndex: options.findIndex(({ value }) => value === answer),
       operation: 'comparison',
@@ -381,6 +411,7 @@ function createComparisonQuestion(random, level, variant) {
     family: 'compare',
     subtype: 'find-price-difference',
     answer,
+    operationUnit,
     prompt: `${first.article[0].toUpperCase()}${first.article.slice(1)} ${first.name} custa ${formatMoney(firstPrice)} e ${second.article} ${second.name} custa ${formatMoney(secondPrice)}. Qual é a diferença entre os preços?`,
     speech: `${first.article[0].toUpperCase()}${first.article.slice(1)} ${first.name} custa ${formatMoney(firstPrice)} e ${second.article} ${second.name} custa ${formatMoney(secondPrice)}. Qual é a diferença entre os preços?`,
     explanation: `${moreExpensive.article[0].toUpperCase()}${moreExpensive.article.slice(1)} ${moreExpensive.name} custa ${formatMoney(Math.max(firstPrice, secondPrice))} e ${lessExpensive.article} ${lessExpensive.name} custa ${formatMoney(Math.min(firstPrice, secondPrice))}. A diferença é de ${formatMoney(answer)}.`,
@@ -418,6 +449,9 @@ export function validateShoppingAnswer(question, answer) {
       || new Set(question.options.map(({ value }) => value)).size !== 2
       || products?.length !== 2
       || !products.every(({ price }) => Number.isSafeInteger(price) && price >= 0)
+      || question.ruleId !== AV2_MAT_RULE_AV2_MAT_01
+      || !['reais', 'centavos'].includes(question.operationUnit)
+      || !products.every(({ price }) => isMoneyAmountInUnit(price, question.operationUnit))
       || products[0].price === products[1].price) return false;
     const moreExpensive = products[0].price > products[1].price ? products[0] : products[1];
     const lessExpensive = products[0].price < products[1].price ? products[0] : products[1];
@@ -434,34 +468,47 @@ export function validateShoppingAnswer(question, answer) {
       && answer === expectedAnswer;
   }
   const values = question.options.map(({ value }) => value);
-  if (!values.every((value) => Number.isSafeInteger(value) && value >= 0)
+  if (question.ruleId !== AV2_MAT_RULE_AV2_MAT_01
+    || !['reais', 'centavos'].includes(question.operationUnit)
+    || !values.every((value) => isMoneyAmountInUnit(value, question.operationUnit))
     || new Set(values).size !== values.length
     || values.filter((value) => value === question.answer).length !== 1) return false;
   let expectedAnswer;
+  let operationAmounts = [];
   try {
     if (question.family === 'money-addition') {
       const items = question.values?.items;
       if (!Array.isArray(items) || items.length < 2 || items.length > 3) return false;
-      expectedAnswer = addMoney(...items.map(({ value, denomination }) => {
+      operationAmounts = items.map(({ value, denomination }) => {
         if (!Number.isSafeInteger(value) || value !== denomination?.value) throw new RangeError();
         return value;
-      }));
+      });
+      expectedAnswer = addMoney(...operationAmounts);
     } else if (question.family === 'price-addition') {
       const products = question.values?.products;
       if (!Array.isArray(products) || products.length < 1 || products.length > 2) return false;
-      expectedAnswer = addMoney(...products.map(({ price }) => price));
+      operationAmounts = products.map(({ price }) => price);
+      expectedAnswer = addMoney(...operationAmounts);
     } else if (question.family === 'remaining') {
       if (question.values.available <= question.values.cost) return false;
+      operationAmounts = [question.values.available, question.values.cost];
       expectedAnswer = subtractMoney(question.values.available, question.values.cost);
     } else if (question.family === 'missing') {
       if (question.values.price <= question.values.available) return false;
+      operationAmounts = [question.values.price, question.values.available];
       expectedAnswer = subtractMoney(question.values.price, question.values.available);
     } else if (question.family === 'change') {
       if (question.values.payment?.value < question.values.product?.price) return false;
+      const paymentItems = question.values.payment.items;
+      if (!Array.isArray(paymentItems) || paymentItems.length === 0
+        || paymentItems.some(({ denomination, value }) => !denomination || denomination.value !== value)
+        || paymentItems.reduce((sum, { value }) => sum + value, 0) !== question.values.payment.value) return false;
+      operationAmounts = [question.values.payment.value, question.values.product.price];
       expectedAnswer = subtractMoney(question.values.payment?.value, question.values.product?.price);
     } else if (question.family === 'compare') {
       const products = question.values?.products;
       if (!Array.isArray(products) || products.length !== 2 || products[0].price === products[1].price) return false;
+      operationAmounts = products.map(({ price }) => price);
       expectedAnswer = subtractMoney(
         Math.max(...products.map(({ price }) => price)),
         Math.min(...products.map(({ price }) => price)),
@@ -471,7 +518,9 @@ export function validateShoppingAnswer(question, answer) {
     return false;
   }
   const numericAnswer = typeof answer === 'string' && answer.trim() !== '' ? Number(answer) : answer;
-  return Number.isSafeInteger(expectedAnswer)
+  return operationAmounts.every((amount) => isMoneyAmountInUnit(amount, question.operationUnit))
+    && isMoneyAmountInUnit(expectedAnswer, question.operationUnit)
+    && Number.isSafeInteger(expectedAnswer)
     && expectedAnswer === question.answer
     && Number.isSafeInteger(numericAnswer)
     && numericAnswer === expectedAnswer;

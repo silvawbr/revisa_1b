@@ -10,8 +10,10 @@ import {
   formatMoneyAmount,
 } from '../src/av2/money.js';
 import { AV2_PROGRESS_STORAGE_KEY, createAv2ProgressStore } from '../src/av2/progress.js';
+import { isMoneyAmountInUnit } from '../src/av2/money-rules.js';
 import {
   AV2_SHOPPING_ACTIVITY_ID,
+  AV2_MAT_RULE_AV2_MAT_01,
   AV2_SHOPPING_PROGRESS_STORAGE_KEY,
   SHOPPING_FAMILIES,
   addMoney,
@@ -42,6 +44,10 @@ function memoryStorage(initial = {}) {
   };
 }
 
+function amountUsesUnit(amount, unit) {
+  return unit === 'reais' ? amount % 100 === 0 : amount < 100;
+}
+
 test('dinheiro usa aritmética inteira em centavos e um único formatador em português', () => {
   assert.equal(addMoney(200, 500), 700);
   assert.equal(formatMoney(700), '7 reais');
@@ -58,6 +64,21 @@ test('dinheiro usa aritmética inteira em centavos e um único formatador em por
   assert.throws(() => addMoney(1, -1), RangeError);
   assert.throws(() => subtractMoney(10, 11), RangeError);
   assert.equal(AV2_SHOPPING_ACTIVITY_ID, 'compras-e-troco');
+});
+
+test('AV2-MAT-01 aceita somente valores integralmente em reais ou em centavos', () => {
+  assert.equal(isMoneyAmountInUnit(500, 'reais'), true);
+  assert.equal(isMoneyAmountInUnit(550, 'reais'), false);
+  assert.equal(isMoneyAmountInUnit(75, 'centavos'), true);
+  assert.equal(isMoneyAmountInUnit(100, 'centavos'), false);
+
+  const centsQuestion = createShoppingQuestion('price-addition', {
+    random: seededRandom(19),
+    level: 2,
+    variant: 1,
+  });
+  assert.equal(centsQuestion.operationUnit, 'centavos');
+  assert.equal(validateShoppingAnswer({ ...centsQuestion, operationUnit: 'reais' }, centsQuestion.answer), false);
 });
 
 test('cada família produz problemas estruturados, respostas únicas e explicações corretas', () => {
@@ -85,13 +106,20 @@ test('cada família produz problemas estruturados, respostas únicas e explicaç
             assert.equal(question.options.length, 2);
             assert.equal(new Set(question.options.map(({ value }) => value)).size, 2);
             assert.equal(question.options.filter(({ value }) => value === question.answer).length, 1);
+            assert.equal(question.ruleId, AV2_MAT_RULE_AV2_MAT_01);
+            assert.ok(['reais', 'centavos'].includes(question.operationUnit));
+            assert.ok(question.values.products.every(({ price }) => amountUsesUnit(price, question.operationUnit)));
             continue;
           }
 
+          assert.equal(question.ruleId, AV2_MAT_RULE_AV2_MAT_01);
+          assert.ok(['reais', 'centavos'].includes(question.operationUnit));
+          assert.ok(amountUsesUnit(question.answer, question.operationUnit));
           assert.equal(question.options.length, 4);
           assert.equal(new Set(question.options.map(({ value }) => value)).size, 4);
           assert.equal(question.options.filter(({ value }) => value === question.answer).length, 1);
           assert.equal(question.options.every(({ value }) => Number.isSafeInteger(value) && value >= 0), true);
+          assert.ok(question.options.every(({ value }) => amountUsesUnit(value, question.operationUnit)));
           assert.equal(question.options.find(({ value }) => value === question.answer).label, formatMoney(question.answer));
 
           if (family === 'money-addition') {
@@ -102,22 +130,32 @@ test('cada família produz problemas estruturados, respostas únicas e explicaç
               assert.equal(catalogItem.valueCents, value);
               assert.equal(catalogItem.imageUrl, denomination.imageUrl);
             }
+            assert.ok(question.values.items.every(({ value }) => amountUsesUnit(value, question.operationUnit)));
             assert.equal(question.answer, question.values.items.reduce((sum, { value }) => sum + value, 0));
           } else if (family === 'price-addition') {
+            assert.ok(question.values.products.every(({ price }) => amountUsesUnit(price, question.operationUnit)));
             assert.equal(question.answer, question.values.products.reduce((sum, { price }) => sum + price, 0));
             assert.match(question.explanation, new RegExp(formatMoney(question.answer).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
           } else if (family === 'remaining') {
+            assert.ok(amountUsesUnit(question.values.available, question.operationUnit));
+            assert.ok(amountUsesUnit(question.values.cost, question.operationUnit));
             assert.ok(question.values.available > question.values.cost);
             assert.equal(question.answer, question.values.available - question.values.cost);
           } else if (family === 'missing') {
+            assert.ok(amountUsesUnit(question.values.price, question.operationUnit));
+            assert.ok(amountUsesUnit(question.values.available, question.operationUnit));
             assert.ok(question.values.price > question.values.available);
             assert.equal(question.answer, question.values.price - question.values.available);
           } else if (family === 'change') {
+            assert.ok(amountUsesUnit(question.values.payment.value, question.operationUnit));
+            assert.ok(amountUsesUnit(question.values.product.price, question.operationUnit));
             assert.ok(question.values.payment.value >= question.values.product.price);
             assert.ok(question.answer >= 0);
             assert.equal(question.answer, question.values.payment.value - question.values.product.price);
           } else if (family === 'compare') {
             const [first, second] = question.values.products;
+            assert.ok(amountUsesUnit(first.price, question.operationUnit));
+            assert.ok(amountUsesUnit(second.price, question.operationUnit));
             assert.notEqual(first.price, second.price);
             assert.equal(question.answer, Math.abs(first.price - second.price));
           }
