@@ -68,7 +68,7 @@ test('todas as moedas e cédulas têm IDs únicos, centavos inteiros, rótulos e
   assert.deepEqual(COINS.map(({ label }) => label), ['5 centavos', '10 centavos', '25 centavos', '50 centavos', '1 real']);
   assert.deepEqual(BANKNOTES.map(({ label }) => label), ['2 reais', '5 reais', '10 reais', '20 reais', '50 reais', '100 reais', '200 reais']);
   assert.match(styles, /\.money-object-image\s*\{/);
-  assert.match(styles, /\.money-sem-valor\s*\{/);
+  assert.doesNotMatch(styles, /\.money-sem-valor\s*\{/);
 });
 
 test('cada questão de identificação tem uma resposta correta e alternativas distintas da mesma categoria', () => {
@@ -180,7 +180,7 @@ test('a interface oferece as duas revisões, mantém o gerador anterior e public
   assert.match(app, /createChildProfileStore\(\)/);
   assert.match(app, /aria-label="\$\{escapeAttribute\(money\.description\)\}"/);
   assert.match(app, /class="money-object-image" src="\$\{escapeAttribute\(money\.imageUrl\)\}"/);
-  assert.match(app, /class="money-sem-valor" aria-hidden="true">SEM VALOR/);
+  assert.doesNotMatch(app, /money-sem-valor|SEM VALOR/);
   const av2Interface = app.slice(app.indexOf('function renderMoneyIllustration'), app.indexOf('function renderAv2Feedback'));
   assert.doesNotMatch(av2Interface, /R\$\s*\d|\b\d+,\d{2}\b|\b0\.\d{2}\b/);
   assert.match(server, /src\/av2\/money\.js/);

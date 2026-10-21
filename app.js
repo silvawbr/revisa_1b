@@ -602,7 +602,6 @@ function renderMoneyIllustration(money) {
     <span class="money-kind" aria-hidden="true">${typeLabel}</span>
     <span class="money-image-fallback" aria-hidden="true">${escapeHtml(money.label)}</span>
     <img class="money-object-image" src="${escapeAttribute(money.imageUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">
-    <span class="money-sem-valor" aria-hidden="true">SEM VALOR</span>
   </div>`;
 }
 

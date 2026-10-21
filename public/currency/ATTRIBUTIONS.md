@@ -1,6 +1,8 @@
 # Imagens de moedas e cédulas
 
-As fotografias abaixo são carregadas do Wikimedia Commons pela rota `Special:FilePath` e limitadas a 600 pixels de largura. O carregamento requer conexão à internet. A interface apresenta uma sobreposição diagonal “SEM VALOR” nas imagens de dinheiro, conforme as condições de reprodução informadas nas páginas dos arquivos.
+As fotografias abaixo são carregadas do Wikimedia Commons pela rota `Special:FilePath` e limitadas a 600 pixels de largura. O carregamento requer conexão à internet. A interface não acrescenta marca diagonal às imagens.
+
+As páginas de origem do Wikimedia Commons listam como condição de reprodução a inclusão da expressão “SEM VALOR” na imagem, além do limite de resolução de 72 dpi. Essa condição diverge da apresentação solicitada para esta atividade; confirme a autorização aplicável às imagens antes de distribuir o conteúdo.
 
 ## Moedas
 
@@ -26,4 +28,4 @@ As fotos de R$ 5, R$ 10, R$ 20, R$ 50 e R$ 100 são de `Rawlan1998`, licenciadas
 | 100 reais | `100 Brazil real Second Obverse.jpg` | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:100_Brazil_real_Second_Obverse.jpg) |
 | 200 reais | `200 Brazil real Second Obverse.jpg` — Banco Central do Brasil | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:200_Brazil_real_Second_Obverse.jpg) |
 
-As imagens representam a segunda família das cédulas do Real. A indicação “SEM VALOR” é adicionada pela interface; ela não faz parte das fotografias originais.
+As imagens representam a segunda família das cédulas do Real.

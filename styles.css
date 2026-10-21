@@ -748,13 +748,12 @@ h1 span { color: var(--blue-deep); }
 .av2-progress-summary strong { color: #5d4c83; }
 .av2-back-button { display: block; margin: 19px auto 0; }
 
-.money-illustration { position: relative; container-type: size; display: grid; place-items: center; flex: 0 0 auto; overflow: hidden; border: 1px solid rgba(52, 50, 61, 0.18); border-radius: 12px; background: #fff; box-shadow: 0 5px 0 rgba(55, 44, 31, 0.14); isolation: isolate; aspect-ratio: 2 / 1; }
+.money-illustration { position: relative; display: grid; place-items: center; flex: 0 0 auto; overflow: hidden; border: 1px solid rgba(52, 50, 61, 0.18); border-radius: 12px; background: #fff; box-shadow: 0 5px 0 rgba(55, 44, 31, 0.14); isolation: isolate; aspect-ratio: 2 / 1; }
 .money-coin { width: 212px; }
 .money-note { width: 286px; aspect-ratio: 2.16 / 1; }
 .money-object-image { position: relative; z-index: 1; display: block; width: 100%; height: 100%; object-fit: contain; }
 .money-image-fallback { position: absolute; z-index: 0; color: #343544; font-size: clamp(1rem, 4vw, 1.5rem); font-weight: 900; }
 .money-kind { position: absolute; top: 5%; left: 5%; z-index: 3; padding: 2px 6px; border-radius: 6px; color: #3b334e; background: rgba(255,255,255,0.88); font-size: 0.58rem; font-weight: 900; letter-spacing: 0.05em; }
-.money-sem-valor { position: absolute; z-index: 2; padding: 2cqh 3cqh; border: 1px solid rgba(255,255,255,0.95); color: #fff; background: rgba(145, 39, 67, 0.78); box-shadow: 0 1px 5px rgba(33, 24, 38, 0.3); font-size: 18cqh; font-weight: 1000; line-height: 1; letter-spacing: 0.06em; white-space: nowrap; transform: rotate(-18deg); }
 
 .av2-topbar .av2-progress { display: flex; align-items: center; justify-content: center; gap: 5px; color: #b7b7c3; font-size: 1.25rem; line-height: 1; white-space: nowrap; }
 .av2-progress-dot.is-complete { color: var(--yellow-dark); }
