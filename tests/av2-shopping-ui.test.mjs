@@ -2,8 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   AV2_SHOPPING_PROGRESS_STORAGE_KEY,
+  createShoppingQuestion,
   createShoppingRound,
 } from '../src/av2/shopping.js';
+import { MONEY_DENOMINATIONS } from '../src/av2/money.js';
 import { AV2_PROGRESS_STORAGE_KEY } from '../src/av2/progress.js';
 import { CHILD_NAME_STORAGE_KEY } from '../src/child-profile.js';
 
@@ -75,6 +77,11 @@ function seededRandom(seed) {
   };
 }
 
+function sequenceRandom(sequence) {
+  const values = [...sequence];
+  return () => values.shift() ?? 0.23;
+}
+
 function currentQuestionId(markup) {
   return markup.match(/data-question-id="([^"]+)"/)?.[1];
 }
@@ -109,7 +116,61 @@ test('a criança completa as doze questões de compras, recebe prêmio e volta �
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage });
 
   try {
-    await import(`../app.js?shopping-ui-${Date.now()}`);
+    const appModule = await import(`../app.js?shopping-ui-${Date.now()}`);
+
+    const missing = createShoppingQuestion('missing', {
+      random: sequenceRandom([0.999, 0.1, 0.55]), level: 1, childName: 'Marina',
+    });
+    assert.equal(missing.values.product.name, 'livro');
+    assert.equal(missing.values.price, 1500);
+    assert.equal(missing.values.available, 200);
+    assert.equal(missing.answer, 1300);
+    assert.match(missing.prompt, /^Marina quer comprar o livro\. Quanto dinheiro falta\?$/);
+    assert.doesNotMatch(missing.prompt, /15 reais|2 reais|13 reais/);
+    const missingVisuals = appModule.renderShoppingVisuals(missing);
+    assert.equal((missingVisuals.match(/class="shopping-product-price"/g) ?? []).length, 1);
+    assert.equal((missingVisuals.match(/class="shopping-money-card-amount"/g) ?? []).length, 1);
+    assert.match(missingVisuals, />15 reais<\/strong>/);
+    assert.match(missingVisuals, />2 reais<\/strong>/);
+    assert.match(missingVisuals, /Marina tem/);
+    assert.doesNotMatch(missingVisuals, />13 reais</);
+    assert.doesNotMatch(missingVisuals, /shopping-amount-chip/);
+
+    const change = createShoppingQuestion('change', {
+      random: sequenceRandom([0.99, 0.88, 0.55]), level: 1, childName: 'Marina',
+    });
+    assert.equal(change.values.product.price, 800);
+    assert.equal(change.values.payment.value, 1000);
+    assert.equal(change.answer, 200);
+    const changeVisuals = appModule.renderShoppingVisuals(change);
+    assert.equal((changeVisuals.match(/class="shopping-product-price"/g) ?? []).length, 1);
+    assert.equal((changeVisuals.match(/class="shopping-money-card-amount"/g) ?? []).length, 1);
+    assert.match(changeVisuals, />8 reais<\/strong>/);
+    assert.match(changeVisuals, />10 reais<\/strong>/);
+    assert.match(changeVisuals, /Marina pagou/);
+    assert.doesNotMatch(changeVisuals, />2 reais</);
+    assert.doesNotMatch(changeVisuals, /shopping-amount-chip/);
+
+    const productComparison = createShoppingQuestion('compare', {
+      random: seededRandom(112), level: 1, variant: 0,
+    });
+    const comparisonOptions = appModule.renderShoppingOptions(productComparison);
+    assert.doesNotMatch(comparisonOptions, /class="shopping-product-price"|reais|centavos/);
+    assert.match(comparisonOptions, /aria-label="[^"]+"/);
+
+    for (const id of ['coin-50-centavos', 'note-2-reais']) {
+      const money = MONEY_DENOMINATIONS.find((denomination) => denomination.id === id);
+      const illustration = appModule.renderMoneyIllustration({
+        ...money,
+        kind: money.kind,
+        value: money.valueCents,
+      });
+      assert.doesNotMatch(illustration, /money-kind|>MOEDA<|>CÉDULA</);
+      assert.match(illustration, /role="img" aria-label="[^"]+"/);
+      assert.match(illustration, /class="money-object-image"/);
+      assert.match(illustration, new RegExp(money.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    }
+
     clickAction(document, 'av2-entry');
     assert.match(app.innerHTML, /Compras e troco/);
     assert.match(app.innerHTML, /Dinheiro/);
@@ -135,6 +196,7 @@ test('a criança completa as doze questões de compras, recebe prêmio e volta �
       assert.ok(answer, `resposta da questão ${questionIndex + 1} está disponível`);
       answer.click();
       assert.match(app.innerHTML, /Muito bem, Ana! Você acertou!/);
+      assert.match(app.innerHTML, /data-speech-button="explanation"/);
       assert.match(app.innerHTML, /data-action="next-shopping"/);
       clickAction(document, 'next-shopping');
     }

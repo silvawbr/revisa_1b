@@ -613,11 +613,9 @@ function renderHome() {
   </div>`;
 }
 
-function renderMoneyIllustration(money) {
-  const typeLabel = money.kind === 'coin' ? 'MOEDA' : 'CÉDULA';
+export function renderMoneyIllustration(money) {
   const visualType = money.kind === 'coin' ? 'money-coin' : 'money-note';
   return `<div class="money-illustration ${visualType}" role="img" aria-label="${escapeAttribute(money.description)}">
-    <span class="money-kind" aria-hidden="true">${typeLabel}</span>
     <span class="money-image-fallback" aria-hidden="true">${escapeHtml(money.label)}</span>
     <img class="money-object-image" src="${escapeAttribute(money.imageUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">
   </div>`;
@@ -748,7 +746,7 @@ function renderAv2Game() {
 
 function renderShoppingProduct(product) {
   const price = Number.isSafeInteger(product.price)
-    ? `<strong class="shopping-product-price">${escapeHtml(formatMoneyAmount(product.price))}</strong>`
+    ? `<span class="shopping-product-price-label">Preço</span><strong class="shopping-product-price">${escapeHtml(formatMoneyAmount(product.price))}</strong>`
     : '';
   return `<article class="shopping-product-card">
     <span class="shopping-product-icon" aria-hidden="true">${escapeHtml(product.icon)}</span>
@@ -757,33 +755,32 @@ function renderShoppingProduct(product) {
   </article>`;
 }
 
-function renderShoppingAmount(label, amount) {
-  return `<div class="shopping-amount-chip"><span>${escapeHtml(label)}</span><strong>${escapeHtml(formatMoneyAmount(amount))}</strong></div>`;
+export function renderShoppingMoneyCard(money) {
+  const items = money.items ?? [];
+  const illustrations = items.map(({ denomination }, index) => `<div class="shopping-money-item" data-money-item-index="${index}">${renderMoneyIllustration(denomination)}</div>`).join('');
+  return `<article class="shopping-money-card" role="group" aria-label="${escapeAttribute(money.label)}">
+    <span class="shopping-money-label">${escapeHtml(money.label)}</span>
+    <strong class="shopping-money-card-amount">${escapeHtml(formatMoneyAmount(money.amount))}</strong>
+    <div class="shopping-money-group">${illustrations}</div>
+  </article>`;
 }
 
-function renderShoppingVisuals(question) {
-  const values = question.values;
+export function renderShoppingVisuals(question) {
+  const visuals = question.visuals ?? {};
   if (question.family === 'money-addition') {
     return `<div class="shopping-money-group" role="group" aria-label="Dinheiro para somar">
-      ${values.items.map(({ denomination }, index) => `<div class="shopping-money-item" data-money-item-index="${index}">${renderMoneyIllustration(denomination)}</div>`).join('')}
+      ${(visuals.moneyItems ?? question.values.items).map(({ denomination }, index) => `<div class="shopping-money-item" data-money-item-index="${index}">${renderMoneyIllustration(denomination)}</div>`).join('')}
     </div>`;
   }
-  const products = values.products ?? (values.product ? [values.product] : []);
+  const products = visuals.products ?? question.values.products ?? (question.values.product ? [question.values.product] : []);
+  const money = visuals.money ?? [];
   const productRow = products.length
     ? `<div class="shopping-product-row">${products.map((product) => renderShoppingProduct(product)).join('')}</div>`
     : '';
-  if (question.family === 'remaining') {
-    return `${productRow}<div class="shopping-amount-row">${renderShoppingAmount('Tinha', values.available)}${renderShoppingAmount('Gastou', values.cost)}</div>`;
-  }
-  if (question.family === 'missing') {
-    return `${productRow}<div class="shopping-amount-row">${renderShoppingAmount('Preço', values.price)}${renderShoppingAmount('Já tem', values.available)}</div>`;
-  }
-  if (question.family === 'change') {
-    const paymentItems = values.payment.items ?? [values.payment];
-    const paymentIllustrations = paymentItems.map(({ denomination }, index) => `<div class="shopping-money-item" data-payment-item-index="${index}">${renderMoneyIllustration(denomination ?? values.payment)}</div>`).join('');
-    return `${productRow}<div class="shopping-payment-row"><span>Pagou com</span><div class="shopping-money-group" role="group" aria-label="Dinheiro usado no pagamento">${paymentIllustrations}</div></div>`;
-  }
-  return productRow;
+  const moneyRow = money.length
+    ? `<div class="shopping-context-row">${money.map((item) => renderShoppingMoneyCard(item)).join('')}</div>`
+    : '';
+  return `${productRow}${moneyRow}`;
 }
 
 function shoppingGuidance(question) {
@@ -820,17 +817,17 @@ function renderShoppingFeedback(question) {
   </div>`;
 }
 
-function renderShoppingOptions(question) {
+export function renderShoppingOptions(question) {
   const productAnswers = question.answerType === 'product';
   return `<div class="shopping-answer-options ${productAnswers ? 'product-answer-options' : ''}" role="group" aria-label="Alternativas de resposta">
     ${question.options.map((option, index) => {
       const selected = String(state.shoppingSelected) === String(option.value);
       const incorrect = selected && !state.shoppingCorrect && state.shoppingAttempts > 0;
       const content = productAnswers
-        ? `<span class="shopping-product-icon" aria-hidden="true">${escapeHtml(option.product.icon)}</span><span class="shopping-product-name">${escapeHtml(option.product.name)}</span><strong class="shopping-product-price">${escapeHtml(formatMoneyAmount(option.product.price))}</strong>`
+        ? `<span class="shopping-product-icon" aria-hidden="true">${escapeHtml(option.product.icon)}</span><span class="shopping-product-name">${escapeHtml(option.product.name)}</span>`
         : escapeHtml(option.label);
       const ariaLabel = productAnswers
-        ? `${option.product.name}, ${formatMoneyAmount(option.product.price)}`
+        ? option.product.name
         : `Alternativa ${index + 1}: ${option.label}`;
       return `<button class="shopping-answer-option ${selected ? 'is-selected' : ''} ${incorrect ? 'is-incorrect' : ''}" type="button" data-shopping-answer="${escapeAttribute(String(option.value))}" aria-label="${escapeAttribute(ariaLabel)}" aria-pressed="${selected}" ${state.shoppingCorrect ? 'disabled' : ''}>${content}</button>`;
     }).join('')}

@@ -67,6 +67,26 @@ function pricesForUnit(unit) {
   return unit === 'reais' ? WHOLE_REAL_PRICES : CENTAVO_PRICES;
 }
 
+function domainForUnit(unit) {
+  return unit === 'reais' ? 'BRL_INTEIROS' : 'CENTAVOS';
+}
+
+function representMoney(amount, unit) {
+  let remaining = amount;
+  const denominations = CURRENCY_DENOMINATIONS
+    .filter(({ value }) => unit === 'reais' ? value % 100 === 0 : value > 0 && value < 100)
+    .sort((first, second) => second.value - first.value);
+  const items = [];
+  for (const denomination of denominations) {
+    while (remaining >= denomination.value) {
+      items.push({ denomination, value: denomination.value });
+      remaining -= denomination.value;
+    }
+  }
+  if (remaining !== 0 || !items.length) throw new RangeError('Não foi possível representar o valor com uma única unidade monetária.');
+  return items;
+}
+
 function chooseTwoPrices(random, unit) {
   const prices = pricesForUnit(unit);
   const pairs = prices.flatMap((first) => prices
@@ -148,6 +168,14 @@ function finishNumericQuestion({ family, subtype, answer, operationUnit, operati
     throw new Error(`${AV2_MAT_RULE_AV2_MAT_01} / ${AV2_MAT_RULE_AV2_MAT_02} rejeitaram uma questão com unidade inconsistente.`);
   }
   const { options, correctIndex } = makeNumericOptions(answer, operationUnit, random);
+  const products = values.products ?? (values.product ? [values.product] : []);
+  const money = family === 'remaining'
+    ? [{ label: `${values.character} tinha`, amount: values.available, items: values.availableItems }]
+    : family === 'missing'
+      ? [{ label: `${values.character} tem`, amount: values.available, items: values.availableItems }]
+      : family === 'change'
+        ? [{ label: `${values.character} pagou`, amount: values.payment.value, items: values.payment.items }]
+        : [];
   return {
     revisionId: AV2_REVISION_ID,
     activityId: AV2_SHOPPING_ACTIVITY_ID,
@@ -160,6 +188,7 @@ function finishNumericQuestion({ family, subtype, answer, operationUnit, operati
     answer,
     answerType: 'money',
     operationUnit,
+    domain: domainForUnit(operationUnit),
     ruleId: AV2_MAT_RULE_AV2_MAT_01,
     rulesApplied: [AV2_MAT_RULE_AV2_MAT_01, AV2_MAT_RULE_AV2_MAT_02],
     options,
@@ -169,6 +198,9 @@ function finishNumericQuestion({ family, subtype, answer, operationUnit, operati
         : 'subtraction',
     explanation,
     values,
+    visuals: family === 'money-addition'
+      ? { moneyItems: values.items }
+      : { products, money },
     fingerprint: JSON.stringify([family, subtype, ...signature]),
   };
 }
@@ -228,26 +260,29 @@ function createMoneyAddition(random, level, variant) {
 }
 
 function createPriceQuestion(random, level, variant, childName) {
-  const operationUnit = unitForLevel(level, random);
-  const prices = pricesForUnit(operationUnit);
+  // Whole-real prices keep repeated addition within the taught operation domain.
   if (variant === 0) {
     const product = getProduct(random);
-    const price = pick(random, prices);
+    const price = pick(random, WHOLE_REAL_PRICES);
+    const character = childName || pick(random, CHARACTERS);
+    const answer = addMoney(price, price);
     return finishNumericQuestion({
       family: 'price-addition',
-      subtype: 'read-price',
-      answer: price,
-      operationUnit,
-      operationAmounts: [price],
-      prompt: `Quanto custa ${product.article} ${product.name}?`,
-      speech: `Quanto custa ${product.article} ${product.name}?`,
-      explanation: `O preço d${product.article === 'a' ? 'a' : 'o'} ${product.name} é ${formatMoney(price)}.`,
-      values: { products: [{ ...product, price }], total: price },
-      signature: [product.id, price],
+      subtype: 'add-identical-prices',
+      answer,
+      operationUnit: 'reais',
+      operationAmounts: [price, price],
+      prompt: `${character} comprou dois produtos iguais. Quanto gastou?`,
+      speech: `${character} comprou dois produtos iguais. Cada um custa ${formatMoney(price)}. Quanto gastou?`,
+      explanation: `Cada produto custa ${formatMoney(price)}. Somamos os dois preços: ${formatMoney(price)} mais ${formatMoney(price)} são ${formatMoney(answer)}.`,
+      values: { products: [{ ...product, price }, { ...product, price }], total: answer },
+      signature: [product.id, price, 'twice'],
       random,
     });
   }
 
+  const operationUnit = unitForLevel(level, random);
+  const prices = pricesForUnit(operationUnit);
   const first = getProduct(random);
   const second = getProduct(random, new Set([first.id]));
   const [firstPrice, secondPrice] = chooseTwoPrices(random, operationUnit);
@@ -259,8 +294,8 @@ function createPriceQuestion(random, level, variant, childName) {
     answer,
     operationUnit,
     operationAmounts: [firstPrice, secondPrice],
-    prompt: `${character} comprou ${withProductArticle(first)} por ${formatMoney(firstPrice)} e ${withProductArticle(second)} por ${formatMoney(secondPrice)}. Quanto gastou ao todo?`,
-    speech: `Uma criança comprou ${withProductArticle(first)} por ${formatMoney(firstPrice)} e ${withProductArticle(second)} por ${formatMoney(secondPrice)}. Quanto gastou ao todo?`,
+    prompt: `${character} comprou estes dois produtos. Quanto gastou?`,
+    speech: `${character} comprou ${withProductArticle(first)} por ${formatMoney(firstPrice)} e ${withProductArticle(second)} por ${formatMoney(secondPrice)}. Quanto gastou?`,
     explanation: `Para descobrir o total, somamos os preços: ${formatMoney(firstPrice)} mais ${formatMoney(secondPrice)} são ${formatMoney(answer)}.`,
     values: { products: [{ ...first, price: firstPrice }, { ...second, price: secondPrice }], total: answer },
     signature: [[`${first.id}:${firstPrice}`, `${second.id}:${secondPrice}`].sort().join(',')],
@@ -289,10 +324,10 @@ function createRemainingQuestion(random, level, childName) {
     answer,
     operationUnit,
     operationAmounts: [available, cost],
-    prompt: `${character} tinha ${formatMoney(available)} e comprou ${withProductArticle(product)} por ${formatMoney(cost)}. Quanto dinheiro sobrou?`,
-    speech: 'Uma criança tinha dinheiro e comprou um produto. Quanto dinheiro sobrou?',
+    prompt: `${character} comprou ${withProductArticle(product)}. Quanto dinheiro sobrou?`,
+    speech: `${character} tinha ${formatMoney(available)} e comprou ${withProductArticle(product)} por ${formatMoney(cost)}. Quanto dinheiro sobrou?`,
     explanation: `Para saber quanto sobrou, tiramos o que foi gasto: ${formatMoney(available)} menos ${formatMoney(cost)} são ${formatMoney(answer)}.`,
-    values: { available, cost, product: { ...product, price: cost }, remaining: answer },
+    values: { character, available, availableItems: representMoney(available, operationUnit), cost, product: { ...product, price: cost }, remaining: answer },
     signature: [available, cost, product.id],
     random,
   });
@@ -319,10 +354,10 @@ function createMissingQuestion(random, level, childName) {
     answer,
     operationUnit,
     operationAmounts: [price, available],
-    prompt: `${product.article[0].toUpperCase()}${product.article.slice(1)} ${product.name} custa ${formatMoney(price)}. ${character} tem ${formatMoney(available)}. Quanto falta para comprar?`,
-    speech: `Um produto custa ${formatMoney(price)}. Uma criança tem ${formatMoney(available)}. Quanto falta para comprar?`,
+    prompt: `${character} quer comprar ${withProductArticle(product)}. Quanto dinheiro falta?`,
+    speech: `${product.article[0].toUpperCase()}${product.article.slice(1)} ${product.name} custa ${formatMoney(price)}. ${character} tem ${formatMoney(available)}. Quanto dinheiro falta?`,
     explanation: `${product.article[0].toUpperCase()}${product.article.slice(1)} ${product.name} custa ${formatMoney(price)} e você tem ${formatMoney(available)}. Faltam ${formatMoney(answer)}.`,
-    values: { price, available, product: { ...product, price }, missing: answer },
+    values: { character, price, available, availableItems: representMoney(available, operationUnit), product: { ...product, price }, missing: answer },
     signature: [price, available, product.id],
     random,
   });
@@ -374,10 +409,10 @@ function createChangeQuestion(random, level, childName) {
     answer,
     operationUnit,
     operationAmounts: [payment.value, price],
-    prompt: `${product.article[0].toUpperCase()}${product.article.slice(1)} ${product.name} custa ${formatMoney(price)}. ${character} pagou com ${formatMoney(payment.value)}. Quanto recebeu de troco?`,
-    speech: `Um produto custa ${formatMoney(price)}. Uma criança pagou com ${formatMoney(payment.value)}. Quanto recebeu de troco?`,
+    prompt: `${character} comprou ${withProductArticle(product)}. Quanto recebeu de troco?`,
+    speech: `${product.article[0].toUpperCase()}${product.article.slice(1)} ${product.name} custa ${formatMoney(price)}. ${character} pagou com ${formatMoney(payment.value)}. Quanto recebeu de troco?`,
     explanation: `O troco é o dinheiro que volta. Você pagou ${formatMoney(payment.value)} por algo que custa ${formatMoney(price)}. O troco é ${formatMoney(answer)}.`,
-    values: { product: { ...product, price }, payment, change: answer },
+    values: { character, product: { ...product, price }, payment, change: answer },
     signature: [price, payment.id, product.id],
     random,
   });
@@ -417,10 +452,11 @@ function createComparisonQuestion(random, level, variant) {
       family: 'compare',
       subtype: asksMore ? 'choose-more-expensive' : 'choose-cheaper',
       prompt: `Qual produto é ${target}?`,
-      speech: `Qual produto é ${target}?`,
+      speech: `${first.article[0].toUpperCase()}${first.article.slice(1)} ${first.name} custa ${formatMoney(firstPrice)} e ${second.article} ${second.name} custa ${formatMoney(secondPrice)}. Qual produto é ${target}?`,
       answer,
       answerType: 'product',
       operationUnit,
+      domain: domainForUnit(operationUnit),
       ruleId: AV2_MAT_RULE_AV2_MAT_01,
       rulesApplied: [AV2_MAT_RULE_AV2_MAT_01, AV2_MAT_RULE_AV2_MAT_02],
       options,
@@ -428,6 +464,7 @@ function createComparisonQuestion(random, level, variant) {
       operation: 'comparison',
       explanation: `${moreExpensive.article[0].toUpperCase()}${moreExpensive.article.slice(1)} ${moreExpensive.name} custa ${formatMoney(moreExpensive.price)} e ${lessExpensive.article} ${lessExpensive.name} custa ${formatMoney(lessExpensive.price)}. ${asksMore ? `${moreExpensive.article[0].toUpperCase()}${moreExpensive.article.slice(1)} ${moreExpensive.name} é ${comparisonText}` : `${lessExpensive.article[0].toUpperCase()}${lessExpensive.article.slice(1)} ${lessExpensive.name} é ${comparisonText}`}.`,
       values: { products, moreExpensiveId: moreExpensive.id, lessExpensiveId: lessExpensive.id },
+      visuals: { products, money: [] },
       fingerprint: JSON.stringify(['compare', 'choose-product', ...[`${first.id}:${firstPrice}`, `${second.id}:${secondPrice}`].sort(), target]),
     };
   }
@@ -439,13 +476,63 @@ function createComparisonQuestion(random, level, variant) {
     answer,
     operationUnit,
     operationAmounts: [firstPrice, secondPrice],
-    prompt: `${first.article[0].toUpperCase()}${first.article.slice(1)} ${first.name} custa ${formatMoney(firstPrice)} e ${second.article} ${second.name} custa ${formatMoney(secondPrice)}. Qual é a diferença entre os preços?`,
+    prompt: 'Qual é a diferença entre os preços destes produtos?',
     speech: `${first.article[0].toUpperCase()}${first.article.slice(1)} ${first.name} custa ${formatMoney(firstPrice)} e ${second.article} ${second.name} custa ${formatMoney(secondPrice)}. Qual é a diferença entre os preços?`,
     explanation: `${moreExpensive.article[0].toUpperCase()}${moreExpensive.article.slice(1)} ${moreExpensive.name} custa ${formatMoney(Math.max(firstPrice, secondPrice))} e ${lessExpensive.article} ${lessExpensive.name} custa ${formatMoney(Math.min(firstPrice, secondPrice))}. A diferença é de ${formatMoney(answer)}.`,
     values: { products, difference: answer },
     signature: [[`${first.id}:${firstPrice}`, `${second.id}:${secondPrice}`].sort().join(',')],
     random,
   });
+}
+
+function isValidMoneyRepresentation(items, total, unit) {
+  if (!Array.isArray(items) || items.length === 0 || !Number.isSafeInteger(total)) return false;
+  const represented = items.reduce((sum, { denomination, value }) => {
+    const canonical = CURRENCY_DENOMINATIONS.find(({ id }) => id === denomination?.id);
+    if (!canonical || canonical.value !== value || denomination.value !== value) return Number.NaN;
+    if (unit === 'reais' && value % 100 !== 0) return Number.NaN;
+    if (unit === 'centavos' && (denomination.kind !== 'coin' || value >= 100)) return Number.NaN;
+    return sum + value;
+  }, 0);
+  return represented === total;
+}
+
+function matchesDomain(question) {
+  return question.domain === domainForUnit(question.operationUnit);
+}
+
+function sameProducts(first, second) {
+  return Array.isArray(first) && Array.isArray(second) && first.length === second.length
+    && first.every((product, index) => product?.id === second[index]?.id
+      && product?.name === second[index]?.name
+      && product?.price === second[index]?.price);
+}
+
+function sameMoneyItems(first, second) {
+  return Array.isArray(first) && Array.isArray(second) && first.length === second.length
+    && first.every((item, index) => item?.value === second[index]?.value
+      && item?.denomination?.id === second[index]?.denomination?.id);
+}
+
+function isVisualModelAligned(question) {
+  const values = question.values ?? {};
+  const visuals = question.visuals;
+  if (!visuals || typeof visuals !== 'object') return false;
+  if (question.family === 'money-addition') {
+    return sameMoneyItems(visuals.moneyItems, values.items)
+      && (!visuals.products || visuals.products.length === 0)
+      && (!visuals.money || visuals.money.length === 0);
+  }
+  const expectedProducts = values.products ?? (values.product ? [values.product] : []);
+  if (!sameProducts(visuals.products, expectedProducts)) return false;
+  let expectedMoney = [];
+  if (question.family === 'remaining') expectedMoney = [{ label: `${values.character} tinha`, amount: values.available, items: values.availableItems }];
+  else if (question.family === 'missing') expectedMoney = [{ label: `${values.character} tem`, amount: values.available, items: values.availableItems }];
+  else if (question.family === 'change') expectedMoney = [{ label: `${values.character} pagou`, amount: values.payment?.value, items: values.payment?.items }];
+  if (!Array.isArray(visuals.money) || visuals.money.length !== expectedMoney.length) return false;
+  return expectedMoney.every((item, index) => visuals.money[index]?.label === item.label
+    && visuals.money[index]?.amount === item.amount
+    && sameMoneyItems(visuals.money[index]?.items, item.items));
 }
 
 export function createShoppingQuestion(family, {
@@ -475,6 +562,7 @@ export function validateShoppingAnswer(question, answer) {
   if (question?.type !== 'shopping'
     || question.revisionId !== AV2_REVISION_ID
     || question.activityId !== AV2_SHOPPING_ACTIVITY_ID
+    || !isVisualModelAligned(question)
     || !Array.isArray(question.options)) return false;
   if (question.answerType === 'product') {
     const products = question.values?.products;
@@ -485,6 +573,7 @@ export function validateShoppingAnswer(question, answer) {
       || question.ruleId !== AV2_MAT_RULE_AV2_MAT_01
       || !question.rulesApplied?.includes(AV2_MAT_RULE_AV2_MAT_02)
       || !['reais', 'centavos'].includes(question.operationUnit)
+      || !matchesDomain(question)
       || !products.every(({ price }) => isMoneyAmountInUnit(price, question.operationUnit))
       || products[0].price === products[1].price) return false;
     const moreExpensive = products[0].price > products[1].price ? products[0] : products[1];
@@ -498,6 +587,9 @@ export function validateShoppingAnswer(question, answer) {
       && question.values.moreExpensiveId === moreExpensive.id
       && question.values.lessExpensiveId === lessExpensive.id
       && question.options.filter(({ value }) => value === expectedAnswer).length === 1
+      && question.options.every((option) => products.some((product) => option.value === product.id
+        && option.product?.id === product.id && option.product?.price === product.price))
+      && question.correctIndex === question.options.findIndex(({ value }) => value === expectedAnswer)
       && question.answer === expectedAnswer
       && answer === expectedAnswer;
   }
@@ -505,9 +597,11 @@ export function validateShoppingAnswer(question, answer) {
   if (question.ruleId !== AV2_MAT_RULE_AV2_MAT_01
     || !question.rulesApplied?.includes(AV2_MAT_RULE_AV2_MAT_02)
     || !['reais', 'centavos'].includes(question.operationUnit)
+    || !matchesDomain(question)
     || !values.every((value) => isMoneyAmountInUnit(value, question.operationUnit))
     || new Set(values).size !== values.length
-    || values.filter((value) => value === question.answer).length !== 1) return false;
+    || values.filter((value) => value === question.answer).length !== 1
+    || question.correctIndex !== question.options.findIndex(({ value }) => value === question.answer)) return false;
   let expectedAnswer;
   let operationAmounts = [];
   try {
@@ -518,26 +612,32 @@ export function validateShoppingAnswer(question, answer) {
         if (!Number.isSafeInteger(value) || value !== denomination?.value) throw new RangeError();
         return value;
       });
+      if (!isValidMoneyRepresentation(items, question.answer, question.operationUnit)) return false;
       expectedAnswer = addMoney(...operationAmounts);
     } else if (question.family === 'price-addition') {
       const products = question.values?.products;
-      if (!Array.isArray(products) || products.length < 1 || products.length > 2) return false;
+      if (!Array.isArray(products) || products.length !== 2
+        || !products.every(({ price }) => Number.isSafeInteger(price) && price > 0)
+        || !['add-prices', 'add-identical-prices'].includes(question.subtype)) return false;
+      if (question.subtype === 'add-identical-prices'
+        && (products[0].id !== products[1].id || products[0].price !== products[1].price || question.operationUnit !== 'reais')) return false;
+      if (question.subtype === 'add-prices' && products[0].id === products[1].id) return false;
       operationAmounts = products.map(({ price }) => price);
       expectedAnswer = addMoney(...operationAmounts);
     } else if (question.family === 'remaining') {
       if (question.values.available <= question.values.cost) return false;
+      if (!isValidMoneyRepresentation(question.values.availableItems, question.values.available, question.operationUnit)) return false;
       operationAmounts = [question.values.available, question.values.cost];
       expectedAnswer = subtractMoney(question.values.available, question.values.cost);
     } else if (question.family === 'missing') {
       if (question.values.price <= question.values.available) return false;
+      if (!isValidMoneyRepresentation(question.values.availableItems, question.values.available, question.operationUnit)) return false;
       operationAmounts = [question.values.price, question.values.available];
       expectedAnswer = subtractMoney(question.values.price, question.values.available);
     } else if (question.family === 'change') {
       if (question.values.payment?.value < question.values.product?.price) return false;
       const paymentItems = question.values.payment.items;
-      if (!Array.isArray(paymentItems) || paymentItems.length === 0
-        || paymentItems.some(({ denomination, value }) => !denomination || denomination.value !== value)
-        || paymentItems.reduce((sum, { value }) => sum + value, 0) !== question.values.payment.value) return false;
+      if (!isValidMoneyRepresentation(paymentItems, question.values.payment.value, question.operationUnit)) return false;
       operationAmounts = [question.values.payment.value, question.values.product.price];
       expectedAnswer = subtractMoney(question.values.payment?.value, question.values.product?.price);
     } else if (question.family === 'compare') {
