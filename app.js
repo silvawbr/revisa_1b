@@ -26,6 +26,15 @@ import {
 } from './src/data/officialColoringPages.js';
 import { createTtsClient } from './src/tts-client.js';
 import {
+  AV2_REVISION_ID,
+  BANKNOTES,
+  COINS,
+  MONEY_DENOMINATIONS,
+  createAv2Round,
+  validateAv2Answer,
+} from './src/av2/money.js';
+import { createAv2ProgressStore } from './src/av2/progress.js';
+import {
   createChildProfileStore,
   createPersonalizedMessage,
   formatChildText,
@@ -45,10 +54,13 @@ const officialColoringPageHistory = createRecentIdStore({
   key: OFFICIAL_COLORING_PAGE_HISTORY_KEY,
   limit: OFFICIAL_COLORING_PAGE_HISTORY_LIMIT,
 });
+const av2Progress = createAv2ProgressStore();
+const moneyById = new Map(MONEY_DENOMINATIONS.map((money) => [money.id, money]));
 let visualSelectionInteraction = null;
 
 const state = {
   screen: storedChildName ? 'home' : 'name',
+  activeRevision: 'classic',
   childName: storedChildName,
   childNameDraft: storedChildName ?? '',
   childNameError: false,
@@ -68,6 +80,11 @@ const state = {
   rewardFallback: false,
   lastOfficialColoringPageId: null,
   officialOpenFailure: null,
+  av2Round: [],
+  av2Index: 0,
+  av2Correct: false,
+  av2Attempts: 0,
+  av2Selected: null,
 };
 
 const positiveMessageTemplates = [
@@ -565,11 +582,127 @@ function renderHome() {
         <div class="home-art" aria-hidden="true"><span class="home-circle">6</span><span class="home-triangle"></span><span class="home-square">＋</span><span class="home-star">★</span></div>
         <p class="eyebrow">1º ano Vita · Uma aventura de aprender</p>
         <h1 id="home-title">Revisão de Matemática<br><span>de ${escapeHtml(currentChildName())}</span></h1>
-        <p class="home-subtitle">Vamos aprender, brincar e conquistar estrelas?</p>
-        <button class="primary-button start-button" type="button" data-action="start">Começar <span aria-hidden="true">→</span></button>
+        <p class="home-subtitle">Escolha sua revisão para aprender, brincar e conquistar estrelas.</p>
+        <div class="revision-choices" aria-label="Escolha uma revisão de Matemática">
+          <button class="primary-button revision-choice" type="button" data-action="start"><span class="revision-choice-title">Revisão de Matemática</span><span class="revision-choice-copy">Formas, números e desafios</span><span class="revision-choice-arrow" aria-hidden="true">→</span></button>
+          <button class="secondary-button revision-choice av2-choice" type="button" data-action="av2-entry"><span class="revision-choice-title">AV2 Matemática</span><span class="revision-choice-copy">Vamos aprender sobre dinheiro</span><span class="revision-choice-arrow" aria-hidden="true">→</span></button>
+        </div>
         ${renderGuide('Estou aqui para torcer por você!')}
         <button class="change-child-home" type="button" data-action="change-child">Trocar criança</button>
         <p class="privacy-note">Sem cadastro. Só brincadeira e aprendizado.</p>
+      </section>
+    </main>
+  </div>`;
+}
+
+function renderMoneyIllustration(money) {
+  const typeLabel = money.kind === 'coin' ? 'MOEDA' : 'CÉDULA';
+  const visualType = money.kind === 'coin' ? 'money-coin' : 'money-note';
+  return `<div class="money-illustration ${visualType}" role="img" aria-label="${escapeAttribute(money.description)}">
+    <span class="money-kind" aria-hidden="true">${typeLabel}</span>
+    <span class="money-image-fallback" aria-hidden="true">${escapeHtml(money.label)}</span>
+    <img class="money-object-image" src="${escapeAttribute(money.imageUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+  </div>`;
+}
+
+function renderAv2Home() {
+  const sampleCoin = COINS.find(({ id }) => id === 'coin-50-centavos');
+  const sampleNote = BANKNOTES.find(({ id }) => id === 'note-20-reais');
+  const roundsCompleted = av2Progress.get().roundsCompleted;
+  return `<div class="site-shell home-screen av2-home-screen">
+    <main class="home-main">
+      <section class="home-card av2-home-card" aria-labelledby="av2-home-title">
+        <p class="eyebrow">Revisão para 27 de outubro</p>
+        <h1 id="av2-home-title">AV2 Matemática<br><span>Dinheiro</span></h1>
+        <p class="home-subtitle">Vamos conhecer moedas e cédulas e descobrir qual vale mais ou menos?</p>
+        <div class="av2-samples" aria-label="Vamos estudar moedas e cédulas brasileiras">
+          ${renderMoneyIllustration(sampleCoin)}
+          ${renderMoneyIllustration(sampleNote)}
+        </div>
+        <p class="av2-progress-summary" data-av2-rounds-completed>Rodadas concluídas: <strong>${roundsCompleted}</strong></p>
+        <button class="primary-button start-button" type="button" data-action="start-av2">Começar a revisão <span aria-hidden="true">→</span></button>
+        <button class="secondary-button av2-back-button" type="button" data-action="home">Voltar às revisões</button>
+        ${renderGuide('Moedas e cédulas têm valores diferentes. Vamos descobrir!')}
+      </section>
+    </main>
+  </div>`;
+}
+
+function renderAv2Progress() {
+  return `<div class="av2-progress" role="img" aria-label="Progresso: questão ${state.av2Index + 1} de 10">
+    ${Array.from({ length: 10 }, (_, index) => `<span class="av2-progress-dot ${index < state.av2Index ? 'is-complete' : ''} ${index === state.av2Index ? 'is-current' : ''}" aria-hidden="true">${index < state.av2Index ? '★' : '☆'}</span>`).join('')}
+  </div>`;
+}
+
+function renderAv2Header() {
+  return `<header class="topbar av2-topbar">
+    <span class="brand av2-brand">${escapeHtml(currentChildName())} <span aria-hidden="true">★</span></span>
+    ${renderAv2Progress()}
+    <div class="header-actions">
+      <button class="change-child-button" type="button" data-action="change-child" aria-label="Trocar criança">Trocar criança</button>
+      <button class="secondary-button av2-exit-button" type="button" data-action="home" aria-label="Voltar às revisões">Revisões</button>
+    </div>
+  </header>`;
+}
+
+function renderAv2Question(question) {
+  const interactiveOptions = question.options.map((moneyId, index) => {
+    const money = moneyById.get(moneyId);
+    const selected = state.av2Selected === moneyId;
+    const incorrect = selected && !state.av2Correct && state.av2Attempts > 0;
+    const label = `${money.kind === 'coin' ? 'Moeda' : 'Cédula'} de ${money.label}`;
+    if (question.type === 'identification') {
+      return `<button class="av2-answer-label ${selected ? 'is-selected' : ''} ${incorrect ? 'is-incorrect' : ''}" type="button" data-av2-answer="${money.id}" aria-label="Alternativa ${index + 1}: ${escapeAttribute(label)}" aria-pressed="${selected}" ${state.av2Correct ? 'disabled' : ''}>${escapeHtml(money.label)}</button>`;
+    }
+    return `<button class="av2-money-option ${selected ? 'is-selected' : ''} ${incorrect ? 'is-incorrect' : ''}" type="button" data-av2-answer="${money.id}" aria-label="Alternativa ${index + 1}: ${escapeAttribute(label)}" aria-pressed="${selected}" ${state.av2Correct ? 'disabled' : ''}>${renderMoneyIllustration(money)}<span class="av2-option-label">${escapeHtml(money.label)}</span></button>`;
+  }).join('');
+
+  const promptMoney = question.type === 'identification'
+    ? renderMoneyIllustration(moneyById.get(question.data.denominationId))
+    : '';
+  return `<div class="av2-exercise ${question.type === 'identification' ? 'is-identification' : 'is-comparison'}">
+    ${promptMoney ? `<div class="av2-prompt-money">${promptMoney}</div>` : ''}
+    <div class="av2-answer-options ${question.type === 'identification' ? 'label-options' : 'money-options'}" role="group" aria-label="Alternativas de resposta">
+      ${interactiveOptions}
+    </div>
+  </div>`;
+}
+
+function renderAv2Feedback(question) {
+  if (state.av2Correct) {
+    const message = createPersonalizedMessage({
+      childName: currentChildName(),
+      visualTemplate: question.feedback.correct.replace(/^Muito bem!/, 'Muito bem, {name}!'),
+      speechText: question.feedback.correct,
+    });
+    return `<div class="feedback success-feedback" role="status" aria-live="polite">
+      <p class="feedback-title">${escapeHtml(message.visualText)}</p>
+      <div class="feedback-actions">
+        ${renderSpeechButton('explanation', question.explanation)}
+        <button class="primary-button next-button" type="button" data-action="next-av2">${state.av2Index === state.av2Round.length - 1 ? 'Concluir' : 'Próxima'} <span aria-hidden="true">→</span></button>
+      </div>
+    </div>`;
+  }
+  if (state.av2Attempts === 0) return '';
+  return `<div class="feedback retry-feedback" role="alert" aria-live="polite">
+    <p class="feedback-title">${state.av2Attempts === 1 ? question.feedback.retry : 'Observe os valores e tente mais uma vez.'}</p>
+    ${state.av2Attempts >= 2 ? `<p class="hint-box"><b>Dica:</b> ${escapeHtml(question.hint)}</p>` : ''}
+  </div>`;
+}
+
+function renderAv2Game() {
+  const question = state.av2Round[state.av2Index];
+  const activityName = question.type === 'identification' ? 'Reconhecer o dinheiro' : 'Comparar valores';
+  return `<div class="site-shell game-screen av2-game-screen">
+    ${renderAv2Header()}
+    <main class="main-content av2-main-content">
+      <div class="question-topline"><span class="activity-badge">Questão ${state.av2Index + 1} de 10</span><span class="activity-count">${activityName}</span></div>
+      <div class="question-heading"><div><h1 id="av2-question-title">${activityName}</h1></div>${renderGuide(state.av2Correct ? 'Que conquista linda! Vamos continuar.' : 'Vamos com calma! Você consegue!')}</div>
+      <section class="question-card av2-question-card" aria-labelledby="av2-question-title">
+        <div class="prompt-row"><p class="prompt" id="av2-question-prompt">${escapeHtml(question.prompt)}</p>${renderSpeechButton('question', question.speech)}</div>
+        <span class="speech-status" data-speech-status role="status" aria-live="polite"></span>
+        <div class="exercise-area av2-exercise-area">${renderAv2Question(question)}</div>
+        ${renderAv2Feedback(question)}
       </section>
     </main>
   </div>`;
@@ -642,18 +775,22 @@ function renderOfficialColoringAction() {
 function renderReward() {
   const rewardPage = getColoringPageById(state.rewardPageId);
   const rewardMessage = createRewardMessage();
+  const av2Reward = state.activeRevision === AV2_REVISION_ID;
+  const starCount = av2Reward ? 10 : 6;
+  const starsLabel = `${starCount} estrelas conquistadas`;
   return `<div class="site-shell reward-screen">
     <main class="reward-main">
       <section class="reward-card" aria-labelledby="reward-title">
-        <div class="reward-stars" aria-label="Seis estrelas conquistadas">★ ★ ★ ★ ★ ★</div>
+        <div class="reward-stars${av2Reward ? ' av2-reward-stars' : ''}" aria-label="${starsLabel}">${Array.from({ length: starCount }, () => av2Reward ? '<span aria-hidden="true">★</span>' : '★').join(av2Reward ? '' : ' ')}</div>
         <p class="eyebrow">Missão cumprida!</p>
         <h1 id="reward-title">${escapeHtml(rewardMessage.visualText)}</h1>
-        <p class="reward-copy">Você passou por todas as atividades. Agora é hora de colorir!</p>
+        <p class="reward-copy">${av2Reward ? 'Você concluiu as 10 questões sobre dinheiro. Agora é hora de colorir!' : 'Você passou por todas as atividades. Agora é hora de colorir!'}</p>
         ${state.rewardFallback ? renderColoringPage(null) : renderColoringPage(rewardPage)}
         <div class="reward-actions">
           <button class="primary-button" type="button" data-action="print">🖨 Imprimir meu desenho</button>
           <button class="secondary-button" type="button" data-action="another-coloring-page">🎨 Ver outro desenho</button>
-          <button class="secondary-button" type="button" data-action="restart">↻ Jogar novamente</button>
+          <button class="secondary-button" type="button" data-action="restart">↻ ${av2Reward ? 'Outra rodada AV2' : 'Jogar novamente'}</button>
+          ${av2Reward ? '<button class="secondary-button" type="button" data-action="home">Voltar às revisões</button>' : ''}
           <button class="change-child-home" type="button" data-action="change-child">Trocar criança</button>
         </div>
         ${renderOfficialColoringAction()}
@@ -681,6 +818,10 @@ function updateDocumentTitle() {
     document.title = 'Revisão de Matemática | 1º ano Vita';
     return;
   }
+  if (state.screen.startsWith('av2-') || state.activeRevision === AV2_REVISION_ID) {
+    document.title = `AV2 Matemática de ${currentChildName()} | 1º ano Vita`;
+    return;
+  }
   document.title = `Revisão de Matemática de ${currentChildName()} | 1º ano Vita`;
 }
 
@@ -693,6 +834,8 @@ function render() {
   destroyVisualSelectionInteraction();
   if (state.screen === 'name') app.innerHTML = renderNameScreen();
   else if (state.screen === 'home') app.innerHTML = renderHome();
+  else if (state.screen === 'av2-home') app.innerHTML = renderAv2Home();
+  else if (state.screen === 'av2-game') app.innerHTML = renderAv2Game();
   else if (state.screen === 'reward') app.innerHTML = renderReward();
   else app.innerHTML = renderGame();
   app.insertAdjacentHTML('beforeend', renderChangeChildDialog());
@@ -703,6 +846,7 @@ function render() {
 }
 
 function resetRoundState() {
+  state.activeRevision = 'classic';
   state.round = [];
   state.currentIndex = 0;
   state.correct = false;
@@ -716,6 +860,11 @@ function resetRoundState() {
   state.unavailableRewardPageIds = new Set();
   state.rewardFallback = false;
   state.officialOpenFailure = null;
+  state.av2Round = [];
+  state.av2Index = 0;
+  state.av2Correct = false;
+  state.av2Attempts = 0;
+  state.av2Selected = null;
 }
 
 function requestChangeChild() {
@@ -759,6 +908,7 @@ function submitChildName(event) {
 
 function beginRound() {
   cancelSpeech();
+  state.activeRevision = 'classic';
   state.screen = 'game';
   state.round = createRound();
   state.currentIndex = 0;
@@ -771,6 +921,21 @@ function beginRound() {
   state.parentHelp = false;
   state.rewardPageId = null;
   state.unavailableRewardPageIds = new Set();
+  state.rewardFallback = false;
+  state.officialOpenFailure = null;
+  render();
+}
+
+function beginAv2Round() {
+  cancelSpeech();
+  state.activeRevision = AV2_REVISION_ID;
+  state.screen = 'av2-game';
+  state.av2Round = createAv2Round();
+  state.av2Index = 0;
+  state.av2Correct = false;
+  state.av2Attempts = 0;
+  state.av2Selected = null;
+  state.rewardPageId = null;
   state.rewardFallback = false;
   state.officialOpenFailure = null;
   render();
@@ -793,6 +958,23 @@ function nextQuestion() {
   state.activeAddField = null;
   state.hintVisible = false;
   state.parentHelp = false;
+  render();
+}
+
+function nextAv2Question() {
+  if (!state.av2Correct) return;
+  cancelSpeech();
+  if (state.av2Index >= state.av2Round.length - 1) {
+    av2Progress.completeRound();
+    selectRewardPage();
+    state.screen = 'reward';
+    render();
+    return;
+  }
+  state.av2Index += 1;
+  state.av2Correct = false;
+  state.av2Attempts = 0;
+  state.av2Selected = null;
   render();
 }
 
@@ -832,6 +1014,23 @@ function selectVisualOption(shapeKey) {
   focusVisualOption(shapeKey);
 }
 
+function selectAv2Option(moneyId) {
+  if (state.av2Correct) return;
+  const question = state.av2Round[state.av2Index];
+  if (!question?.options.includes(moneyId)) return;
+  state.av2Selected = moneyId;
+  if (validateAv2Answer(question, moneyId)) {
+    state.av2Correct = true;
+    cancelSpeech();
+    render();
+    return;
+  }
+  state.av2Attempts += 1;
+  cancelSpeech();
+  render();
+  document.querySelector(`[data-av2-answer="${moneyId}"]`)?.focus();
+}
+
 function collectInputAnswers() {
   const question = currentQuestion();
   if (question.type === 'addition') {
@@ -867,16 +1066,29 @@ function bindEvents() {
   document.querySelectorAll('[data-action]').forEach((element) => {
     element.addEventListener('click', () => {
       const action = element.dataset.action;
-      if (action === 'start' || action === 'restart') beginRound();
+      if (action === 'start') beginRound();
+      if (action === 'start-av2') beginAv2Round();
+      if (action === 'restart') {
+        if (state.activeRevision === AV2_REVISION_ID) beginAv2Round();
+        else beginRound();
+      }
+      if (action === 'av2-entry') {
+        cancelSpeech();
+        state.activeRevision = AV2_REVISION_ID;
+        state.screen = 'av2-home';
+        render();
+      }
       if (action === 'change-child') requestChangeChild();
       if (action === 'cancel-change-child') cancelChangeChild();
       if (action === 'confirm-change-child') confirmChangeChild();
       if (action === 'home') {
         cancelSpeech();
+        state.activeRevision = 'classic';
         state.screen = 'home';
         render();
       }
       if (action === 'next') nextQuestion();
+      if (action === 'next-av2') nextAv2Question();
       if (action === 'check-answer') checkAnswer();
       if (action === 'hint') {
         state.hintVisible = true;
@@ -921,6 +1133,10 @@ function bindEvents() {
     button.addEventListener('click', () => {
       speak(button.dataset.speechButton, button.dataset.speechText);
     });
+  });
+
+  document.querySelectorAll('[data-av2-answer]').forEach((button) => {
+    button.addEventListener('click', () => selectAv2Option(button.dataset.av2Answer));
   });
 
   const visualOptions = [...document.querySelectorAll('[data-shape-option]')];

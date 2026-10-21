@@ -1,9 +1,10 @@
 # Revisão de Matemática | 1º ano Vita
 
 Aplicação web infantil, responsiva e em português do Brasil para revisar
-conteúdos de Matemática do 1º ano Vita. Uma rodada reúne seis
-atividades: figuras planas, figuras espaciais, antecessor e sucessor, números
-por extenso, adição com reserva e soma com número desconhecido.
+conteúdos de Matemática do 1º ano Vita. A tela inicial oferece a revisão
+original, com seis atividades, e a revisão independente AV2 Matemática. O
+Bloco 01 da AV2 ensina a reconhecer moedas e cédulas brasileiras e comparar
+seus valores em rodadas de dez questões.
 
 Ao concluir a rodada, a criança recebe um desenho local para colorir. A
 aplicação inclui um servidor Node mínimo para servir os arquivos estáticos e
@@ -89,6 +90,10 @@ ignorada pelo Git.
 - `styles.css`: interface responsiva, formas CSS e regras de impressão A4.
 - `app.js`: fluxo da experiência, eventos, acessibilidade e telas.
 - `src/game.js`: geração, validação e conversão de números para português.
+- `src/av2/money.js`: catálogo de moedas e cédulas em centavos inteiros,
+  geradores de perguntas da AV2 e validação isolada das respostas.
+- `src/av2/progress.js`: progresso de rodadas AV2 na chave própria
+  `av2-matematica.block-01.dinheiro.progress.v1`.
 - `src/figures.js`: renderização das figuras espaciais em SVG.
 - `src/data/coloringPages.js`: catálogo local, seleção aleatória e metadados de
   licença dos desenhos da recompensa.
@@ -113,6 +118,8 @@ ignorada pelo Git.
 - `server/pcm-to-wav.js`: encapsulamento determinístico de PCM em WAV, sem
   alterar os samples e sem processo externo de áudio.
 - `tests/game.test.mjs`: testes automatizados da lógica pedagógica.
+- `tests/av2-money.test.mjs` e `tests/av2-ui.test.mjs`: testes de denominações,
+  geração de questões, isolamento de progresso e jornada infantil da AV2.
 - `tests/figures.test.mjs`: testes das figuras espaciais em SVG.
 - `tests/coloring-pages.test.mjs`: testes do catálogo, fallback, seleção,
   entrega local dos assets, atribuição e impressão A4.
@@ -127,6 +134,9 @@ para o catálogo local. O primeiro acesso solicita somente o primeiro nome ou
 apelido e o mantém exclusivamente no `localStorage` do navegador, na chave
 versionada `revisao-matematica.childName.v1`. Em dispositivos compartilhados, a
 ação “Trocar criança” remove somente esse nome e volta à tela de identificação.
+O Bloco 01 da AV2 guarda somente a quantidade de rodadas concluídas em sua
+própria chave versionada; esse dado não inclui o nome da criança nem altera o
+progresso ou os históricos da revisão original.
 Os desenhos locais da recompensa são instalados junto com o projeto; não há
 hotlink nem download durante o uso. A seleção mantém apenas os IDs recentes dos
 desenhos locais e dos destinos oficiais em chaves separadas do `localStorage`,
