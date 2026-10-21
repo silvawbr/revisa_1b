@@ -12,6 +12,7 @@ import {
   createAv2Round,
   createComparisonQuestion,
   createIdentificationQuestion,
+  validateAv2MoneyQuestionCandidate,
   validateAv2Answer,
 } from '../src/av2/money.js';
 import { AV2_PROGRESS_STORAGE_KEY, createAv2ProgressStore } from '../src/av2/progress.js';
@@ -139,6 +140,126 @@ test('rodadas têm dez perguntas, composição 6+4, variedade de valores e IDs s
   }
   assert.ok(signatures.size > 1);
   assert.ok(answerPositions.size > 1);
+});
+
+test('valida milhares de candidatos e bloqueia regressões de unidade e conversão monetária', () => {
+  for (let seed = 1; seed <= 1000; seed += 1) {
+    const round = createAv2Round(seededRandom(seed));
+    for (const question of round) {
+      assert.equal(validateAv2MoneyQuestionCandidate(question), true, question.questionId);
+    }
+  }
+
+  const candidate = ({ type, data, correctAnswer, options, prompt = 'Resolva a questão.' }) => ({
+    revisionId: AV2_REVISION_ID,
+    activityId: AV2_MONEY_ACTIVITY_ID,
+    type,
+    data,
+    correctAnswer,
+    options,
+    prompt,
+    speech: prompt,
+    explanation: 'Observe os valores com calma.',
+    hint: 'Leia a questão.',
+    feedback: { correct: 'Muito bem!', retry: 'Tente novamente.' },
+  });
+  const operation = ({ data, correctAnswer, options, prompt }) => candidate({
+    type: 'operation', data, correctAnswer, options, prompt,
+  });
+
+  const mixedUnits = operation({
+    data: {
+      operation: 'addition',
+      domain: 'BRL_INTEIROS',
+      operands: [
+        { value: 5, unit: 'reais' },
+        { value: 50, unit: 'centavos' },
+        { value: 50, unit: 'centavos' },
+      ],
+      resultUnit: 'reais',
+    },
+    correctAnswer: 6,
+    options: [5, 6, 7, 8],
+    prompt: 'Marina comprou um biscoito por 5 reais e 50 centavos e uma figurinha por 50 centavos.',
+  });
+  assert.equal(validateAv2MoneyQuestionCandidate(mixedUnits), false, 'Caso A: rejeitar soma que mistura unidades');
+
+  const conversionToReal = operation({
+    data: {
+      operation: 'addition',
+      domain: 'CENTAVOS',
+      operands: [25, 50, 25].map((value) => ({ value, unit: 'centavos' })),
+      resultUnit: 'centavos',
+      representations: [['coin-25-centavos'], ['coin-50-centavos'], ['coin-25-centavos']],
+    },
+    correctAnswer: 100,
+    options: [75, 100, 50, 25],
+    prompt: 'Quanto valem 25, 50 e 25 centavos? Responda em reais.',
+  });
+  assert.equal(validateAv2MoneyQuestionCandidate(conversionToReal), false, 'Caso B: rejeitar total que exige conversão');
+
+  const denominationComparison = candidate({
+    type: 'comparison',
+    data: {
+      leftId: 'coin-1-real',
+      rightId: 'coin-50-centavos',
+      category: 'coin',
+      direction: 'greater',
+    },
+    correctAnswer: 'coin-1-real',
+    options: ['coin-1-real', 'coin-50-centavos'],
+    prompt: 'Qual moeda vale mais, 1 real ou 50 centavos?',
+  });
+  assert.equal(validateAv2MoneyQuestionCandidate(denominationComparison), true, 'Caso C: aceitar comparação entre denominações');
+
+  const wholeRealSum = operation({
+    data: {
+      operation: 'addition',
+      domain: 'BRL_INTEIROS',
+      operands: [5, 2, 1].map((value) => ({ value, unit: 'reais' })),
+      resultUnit: 'reais',
+      representations: [['note-5-reais'], ['note-2-reais'], ['coin-1-real']],
+    },
+    correctAnswer: 8,
+    options: [7, 8, 9, 10],
+    prompt: '5 reais + 2 reais + 1 real. Quanto é?',
+  });
+  assert.equal(validateAv2MoneyQuestionCandidate(wholeRealSum), true, 'Caso D: aceitar soma em reais inteiros');
+
+  const centsChange = operation({
+    data: {
+      operation: 'subtraction',
+      domain: 'CENTAVOS',
+      operands: [75, 60].map((value) => ({ value, unit: 'centavos' })),
+      resultUnit: 'centavos',
+      representations: [['coin-50-centavos', 'coin-25-centavos'], ['coin-50-centavos', 'coin-10-centavos']],
+    },
+    correctAnswer: 15,
+    options: [10, 15, 20, 25],
+    prompt: '75 centavos menos 60 centavos. Quanto sobrou?',
+  });
+  assert.equal(validateAv2MoneyQuestionCandidate(centsChange), true, 'Caso E: aceitar troco em centavos');
+  assert.equal(validateAv2MoneyQuestionCandidate({ ...wholeRealSum, prompt: 'R$ 8,00' }), false, 'rejeitar notação decimal');
+  assert.equal(validateAv2MoneyQuestionCandidate(operation({
+    data: {
+      operation: 'addition',
+      domain: 'CENTAVOS',
+      operands: [{ value: 1, unit: 'centavos' }, { value: 5, unit: 'centavos' }],
+      resultUnit: 'centavos',
+    },
+    correctAnswer: 6,
+    options: [5, 6, 10, 15],
+    prompt: '1 centavo + 5 centavos. Quanto é?',
+  })), false, 'não usar moeda de 1 centavo em operações');
+});
+
+test('o contrato pedagógico está documentado e ligado no README', async () => {
+  const readme = await fs.readFile(path.join(root, 'README.md'), 'utf8');
+  const contract = await fs.readFile(path.join(root, 'docs/av2-matematica-contrato-pedagogico.md'), 'utf8');
+  assert.match(readme, /\[Contrato Pedagógico da AV2 Matemática\]\(docs\/av2-matematica-contrato-pedagogico\.md\)/);
+  assert.match(contract, /BRL_INTEIROS/);
+  assert.match(contract, /CENTAVOS/);
+  assert.match(contract, /Caso B — Conversão de centavos para reais/);
 });
 
 test('o progresso AV2 usa chave própria e não altera o nome nem os dados da revisão anterior', () => {

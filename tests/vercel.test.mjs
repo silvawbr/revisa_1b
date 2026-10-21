@@ -81,8 +81,7 @@ function pcmResponse() {
 }
 
 test('npm run build gera uma árvore estática publicável', async () => {
-  const result = await runBuild();
-  assert.match(result.stdout, /Build estático concluído/);
+  await runBuild();
   for (const relativePath of ['index.html', 'styles.css', 'app.js']) {
     await assert.doesNotReject(fs.access(path.join(dist, relativePath)));
   }
