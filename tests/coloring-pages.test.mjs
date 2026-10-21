@@ -77,6 +77,11 @@ test('o servidor entrega o catálogo e todos os SVGs localmente', async () => {
     assert.equal(officialManifestResponse.status, 200);
     const profileResponse = await fetch(`${base}/src/child-profile.js`);
     assert.equal(profileResponse.status, 200);
+    const av2MoneyResponse = await fetch(`${base}/src/av2/money.js`);
+    assert.equal(av2MoneyResponse.status, 200);
+    assert.equal(av2MoneyResponse.headers.get('content-type'), 'text/javascript; charset=utf-8');
+    const av2ProgressResponse = await fetch(`${base}/src/av2/progress.js`);
+    assert.equal(av2ProgressResponse.status, 200);
     const attributionResponse = await fetch(`${base}/public/coloring-pages/ATTRIBUTIONS.md`);
     assert.equal(attributionResponse.status, 200);
   } finally {
