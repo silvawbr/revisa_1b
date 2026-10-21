@@ -6,6 +6,9 @@ original, com seis atividades, e a revisão independente AV2 Matemática. O
 Bloco 01 da AV2 ensina a reconhecer moedas e cédulas brasileiras e comparar
 seus valores em rodadas de dez questões.
 
+As regras de conteúdo e geração para a avaliação estão documentadas no
+[Contrato Pedagógico da AV2 Matemática](docs/av2-matematica-contrato-pedagogico.md).
+
 Ao concluir a rodada, a criança recebe um desenho local para colorir. A
 aplicação inclui um servidor Node mínimo para servir os arquivos estáticos e
 gerar voz pelo endpoint de Text-to-Speech do OpenRouter, sem expor a chave no
