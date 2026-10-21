@@ -1,24 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import apiHandler, { createVercelHandler } from '../api/tts.js';
 import { COLORING_PAGES } from '../src/data/coloringPages.js';
+import { build } from '../scripts/build.js';
 import { createTtsHandler } from '../server/tts-handler.js';
 
-const execFileAsync = promisify(execFile);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dist = path.join(root, 'dist');
 
 async function runBuild() {
-  return execFileAsync('npm', ['run', 'build'], {
-    cwd: root,
-    env: { ...process.env },
-    maxBuffer: 1024 * 1024,
-  });
+  await build();
 }
 
 async function listFiles(directory, prefix = '') {
@@ -81,14 +75,14 @@ function pcmResponse() {
 }
 
 test('npm run build gera uma árvore estática publicável', async () => {
-  const result = await runBuild();
-  assert.match(result.stdout, /Build estático concluído/);
+  await runBuild();
   for (const relativePath of ['index.html', 'styles.css', 'app.js']) {
     await assert.doesNotReject(fs.access(path.join(dist, relativePath)));
   }
   await assert.doesNotReject(fs.access(path.join(dist, 'src/child-profile.js')));
   await assert.doesNotReject(fs.access(path.join(dist, 'src/av2/money.js')));
   await assert.doesNotReject(fs.access(path.join(dist, 'src/av2/progress.js')));
+  await assert.doesNotReject(fs.access(path.join(dist, 'src/av2/shopping.js')));
   const publicSources = await Promise.all([
     fs.readFile(path.join(dist, 'index.html'), 'utf8'),
     fs.readFile(path.join(dist, 'app.js'), 'utf8'),

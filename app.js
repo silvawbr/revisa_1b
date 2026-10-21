@@ -27,13 +27,23 @@ import {
 import { createTtsClient } from './src/tts-client.js';
 import {
   AV2_REVISION_ID,
+  AV2_MONEY_ACTIVITY_ID,
   BANKNOTES,
   COINS,
   MONEY_DENOMINATIONS,
   createAv2Round,
+  formatMoneyAmount,
   validateAv2Answer,
 } from './src/av2/money.js';
 import { createAv2ProgressStore } from './src/av2/progress.js';
+import {
+  AV2_SHOPPING_ACTIVITY,
+  AV2_SHOPPING_ACTIVITY_ID,
+  AV2_SHOPPING_PROGRESS_STORAGE_KEY,
+  SHOPPING_FAMILIES,
+  createShoppingRound,
+  validateShoppingAnswer,
+} from './src/av2/shopping.js';
 import {
   createChildProfileStore,
   createPersonalizedMessage,
@@ -55,12 +65,14 @@ const officialColoringPageHistory = createRecentIdStore({
   limit: OFFICIAL_COLORING_PAGE_HISTORY_LIMIT,
 });
 const av2Progress = createAv2ProgressStore();
+const shoppingProgress = createAv2ProgressStore({ key: AV2_SHOPPING_PROGRESS_STORAGE_KEY });
 const moneyById = new Map(MONEY_DENOMINATIONS.map((money) => [money.id, money]));
 let visualSelectionInteraction = null;
 
 const state = {
   screen: storedChildName ? 'home' : 'name',
   activeRevision: 'classic',
+  activeActivityId: AV2_MONEY_ACTIVITY_ID,
   childName: storedChildName,
   childNameDraft: storedChildName ?? '',
   childNameError: false,
@@ -85,6 +97,12 @@ const state = {
   av2Correct: false,
   av2Attempts: 0,
   av2Selected: null,
+  shoppingRound: [],
+  shoppingIndex: 0,
+  shoppingCorrect: false,
+  shoppingAttempts: 0,
+  shoppingSelected: null,
+  recentShoppingFingerprints: [],
 };
 
 const positiveMessageTemplates = [
@@ -608,21 +626,35 @@ function renderMoneyIllustration(money) {
 function renderAv2Home() {
   const sampleCoin = COINS.find(({ id }) => id === 'coin-50-centavos');
   const sampleNote = BANKNOTES.find(({ id }) => id === 'note-20-reais');
-  const roundsCompleted = av2Progress.get().roundsCompleted;
+  const moneyRounds = av2Progress.get().roundsCompleted;
+  const shoppingRounds = shoppingProgress.get().roundsCompleted;
   return `<div class="site-shell home-screen av2-home-screen">
     <main class="home-main">
       <section class="home-card av2-home-card" aria-labelledby="av2-home-title">
         <p class="eyebrow">Revisão para 27 de outubro</p>
-        <h1 id="av2-home-title">AV2 Matemática<br><span>Dinheiro</span></h1>
-        <p class="home-subtitle">Vamos conhecer moedas e cédulas e descobrir qual vale mais ou menos?</p>
-        <div class="av2-samples" aria-label="Vamos estudar moedas e cédulas brasileiras">
-          ${renderMoneyIllustration(sampleCoin)}
-          ${renderMoneyIllustration(sampleNote)}
+        <h1 id="av2-home-title">AV2 Matemática<br><span>Escolha uma atividade</span></h1>
+        <div class="av2-activity-grid" aria-label="Atividades da AV2 de Matemática">
+          <article class="av2-activity-card">
+            <h2>Dinheiro</h2>
+            <p>Conheça moedas e cédulas e descubra qual vale mais ou menos.</p>
+            <div class="av2-samples" aria-label="Moeda e cédula brasileiras">
+              ${renderMoneyIllustration(sampleCoin)}
+              ${renderMoneyIllustration(sampleNote)}
+            </div>
+            <p class="av2-progress-summary" data-av2-rounds-completed>Rodadas concluídas: <strong>${moneyRounds}</strong></p>
+            <button class="primary-button start-button" type="button" data-action="start-av2">Começar <span aria-hidden="true">→</span></button>
+          </article>
+          <article class="av2-activity-card shopping-activity-card">
+            <span class="shopping-activity-icon" aria-hidden="true">🧮</span>
+            <h2>${escapeHtml(AV2_SHOPPING_ACTIVITY.title)}</h2>
+            <p>${escapeHtml(AV2_SHOPPING_ACTIVITY.description)}</p>
+            <div class="shopping-activity-samples" aria-hidden="true"><span>🪙</span><span>✏️</span><span>⭐</span></div>
+            <p class="av2-progress-summary" data-shopping-rounds-completed>Rodadas concluídas: <strong>${shoppingRounds}</strong></p>
+            <button class="primary-button start-button" type="button" data-action="start-shopping">Começar <span aria-hidden="true">→</span></button>
+          </article>
         </div>
-        <p class="av2-progress-summary" data-av2-rounds-completed>Rodadas concluídas: <strong>${roundsCompleted}</strong></p>
-        <button class="primary-button start-button" type="button" data-action="start-av2">Começar a revisão <span aria-hidden="true">→</span></button>
         <button class="secondary-button av2-back-button" type="button" data-action="home">Voltar às revisões</button>
-        ${renderGuide('Moedas e cédulas têm valores diferentes. Vamos descobrir!')}
+        ${renderGuide('Escolha um desafio e vamos aprender juntos!')}
       </section>
     </main>
   </div>`;
@@ -634,13 +666,19 @@ function renderAv2Progress() {
   </div>`;
 }
 
-function renderAv2Header() {
+function renderShoppingProgress() {
+  return `<div class="av2-progress shopping-progress" role="img" aria-label="Progresso: questão ${state.shoppingIndex + 1} de 12">
+    ${Array.from({ length: 12 }, (_, index) => `<span class="av2-progress-dot ${index < state.shoppingIndex ? 'is-complete' : ''} ${index === state.shoppingIndex ? 'is-current' : ''}" aria-hidden="true">${index < state.shoppingIndex ? '★' : '☆'}</span>`).join('')}
+  </div>`;
+}
+
+function renderAv2Header({ shopping = false } = {}) {
   return `<header class="topbar av2-topbar">
     <span class="brand av2-brand">${escapeHtml(currentChildName())} <span aria-hidden="true">★</span></span>
-    ${renderAv2Progress()}
+    ${shopping ? renderShoppingProgress() : renderAv2Progress()}
     <div class="header-actions">
       <button class="change-child-button" type="button" data-action="change-child" aria-label="Trocar criança">Trocar criança</button>
-      <button class="secondary-button av2-exit-button" type="button" data-action="home" aria-label="Voltar às revisões">Revisões</button>
+      <button class="secondary-button av2-exit-button" type="button" data-action="${shopping ? 'av2-entry' : 'home'}" aria-label="${shopping ? 'Voltar às atividades AV2' : 'Voltar às revisões'}">${shopping ? 'Atividades AV2' : 'Revisões'}</button>
     </div>
   </header>`;
 }
@@ -703,6 +741,114 @@ function renderAv2Game() {
         <span class="speech-status" data-speech-status role="status" aria-live="polite"></span>
         <div class="exercise-area av2-exercise-area">${renderAv2Question(question)}</div>
         ${renderAv2Feedback(question)}
+      </section>
+    </main>
+  </div>`;
+}
+
+function renderShoppingProduct(product) {
+  const price = Number.isSafeInteger(product.price)
+    ? `<strong class="shopping-product-price">${escapeHtml(formatMoneyAmount(product.price))}</strong>`
+    : '';
+  return `<article class="shopping-product-card">
+    <span class="shopping-product-icon" aria-hidden="true">${escapeHtml(product.icon)}</span>
+    <span class="shopping-product-name">${escapeHtml(product.name)}</span>
+    ${price}
+  </article>`;
+}
+
+function renderShoppingAmount(label, amount) {
+  return `<div class="shopping-amount-chip"><span>${escapeHtml(label)}</span><strong>${escapeHtml(formatMoneyAmount(amount))}</strong></div>`;
+}
+
+function renderShoppingVisuals(question) {
+  const values = question.values;
+  if (question.family === 'money-addition') {
+    return `<div class="shopping-money-group" role="group" aria-label="Dinheiro para somar">
+      ${values.items.map(({ denomination }, index) => `<div class="shopping-money-item" data-money-item-index="${index}">${renderMoneyIllustration(denomination)}</div>`).join('')}
+    </div>`;
+  }
+  const products = values.products ?? (values.product ? [values.product] : []);
+  const productRow = products.length
+    ? `<div class="shopping-product-row">${products.map((product) => renderShoppingProduct(product)).join('')}</div>`
+    : '';
+  if (question.family === 'remaining') {
+    return `${productRow}<div class="shopping-amount-row">${renderShoppingAmount('Tinha', values.available)}${renderShoppingAmount('Gastou', values.cost)}</div>`;
+  }
+  if (question.family === 'missing') {
+    return `${productRow}<div class="shopping-amount-row">${renderShoppingAmount('Preço', values.price)}${renderShoppingAmount('Já tem', values.available)}</div>`;
+  }
+  if (question.family === 'change') {
+    return `${productRow}<div class="shopping-payment-row"><span>Pagou com</span>${renderMoneyIllustration(values.payment)}</div>`;
+  }
+  return productRow;
+}
+
+function shoppingGuidance(question) {
+  const hints = {
+    'money-addition': 'Para descobrir o total, junte os valores com uma adição.',
+    'price-addition': 'Para descobrir quanto gastou, some os preços.',
+    remaining: 'Para descobrir quanto sobrou, tire o preço do dinheiro que tinha.',
+    missing: 'Compare o preço com o dinheiro que já tem. Descubra o que falta.',
+    change: 'Troco é o dinheiro que volta: tire o preço do valor pago.',
+    compare: 'Compare os preços. Para achar a diferença, tire o menor do maior.',
+  };
+  return hints[question.family] ?? 'Observe os valores e pense na conta que precisa fazer.';
+}
+
+function renderShoppingFeedback(question) {
+  if (state.shoppingCorrect) {
+    const message = createPersonalizedMessage({
+      childName: currentChildName(),
+      visualTemplate: 'Muito bem, {name}! Você acertou!',
+      speechText: `Muito bem! ${question.explanation}`,
+    });
+    return `<div class="feedback success-feedback" role="status" aria-live="polite">
+      <p class="feedback-title">${escapeHtml(message.visualText)}</p>
+      <div class="feedback-actions">
+        ${renderSpeechButton('explanation', question.explanation)}
+        <button class="primary-button next-button" type="button" data-action="next-shopping">${state.shoppingIndex === state.shoppingRound.length - 1 ? 'Concluir' : 'Próxima'} <span aria-hidden="true">→</span></button>
+      </div>
+    </div>`;
+  }
+  if (state.shoppingAttempts === 0) return '';
+  return `<div class="feedback retry-feedback" role="alert" aria-live="polite">
+    <p class="feedback-title">${state.shoppingAttempts === 1 ? 'Tudo bem, vamos pensar juntos.' : 'Veja como resolver:'}</p>
+    <p class="shopping-guidance">${escapeHtml(state.shoppingAttempts === 1 ? shoppingGuidance(question) : question.explanation)}</p>
+  </div>`;
+}
+
+function renderShoppingOptions(question) {
+  const productAnswers = question.answerType === 'product';
+  return `<div class="shopping-answer-options ${productAnswers ? 'product-answer-options' : ''}" role="group" aria-label="Alternativas de resposta">
+    ${question.options.map((option, index) => {
+      const selected = String(state.shoppingSelected) === String(option.value);
+      const incorrect = selected && !state.shoppingCorrect && state.shoppingAttempts > 0;
+      const content = productAnswers
+        ? `<span class="shopping-product-icon" aria-hidden="true">${escapeHtml(option.product.icon)}</span><span class="shopping-product-name">${escapeHtml(option.product.name)}</span><strong class="shopping-product-price">${escapeHtml(formatMoneyAmount(option.product.price))}</strong>`
+        : escapeHtml(option.label);
+      const ariaLabel = productAnswers
+        ? `${option.product.name}, ${formatMoneyAmount(option.product.price)}`
+        : `Alternativa ${index + 1}: ${option.label}`;
+      return `<button class="shopping-answer-option ${selected ? 'is-selected' : ''} ${incorrect ? 'is-incorrect' : ''}" type="button" data-shopping-answer="${escapeAttribute(String(option.value))}" aria-label="${escapeAttribute(ariaLabel)}" aria-pressed="${selected}" ${state.shoppingCorrect ? 'disabled' : ''}>${content}</button>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderShoppingGame() {
+  const question = state.shoppingRound[state.shoppingIndex];
+  const family = SHOPPING_FAMILIES.find(({ id }) => id === question.family);
+  return `<div class="site-shell game-screen av2-game-screen shopping-game-screen">
+    ${renderAv2Header({ shopping: true })}
+    <main class="main-content av2-main-content">
+      <div class="question-topline"><span class="activity-badge">Questão ${state.shoppingIndex + 1} de 12</span><span class="activity-count">${escapeHtml(family.title)}</span></div>
+      <div class="question-heading"><div><h1 id="shopping-question-title">${escapeHtml(family.title)}</h1></div>${renderGuide(state.shoppingCorrect ? 'Muito bem! Você está quase lá.' : 'Vamos com calma! Você consegue!')}</div>
+      <section class="question-card av2-question-card shopping-question-card" aria-labelledby="shopping-question-title" data-question-id="${escapeAttribute(encodeURIComponent(question.questionId))}">
+        <div class="prompt-row"><p class="prompt" id="shopping-question-prompt">${escapeHtml(question.prompt)}</p>${renderSpeechButton('question', question.speech)}</div>
+        <span class="speech-status" data-speech-status role="status" aria-live="polite"></span>
+        <div class="shopping-visual-area">${renderShoppingVisuals(question)}</div>
+        ${renderShoppingOptions(question)}
+        ${renderShoppingFeedback(question)}
       </section>
     </main>
   </div>`;
@@ -776,7 +922,9 @@ function renderReward() {
   const rewardPage = getColoringPageById(state.rewardPageId);
   const rewardMessage = createRewardMessage();
   const av2Reward = state.activeRevision === AV2_REVISION_ID;
-  const starCount = av2Reward ? 10 : 6;
+  const shoppingReward = av2Reward && state.activeActivityId === AV2_SHOPPING_ACTIVITY_ID;
+  const av2QuestionCount = shoppingReward ? 12 : 10;
+  const starCount = av2Reward ? av2QuestionCount : 6;
   const starsLabel = `${starCount} estrelas conquistadas`;
   return `<div class="site-shell reward-screen">
     <main class="reward-main">
@@ -784,13 +932,13 @@ function renderReward() {
         <div class="reward-stars${av2Reward ? ' av2-reward-stars' : ''}" aria-label="${starsLabel}">${Array.from({ length: starCount }, () => av2Reward ? '<span aria-hidden="true">★</span>' : '★').join(av2Reward ? '' : ' ')}</div>
         <p class="eyebrow">Missão cumprida!</p>
         <h1 id="reward-title">${escapeHtml(rewardMessage.visualText)}</h1>
-        <p class="reward-copy">${av2Reward ? 'Você concluiu as 10 questões sobre dinheiro. Agora é hora de colorir!' : 'Você passou por todas as atividades. Agora é hora de colorir!'}</p>
+        <p class="reward-copy">${av2Reward ? `Você concluiu as ${av2QuestionCount} questões ${shoppingReward ? 'de compras e troco' : 'sobre dinheiro'}. Agora é hora de colorir!` : 'Você passou por todas as atividades. Agora é hora de colorir!'}</p>
         ${state.rewardFallback ? renderColoringPage(null) : renderColoringPage(rewardPage)}
         <div class="reward-actions">
           <button class="primary-button" type="button" data-action="print">🖨 Imprimir meu desenho</button>
           <button class="secondary-button" type="button" data-action="another-coloring-page">🎨 Ver outro desenho</button>
-          <button class="secondary-button" type="button" data-action="restart">↻ ${av2Reward ? 'Outra rodada AV2' : 'Jogar novamente'}</button>
-          ${av2Reward ? '<button class="secondary-button" type="button" data-action="home">Voltar às revisões</button>' : ''}
+          <button class="secondary-button" type="button" data-action="restart">↻ ${shoppingReward ? 'Outra rodada de compras e troco' : av2Reward ? 'Outra rodada AV2' : 'Jogar novamente'}</button>
+          ${av2Reward ? `<button class="secondary-button" type="button" data-action="av2-entry">Voltar às atividades AV2</button>` : ''}
           <button class="change-child-home" type="button" data-action="change-child">Trocar criança</button>
         </div>
         ${renderOfficialColoringAction()}
@@ -836,6 +984,7 @@ function render() {
   else if (state.screen === 'home') app.innerHTML = renderHome();
   else if (state.screen === 'av2-home') app.innerHTML = renderAv2Home();
   else if (state.screen === 'av2-game') app.innerHTML = renderAv2Game();
+  else if (state.screen === 'av2-shopping-game') app.innerHTML = renderShoppingGame();
   else if (state.screen === 'reward') app.innerHTML = renderReward();
   else app.innerHTML = renderGame();
   app.insertAdjacentHTML('beforeend', renderChangeChildDialog());
@@ -847,6 +996,7 @@ function render() {
 
 function resetRoundState() {
   state.activeRevision = 'classic';
+  state.activeActivityId = AV2_MONEY_ACTIVITY_ID;
   state.round = [];
   state.currentIndex = 0;
   state.correct = false;
@@ -865,6 +1015,11 @@ function resetRoundState() {
   state.av2Correct = false;
   state.av2Attempts = 0;
   state.av2Selected = null;
+  state.shoppingRound = [];
+  state.shoppingIndex = 0;
+  state.shoppingCorrect = false;
+  state.shoppingAttempts = 0;
+  state.shoppingSelected = null;
 }
 
 function requestChangeChild() {
@@ -929,12 +1084,33 @@ function beginRound() {
 function beginAv2Round() {
   cancelSpeech();
   state.activeRevision = AV2_REVISION_ID;
+  state.activeActivityId = AV2_MONEY_ACTIVITY_ID;
   state.screen = 'av2-game';
   state.av2Round = createAv2Round();
   state.av2Index = 0;
   state.av2Correct = false;
   state.av2Attempts = 0;
   state.av2Selected = null;
+  state.rewardPageId = null;
+  state.rewardFallback = false;
+  state.officialOpenFailure = null;
+  render();
+}
+
+function beginShoppingRound() {
+  cancelSpeech();
+  state.activeRevision = AV2_REVISION_ID;
+  state.activeActivityId = AV2_SHOPPING_ACTIVITY_ID;
+  state.screen = 'av2-shopping-game';
+  state.shoppingRound = createShoppingRound({
+    roundNumber: shoppingProgress.get().roundsCompleted + 1,
+    childName: currentChildName(),
+    recentFingerprints: state.recentShoppingFingerprints,
+  });
+  state.shoppingIndex = 0;
+  state.shoppingCorrect = false;
+  state.shoppingAttempts = 0;
+  state.shoppingSelected = null;
   state.rewardPageId = null;
   state.rewardFallback = false;
   state.officialOpenFailure = null;
@@ -975,6 +1151,24 @@ function nextAv2Question() {
   state.av2Correct = false;
   state.av2Attempts = 0;
   state.av2Selected = null;
+  render();
+}
+
+function nextShoppingQuestion() {
+  if (!state.shoppingCorrect) return;
+  cancelSpeech();
+  if (state.shoppingIndex >= state.shoppingRound.length - 1) {
+    state.recentShoppingFingerprints = state.shoppingRound.map(({ fingerprint }) => fingerprint);
+    shoppingProgress.completeRound();
+    selectRewardPage();
+    state.screen = 'reward';
+    render();
+    return;
+  }
+  state.shoppingIndex += 1;
+  state.shoppingCorrect = false;
+  state.shoppingAttempts = 0;
+  state.shoppingSelected = null;
   render();
 }
 
@@ -1031,6 +1225,24 @@ function selectAv2Option(moneyId) {
   document.querySelector(`[data-av2-answer="${moneyId}"]`)?.focus();
 }
 
+function selectShoppingOption(value) {
+  if (state.shoppingCorrect) return;
+  const question = state.shoppingRound[state.shoppingIndex];
+  const answer = question?.answerType === 'money' ? Number(value) : value;
+  if (!question?.options.some((option) => String(option.value) === String(value))) return;
+  state.shoppingSelected = answer;
+  if (validateShoppingAnswer(question, answer)) {
+    state.shoppingCorrect = true;
+    cancelSpeech();
+    render();
+    return;
+  }
+  state.shoppingAttempts += 1;
+  cancelSpeech();
+  render();
+  document.querySelector(`[data-shopping-answer="${escapeAttribute(String(value))}"]`)?.focus();
+}
+
 function collectInputAnswers() {
   const question = currentQuestion();
   if (question.type === 'addition') {
@@ -1068,8 +1280,10 @@ function bindEvents() {
       const action = element.dataset.action;
       if (action === 'start') beginRound();
       if (action === 'start-av2') beginAv2Round();
+      if (action === 'start-shopping') beginShoppingRound();
       if (action === 'restart') {
-        if (state.activeRevision === AV2_REVISION_ID) beginAv2Round();
+        if (state.activeRevision === AV2_REVISION_ID && state.activeActivityId === AV2_SHOPPING_ACTIVITY_ID) beginShoppingRound();
+        else if (state.activeRevision === AV2_REVISION_ID) beginAv2Round();
         else beginRound();
       }
       if (action === 'av2-entry') {
@@ -1089,6 +1303,7 @@ function bindEvents() {
       }
       if (action === 'next') nextQuestion();
       if (action === 'next-av2') nextAv2Question();
+      if (action === 'next-shopping') nextShoppingQuestion();
       if (action === 'check-answer') checkAnswer();
       if (action === 'hint') {
         state.hintVisible = true;
@@ -1137,6 +1352,10 @@ function bindEvents() {
 
   document.querySelectorAll('[data-av2-answer]').forEach((button) => {
     button.addEventListener('click', () => selectAv2Option(button.dataset.av2Answer));
+  });
+
+  document.querySelectorAll('[data-shopping-answer]').forEach((button) => {
+    button.addEventListener('click', () => selectShoppingOption(button.dataset.shoppingAnswer));
   });
 
   const visualOptions = [...document.querySelectorAll('[data-shape-option]')];

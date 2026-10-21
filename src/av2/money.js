@@ -25,6 +25,19 @@ export const BANKNOTES = Object.freeze(MONEY_DENOMINATIONS.filter(({ kind }) => 
 
 const DENOMINATION_BY_ID = new Map(MONEY_DENOMINATIONS.map((money) => [money.id, money]));
 
+export function formatMoneyAmount(centavos) {
+  if (!Number.isSafeInteger(centavos) || centavos < 0) {
+    throw new RangeError('O valor deve ser um número inteiro e não negativo de centavos.');
+  }
+  if (centavos < 100) return `${centavos} ${centavos === 1 ? 'centavo' : 'centavos'}`;
+
+  const reais = Math.floor(centavos / 100);
+  const remainder = centavos % 100;
+  const realText = `${reais} ${reais === 1 ? 'real' : 'reais'}`;
+  if (remainder === 0) return realText;
+  return `${realText} e ${remainder} ${remainder === 1 ? 'centavo' : 'centavos'}`;
+}
+
 function randomIndex(length, random) {
   const value = Number(random());
   const normalized = Number.isFinite(value) ? Math.min(Math.max(value, 0), 0.999999999999) : 0;

@@ -114,7 +114,7 @@ test('a criança entra na AV2, termina dez questões, inicia outra rodada e reto
     assert.match(app.innerHTML, /AV2 Matemática/);
 
     clickAction(document, 'av2-entry');
-    assert.match(app.innerHTML, /AV2 Matemática<br><span>Dinheiro/);
+    assert.match(app.innerHTML, /AV2 Matemática<br><span>Escolha uma atividade/);
     clickAction(document, 'home');
     assert.match(app.innerHTML, /data-action="start"/);
 
@@ -142,7 +142,7 @@ test('a criança entra na AV2, termina dez questões, inicia outra rodada e reto
 
     assert.match(app.innerHTML, /Você concluiu as 10 questões sobre dinheiro/);
     assert.match(app.innerHTML, /Outra rodada AV2/);
-    assert.match(app.innerHTML, /Voltar às revisões/);
+    assert.match(app.innerHTML, /Voltar às atividades AV2/);
     assert.equal(JSON.parse(storage.getItem(AV2_PROGRESS_STORAGE_KEY)).roundsCompleted, 1);
     assert.equal(storage.getItem(CHILD_NAME_STORAGE_KEY), 'Ana');
 

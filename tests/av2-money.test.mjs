@@ -12,6 +12,7 @@ import {
   createAv2Round,
   createComparisonQuestion,
   createIdentificationQuestion,
+  formatMoneyAmount,
   validateAv2Answer,
 } from '../src/av2/money.js';
 import { AV2_PROGRESS_STORAGE_KEY, createAv2ProgressStore } from '../src/av2/progress.js';
@@ -35,6 +36,17 @@ function memoryStorage(initial = {}) {
     values,
   };
 }
+
+test('o formatador compartilhado escreve centavos e reais sem notação decimal', () => {
+  assert.equal(formatMoneyAmount(1), '1 centavo');
+  assert.equal(formatMoneyAmount(25), '25 centavos');
+  assert.equal(formatMoneyAmount(100), '1 real');
+  assert.equal(formatMoneyAmount(200), '2 reais');
+  assert.equal(formatMoneyAmount(101), '1 real e 1 centavo');
+  assert.equal(formatMoneyAmount(250), '2 reais e 50 centavos');
+  assert.throws(() => formatMoneyAmount(-1), RangeError);
+  assert.throws(() => formatMoneyAmount(1.5), RangeError);
+});
 
 test('todas as moedas e cédulas têm IDs únicos, centavos inteiros, rótulos e representação', async () => {
   const styles = await fs.readFile(path.join(root, 'styles.css'), 'utf8');
@@ -171,8 +183,10 @@ test('a interface oferece as duas revisões, mantém o gerador anterior e public
   assert.match(app, /data-action="start"/);
   assert.match(app, /data-action="av2-entry"/);
   assert.match(app, /data-action="start-av2"/);
+  assert.match(app, /data-action="start-shopping"/);
   assert.match(app, /data-action="home"/);
   assert.match(app, /data-action="next-av2"/);
+  assert.match(app, /data-action="next-shopping"/);
   assert.match(app, /data-av2-answer=/);
   assert.match(app, /state\.round = createRound\(\)/);
   assert.match(app, /state\.av2Round = createAv2Round\(\)/);
@@ -183,8 +197,11 @@ test('a interface oferece as duas revisões, mantém o gerador anterior e public
   assert.doesNotMatch(app, /money-sem-valor|SEM VALOR/);
   const av2Interface = app.slice(app.indexOf('function renderMoneyIllustration'), app.indexOf('function renderAv2Feedback'));
   assert.doesNotMatch(av2Interface, /R\$\s*\d|\b\d+,\d{2}\b|\b0\.\d{2}\b/);
+  const shoppingInterface = app.slice(app.indexOf('function renderShoppingProduct'), app.indexOf('function selectRewardPage'));
+  assert.doesNotMatch(shoppingInterface, /R\$\s*\d|\b\d+,\d{2}\b|\b0\.\d{2}\b/);
   assert.match(server, /src\/av2\/money\.js/);
   assert.match(server, /src\/av2\/progress\.js/);
+  assert.match(server, /src\/av2\/shopping\.js/);
   assert.match(server, /public\/currency\/ATTRIBUTIONS\.md/);
   assert.match(css, /@media \(max-width: 460px\)/);
   assert.match(css, /\.av2-money-option/);
