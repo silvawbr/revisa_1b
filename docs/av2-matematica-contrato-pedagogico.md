@@ -325,4 +325,3 @@ No relatório final, apresente as categorias revisadas, restrições incorporada
 As páginas recebidas fornecem evidências detalhadas sobre Sistema Monetário, mas não oferecem o mesmo nível de detalhe sobre os procedimentos de adição e subtração com reagrupamento nem sobre sequência numérica. Por isso, MAT-01 a MAT-07 são fundamentadas detalhadamente nas páginas do livro; MAT-08 a MAT-10 são assuntos confirmados pelo cronograma e têm limites conservadores até haver mais exemplos da escola; MAT-11 trata da contextualização e das atividades criativas.
 
 Essa distinção impede que as páginas de dinheiro sejam tratadas como evidência suficiente para definir todo o currículo de Matemática.
-
