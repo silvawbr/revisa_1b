@@ -38,6 +38,7 @@ function memoryStorage(initial = {}) {
 
 test('todas as moedas e cédulas têm IDs únicos, centavos inteiros, rótulos e representação', async () => {
   const styles = await fs.readFile(path.join(root, 'styles.css'), 'utf8');
+  const attributions = await fs.readFile(path.join(root, 'public/currency/ATTRIBUTIONS.md'), 'utf8');
   const expected = new Map([
     ['coin-5-centavos', 5], ['coin-10-centavos', 10], ['coin-25-centavos', 25],
     ['coin-50-centavos', 50], ['coin-1-real', 100], ['note-2-reais', 200],
@@ -54,13 +55,20 @@ test('todas as moedas e cédulas têm IDs únicos, centavos inteiros, rótulos e
     assert.ok(money.label.length > 0);
     assert.ok(money.spokenLabel.length > 0);
     assert.ok(money.description.length > 0);
-    assert.ok(money.visualClass.length > 0);
-    assert.match(styles, new RegExp(`\\.${money.visualClass}\\s*\\{`));
+    const imageUrl = new URL(money.imageUrl);
+    const imageFile = decodeURIComponent(imageUrl.pathname.split('/').at(-1));
+    assert.equal(imageUrl.protocol, 'https:');
+    assert.equal(imageUrl.hostname, 'commons.wikimedia.org');
+    assert.match(imageUrl.pathname, /Special:FilePath\//);
+    assert.equal(imageUrl.searchParams.get('width'), '600');
+    assert.ok(attributions.includes(imageFile), `${money.id} precisa de crédito de imagem`);
     assert.equal(Object.isFrozen(money), true);
     assert.doesNotMatch(money.label, /R\$|\d+\.\d{2}/);
   }
   assert.deepEqual(COINS.map(({ label }) => label), ['5 centavos', '10 centavos', '25 centavos', '50 centavos', '1 real']);
   assert.deepEqual(BANKNOTES.map(({ label }) => label), ['2 reais', '5 reais', '10 reais', '20 reais', '50 reais', '100 reais', '200 reais']);
+  assert.match(styles, /\.money-object-image\s*\{/);
+  assert.match(styles, /\.money-sem-valor\s*\{/);
 });
 
 test('cada questão de identificação tem uma resposta correta e alternativas distintas da mesma categoria', () => {
@@ -171,10 +179,13 @@ test('a interface oferece as duas revisões, mantém o gerador anterior e public
   assert.match(app, /AV2_PROGRESS_STORAGE_KEY|createAv2ProgressStore/);
   assert.match(app, /createChildProfileStore\(\)/);
   assert.match(app, /aria-label="\$\{escapeAttribute\(money\.description\)\}"/);
+  assert.match(app, /class="money-object-image" src="\$\{escapeAttribute\(money\.imageUrl\)\}"/);
+  assert.match(app, /class="money-sem-valor" aria-hidden="true">SEM VALOR/);
   const av2Interface = app.slice(app.indexOf('function renderMoneyIllustration'), app.indexOf('function renderAv2Feedback'));
   assert.doesNotMatch(av2Interface, /R\$\s*\d|\b\d+,\d{2}\b|\b0\.\d{2}\b/);
   assert.match(server, /src\/av2\/money\.js/);
   assert.match(server, /src\/av2\/progress\.js/);
+  assert.match(server, /public\/currency\/ATTRIBUTIONS\.md/);
   assert.match(css, /@media \(max-width: 460px\)/);
   assert.match(css, /\.av2-money-option/);
 });

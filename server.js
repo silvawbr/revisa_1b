@@ -28,6 +28,7 @@ const PUBLIC_FILES = new Set([
   'src/data/officialColoringPages.js',
   'src/av2/money.js',
   'src/av2/progress.js',
+  'public/currency/ATTRIBUTIONS.md',
   'public/coloring-pages/ATTRIBUTIONS.md',
   'public/coloring-pages/animals-bunny-02.svg',
   'public/coloring-pages/kitten-telescope-07.svg',

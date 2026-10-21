@@ -598,10 +598,11 @@ function renderHome() {
 function renderMoneyIllustration(money) {
   const typeLabel = money.kind === 'coin' ? 'MOEDA' : 'CÉDULA';
   const visualType = money.kind === 'coin' ? 'money-coin' : 'money-note';
-  return `<div class="money-illustration ${visualType} ${money.visualClass}" role="img" aria-label="${escapeAttribute(money.description)}">
+  return `<div class="money-illustration ${visualType}" role="img" aria-label="${escapeAttribute(money.description)}">
     <span class="money-kind" aria-hidden="true">${typeLabel}</span>
-    <span class="money-value" aria-hidden="true"><b>${money.number}</b><small>${money.unit}</small></span>
-    <span class="money-decoration" aria-hidden="true"></span>
+    <span class="money-image-fallback" aria-hidden="true">${escapeHtml(money.label)}</span>
+    <img class="money-object-image" src="${escapeAttribute(money.imageUrl)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+    <span class="money-sem-valor" aria-hidden="true">SEM VALOR</span>
   </div>`;
 }
 

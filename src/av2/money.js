@@ -1,19 +1,23 @@
 export const AV2_REVISION_ID = 'av2-matematica';
 export const AV2_MONEY_ACTIVITY_ID = 'dinheiro-reconhecimento-e-comparacao';
 
+function commonsImage(fileName) {
+  return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}?width=600`;
+}
+
 export const MONEY_DENOMINATIONS = Object.freeze([
-  { id: 'coin-5-centavos', kind: 'coin', valueCents: 5, label: '5 centavos', spokenLabel: 'moeda de 5 centavos', number: '5', unit: 'centavos', visualClass: 'coin-5-centavos', description: 'Moeda brasileira de 5 centavos.' },
-  { id: 'coin-10-centavos', kind: 'coin', valueCents: 10, label: '10 centavos', spokenLabel: 'moeda de 10 centavos', number: '10', unit: 'centavos', visualClass: 'coin-10-centavos', description: 'Moeda brasileira de 10 centavos.' },
-  { id: 'coin-25-centavos', kind: 'coin', valueCents: 25, label: '25 centavos', spokenLabel: 'moeda de 25 centavos', number: '25', unit: 'centavos', visualClass: 'coin-25-centavos', description: 'Moeda brasileira de 25 centavos.' },
-  { id: 'coin-50-centavos', kind: 'coin', valueCents: 50, label: '50 centavos', spokenLabel: 'moeda de 50 centavos', number: '50', unit: 'centavos', visualClass: 'coin-50-centavos', description: 'Moeda brasileira de 50 centavos.' },
-  { id: 'coin-1-real', kind: 'coin', valueCents: 100, label: '1 real', spokenLabel: 'moeda de 1 real', number: '1', unit: 'real', visualClass: 'coin-1-real', description: 'Moeda brasileira de 1 real.' },
-  { id: 'note-2-reais', kind: 'note', valueCents: 200, label: '2 reais', spokenLabel: 'cédula de 2 reais', number: '2', unit: 'reais', visualClass: 'note-2-reais', description: 'Cédula brasileira de 2 reais.' },
-  { id: 'note-5-reais', kind: 'note', valueCents: 500, label: '5 reais', spokenLabel: 'cédula de 5 reais', number: '5', unit: 'reais', visualClass: 'note-5-reais', description: 'Cédula brasileira de 5 reais.' },
-  { id: 'note-10-reais', kind: 'note', valueCents: 1000, label: '10 reais', spokenLabel: 'cédula de 10 reais', number: '10', unit: 'reais', visualClass: 'note-10-reais', description: 'Cédula brasileira de 10 reais.' },
-  { id: 'note-20-reais', kind: 'note', valueCents: 2000, label: '20 reais', spokenLabel: 'cédula de 20 reais', number: '20', unit: 'reais', visualClass: 'note-20-reais', description: 'Cédula brasileira de 20 reais.' },
-  { id: 'note-50-reais', kind: 'note', valueCents: 5000, label: '50 reais', spokenLabel: 'cédula de 50 reais', number: '50', unit: 'reais', visualClass: 'note-50-reais', description: 'Cédula brasileira de 50 reais.' },
-  { id: 'note-100-reais', kind: 'note', valueCents: 10000, label: '100 reais', spokenLabel: 'cédula de 100 reais', number: '100', unit: 'reais', visualClass: 'note-100-reais', description: 'Cédula brasileira de 100 reais.' },
-  { id: 'note-200-reais', kind: 'note', valueCents: 20000, label: '200 reais', spokenLabel: 'cédula de 200 reais', number: '200', unit: 'reais', visualClass: 'note-200-reais', description: 'Cédula brasileira de 200 reais.' },
+  { id: 'coin-5-centavos', kind: 'coin', valueCents: 5, label: '5 centavos', spokenLabel: 'moeda de 5 centavos', imageUrl: commonsImage('5 CENTAVOS Brasil 1998.jpg'), description: 'Moeda brasileira de 5 centavos, frente e verso.' },
+  { id: 'coin-10-centavos', kind: 'coin', valueCents: 10, label: '10 centavos', spokenLabel: 'moeda de 10 centavos', imageUrl: commonsImage('ME0DA10 centavo2BR.jpg'), description: 'Moeda brasileira de 10 centavos, frente e verso.' },
+  { id: 'coin-25-centavos', kind: 'coin', valueCents: 25, label: '25 centavos', spokenLabel: 'moeda de 25 centavos', imageUrl: commonsImage('25 centavosDeodoro da Fonseca.jpg'), description: 'Moeda brasileira de 25 centavos, frente e verso.' },
+  { id: 'coin-50-centavos', kind: 'coin', valueCents: 50, label: '50 centavos', spokenLabel: 'moeda de 50 centavos', imageUrl: commonsImage('Moeda de 50 centavos Barão do Rio Branco.png'), description: 'Moeda brasileira de 50 centavos, frente e verso.' },
+  { id: 'coin-1-real', kind: 'coin', valueCents: 100, label: '1 real', spokenLabel: 'moeda de 1 real', imageUrl: commonsImage('Moeda de 1 Real de 1998.png'), description: 'Moeda brasileira de 1 real, frente e verso.' },
+  { id: 'note-2-reais', kind: 'note', valueCents: 200, label: '2 reais', spokenLabel: 'cédula de 2 reais', imageUrl: commonsImage('2 Brazil real Second Obverse.jpg'), description: 'Cédula brasileira de 2 reais, da segunda família.' },
+  { id: 'note-5-reais', kind: 'note', valueCents: 500, label: '5 reais', spokenLabel: 'cédula de 5 reais', imageUrl: commonsImage('5 Brazil real Second Obverse.jpg'), description: 'Cédula brasileira de 5 reais, da segunda família.' },
+  { id: 'note-10-reais', kind: 'note', valueCents: 1000, label: '10 reais', spokenLabel: 'cédula de 10 reais', imageUrl: commonsImage('10 Brazil real Second Obverse.jpg'), description: 'Cédula brasileira de 10 reais, da segunda família.' },
+  { id: 'note-20-reais', kind: 'note', valueCents: 2000, label: '20 reais', spokenLabel: 'cédula de 20 reais', imageUrl: commonsImage('20 Brazil real Second Obverse.jpg'), description: 'Cédula brasileira de 20 reais, da segunda família.' },
+  { id: 'note-50-reais', kind: 'note', valueCents: 5000, label: '50 reais', spokenLabel: 'cédula de 50 reais', imageUrl: commonsImage('50 Brazil real Second Obverse.jpg'), description: 'Cédula brasileira de 50 reais, da segunda família.' },
+  { id: 'note-100-reais', kind: 'note', valueCents: 10000, label: '100 reais', spokenLabel: 'cédula de 100 reais', imageUrl: commonsImage('100 Brazil real Second Obverse.jpg'), description: 'Cédula brasileira de 100 reais, da segunda família.' },
+  { id: 'note-200-reais', kind: 'note', valueCents: 20000, label: '200 reais', spokenLabel: 'cédula de 200 reais', imageUrl: commonsImage('200 Brazil real Second Obverse.jpg'), description: 'Cédula brasileira de 200 reais, da segunda família.' },
 ].map((money) => Object.freeze(money)));
 
 export const COINS = Object.freeze(MONEY_DENOMINATIONS.filter(({ kind }) => kind === 'coin'));
