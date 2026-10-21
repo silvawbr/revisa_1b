@@ -8,9 +8,10 @@ seus valores em rodadas de dez questões. O Bloco 02 acrescenta a atividade
 “Compras e troco”, com somas, preços, valores que sobram ou faltam, troco e
 comparação de preços em rodadas de doze questões.
 
-Os geradores de operações monetárias seguem a regra AV2-MAT-01: cada conta e
-suas alternativas usam somente reais ou somente centavos, sem conversão entre
-as unidades. A validação rejeita questões que violem essa regra.
+Os geradores de operações monetárias seguem duas regras da AV2. A AV2-MAT-01
+mantém cada conta e suas alternativas em uma só unidade. A AV2-MAT-02 impede
+que uma soma de centavos alcance 100 e exija convertê-los em reais. A validação
+rejeita questões que violem qualquer uma das regras.
 
 Ao concluir a rodada, a criança recebe um desenho local para colorir. A
 aplicação inclui um servidor Node mínimo para servir os arquivos estáticos e
@@ -98,14 +99,14 @@ ignorada pelo Git.
 - `src/game.js`: geração, validação e conversão de números para português.
 - `src/av2/money.js`: catálogo de moedas e cédulas em centavos inteiros,
   geradores de perguntas da AV2 e validação isolada das respostas.
-- `src/av2/money-rules.js`: identificador AV2-MAT-01 e verificação da unidade
-  usada em uma operação monetária.
+- `src/av2/money-rules.js`: identificadores AV2-MAT-01 e AV2-MAT-02 e
+  validação de unidade e de resultados monetários sem conversão.
 - `src/av2/progress.js`: progresso de rodadas AV2 na chave própria
   `av2-matematica.block-01.dinheiro.progress.v1`.
 - `src/av2/shopping.js`: seis geradores de problemas de compras, validação
   aritmética e formatação compartilhada de valores em centavos inteiros.
   Reutiliza o catálogo e as imagens de moeda e cédula de `money.js` e aplica a
-  regra AV2-MAT-01.
+  regras AV2-MAT-01 e AV2-MAT-02.
 - `src/figures.js`: renderização das figuras espaciais em SVG.
 - `src/data/coloringPages.js`: catálogo local, seleção aleatória e metadados de
   licença dos desenhos da recompensa.

@@ -10,10 +10,11 @@ import {
   formatMoneyAmount,
 } from '../src/av2/money.js';
 import { AV2_PROGRESS_STORAGE_KEY, createAv2ProgressStore } from '../src/av2/progress.js';
-import { isMoneyAmountInUnit } from '../src/av2/money-rules.js';
+import { isMoneyAmountInUnit, isMoneyOperationInUnit } from '../src/av2/money-rules.js';
 import {
   AV2_SHOPPING_ACTIVITY_ID,
   AV2_MAT_RULE_AV2_MAT_01,
+  AV2_MAT_RULE_AV2_MAT_02,
   AV2_SHOPPING_PROGRESS_STORAGE_KEY,
   SHOPPING_FAMILIES,
   addMoney,
@@ -81,6 +82,28 @@ test('AV2-MAT-01 aceita somente valores integralmente em reais ou em centavos', 
   assert.equal(validateShoppingAnswer({ ...centsQuestion, operationUnit: 'reais' }, centsQuestion.answer), false);
 });
 
+test('AV2-MAT-02 impede conversões quando a soma de centavos chega a um real', () => {
+  assert.equal(isMoneyOperationInUnit([25, 50], 75, 'centavos'), true);
+  assert.equal(isMoneyOperationInUnit([25, 50, 25], 100, 'centavos'), false);
+  assert.equal(isMoneyOperationInUnit([100, 100, 100], 300, 'reais'), true);
+
+  for (let seed = 1; seed <= 100; seed += 1) {
+    const question = createShoppingQuestion('money-addition', {
+      random: seededRandom(seed),
+      level: 2,
+      variant: 1,
+      salt: seed,
+    });
+    assert.equal(question.operationUnit, 'centavos');
+    assert.equal(question.values.items.length, 3);
+    assert.ok(question.values.items.every(({ value }) => [10, 25, 50].includes(value)));
+    assert.ok(question.answer < 100);
+    assert.ok(question.options.every(({ value }) => value < 100));
+    assert.ok(question.rulesApplied.includes(AV2_MAT_RULE_AV2_MAT_02));
+    assert.equal(validateShoppingAnswer(question, question.answer), true);
+  }
+});
+
 test('cada família produz problemas estruturados, respostas únicas e explicações corretas', () => {
   for (let familyIndex = 0; familyIndex < SHOPPING_FAMILIES.length; familyIndex += 1) {
     const family = SHOPPING_FAMILIES[familyIndex].id;
@@ -107,12 +130,14 @@ test('cada família produz problemas estruturados, respostas únicas e explicaç
             assert.equal(new Set(question.options.map(({ value }) => value)).size, 2);
             assert.equal(question.options.filter(({ value }) => value === question.answer).length, 1);
             assert.equal(question.ruleId, AV2_MAT_RULE_AV2_MAT_01);
+            assert.ok(question.rulesApplied.includes(AV2_MAT_RULE_AV2_MAT_02));
             assert.ok(['reais', 'centavos'].includes(question.operationUnit));
             assert.ok(question.values.products.every(({ price }) => amountUsesUnit(price, question.operationUnit)));
             continue;
           }
 
           assert.equal(question.ruleId, AV2_MAT_RULE_AV2_MAT_01);
+          assert.ok(question.rulesApplied.includes(AV2_MAT_RULE_AV2_MAT_02));
           assert.ok(['reais', 'centavos'].includes(question.operationUnit));
           assert.ok(amountUsesUnit(question.answer, question.operationUnit));
           assert.equal(question.options.length, 4);

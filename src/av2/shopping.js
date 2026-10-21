@@ -3,9 +3,14 @@ import {
   MONEY_DENOMINATIONS,
   formatMoneyAmount,
 } from './money.js';
-import { AV2_MAT_RULE_AV2_MAT_01, isMoneyAmountInUnit } from './money-rules.js';
+import {
+  AV2_MAT_RULE_AV2_MAT_01,
+  AV2_MAT_RULE_AV2_MAT_02,
+  isMoneyAmountInUnit,
+  isMoneyOperationInUnit,
+} from './money-rules.js';
 
-export { AV2_MAT_RULE_AV2_MAT_01 } from './money-rules.js';
+export { AV2_MAT_RULE_AV2_MAT_01, AV2_MAT_RULE_AV2_MAT_02 } from './money-rules.js';
 
 export const AV2_SHOPPING_ACTIVITY_ID = 'compras-e-troco';
 export const AV2_SHOPPING_PROGRESS_STORAGE_KEY = 'av2-matematica.block-02.compras-troco.progress.v1';
@@ -65,7 +70,7 @@ function pricesForUnit(unit) {
 function chooseTwoPrices(random, unit) {
   const prices = pricesForUnit(unit);
   const pairs = prices.flatMap((first) => prices
-    .filter((second) => unit === 'reais' || first + second < 100)
+    .filter((second) => isMoneyOperationInUnit([first, second], first + second, unit))
     .map((second) => [first, second]));
   return pick(random, pairs);
 }
@@ -138,7 +143,10 @@ function makeNumericOptions(answer, unit, random) {
   return { options, correctIndex: options.findIndex(({ value }) => value === answer) };
 }
 
-function finishNumericQuestion({ family, subtype, answer, operationUnit, explanation, prompt, speech, signature, values, random }) {
+function finishNumericQuestion({ family, subtype, answer, operationUnit, operationAmounts, explanation, prompt, speech, signature, values, random }) {
+  if (!isMoneyOperationInUnit(operationAmounts, answer, operationUnit)) {
+    throw new Error(`${AV2_MAT_RULE_AV2_MAT_01} / ${AV2_MAT_RULE_AV2_MAT_02} rejeitaram uma questão com unidade inconsistente.`);
+  }
   const { options, correctIndex } = makeNumericOptions(answer, operationUnit, random);
   return {
     revisionId: AV2_REVISION_ID,
@@ -153,6 +161,7 @@ function finishNumericQuestion({ family, subtype, answer, operationUnit, explana
     answerType: 'money',
     operationUnit,
     ruleId: AV2_MAT_RULE_AV2_MAT_01,
+    rulesApplied: [AV2_MAT_RULE_AV2_MAT_01, AV2_MAT_RULE_AV2_MAT_02],
     options,
     correctIndex,
     operation: ['money-addition', 'price-addition'].includes(family) ? 'addition'
@@ -165,10 +174,10 @@ function finishNumericQuestion({ family, subtype, answer, operationUnit, explana
 }
 
 function createMoneyAddition(random, level, variant) {
-  const count = level <= 2 ? 2 : 3;
+  const count = level === 1 ? 2 : 3;
   const operationUnit = variant === 0 || level === 1 || level >= 3 ? 'reais' : 'centavos';
   const bills = CURRENCY_DENOMINATIONS.filter(({ kind, value }) => kind === 'bill' && value <= 1000);
-  const centavoCoins = CURRENCY_DENOMINATIONS.filter(({ kind, value }) => kind === 'coin' && value >= 25 && value < 100);
+  const centavoCoins = CURRENCY_DENOMINATIONS.filter(({ kind, value }) => kind === 'coin' && value >= 10 && value < 100);
   const realCoins = CURRENCY_DENOMINATIONS.filter(({ kind, value }) => kind === 'coin' && value === 100);
   let items;
   if (variant === 0 || level === 1) {
@@ -177,15 +186,19 @@ function createMoneyAddition(random, level, variant) {
       return { denomination, value: denomination.value };
     });
   } else if (level === 2) {
-    // Keep the centavo total below one real so no conversion is needed.
+    // AV2-MAT-02: keep the centavo total below one real, even with three coins.
     const combinations = Array.from({ length: 500 }, () => Array.from({ length: count }, () => {
       const denomination = pick(random, centavoCoins);
       return { denomination, value: denomination.value };
-    })).filter((group) => group.reduce((total, item) => total + item.value, 0) < 100);
+    })).filter((group) => isMoneyOperationInUnit(
+      group.map(({ value }) => value),
+      group.reduce((total, item) => total + item.value, 0),
+      'centavos',
+    ));
     items = combinations.length
       ? pick(random, combinations)
       : Array.from({ length: count }, () => {
-        const denomination = centavoCoins.find(({ value }) => value === 25);
+        const denomination = centavoCoins.find(({ value }) => value === 10);
         return { denomination, value: denomination.value };
       });
   } else {
@@ -195,12 +208,16 @@ function createMoneyAddition(random, level, variant) {
     items = [coin, bill, third].map((denomination) => ({ denomination, value: denomination.value }));
   }
   const answer = addMoney(...items.map((item) => item.value));
+  if (!isMoneyOperationInUnit(items.map(({ value }) => value), answer, operationUnit)) {
+    throw new Error(`${AV2_MAT_RULE_AV2_MAT_02} rejeitou uma soma de dinheiro fora da unidade.`);
+  }
   const descriptions = items.map(({ value }) => formatMoney(value));
   return finishNumericQuestion({
     family: 'money-addition',
     subtype: 'sum-currency-items',
     answer,
     operationUnit,
+    operationAmounts: items.map(({ value }) => value),
     prompt: 'Quanto dinheiro temos ao todo?',
     speech: 'Quanto dinheiro temos ao todo?',
     explanation: `Vamos juntar os valores: ${descriptions.join(' mais ')} são ${formatMoney(answer)}.`,
@@ -221,6 +238,7 @@ function createPriceQuestion(random, level, variant, childName) {
       subtype: 'read-price',
       answer: price,
       operationUnit,
+      operationAmounts: [price],
       prompt: `Quanto custa ${product.article} ${product.name}?`,
       speech: `Quanto custa ${product.article} ${product.name}?`,
       explanation: `O preço d${product.article === 'a' ? 'a' : 'o'} ${product.name} é ${formatMoney(price)}.`,
@@ -240,6 +258,7 @@ function createPriceQuestion(random, level, variant, childName) {
     subtype: 'add-prices',
     answer,
     operationUnit,
+    operationAmounts: [firstPrice, secondPrice],
     prompt: `${character} comprou ${withProductArticle(first)} por ${formatMoney(firstPrice)} e ${withProductArticle(second)} por ${formatMoney(secondPrice)}. Quanto gastou ao todo?`,
     speech: `Uma criança comprou ${withProductArticle(first)} por ${formatMoney(firstPrice)} e ${withProductArticle(second)} por ${formatMoney(secondPrice)}. Quanto gastou ao todo?`,
     explanation: `Para descobrir o total, somamos os preços: ${formatMoney(firstPrice)} mais ${formatMoney(secondPrice)} são ${formatMoney(answer)}.`,
@@ -269,6 +288,7 @@ function createRemainingQuestion(random, level, childName) {
     subtype: 'spend-and-keep',
     answer,
     operationUnit,
+    operationAmounts: [available, cost],
     prompt: `${character} tinha ${formatMoney(available)} e comprou ${withProductArticle(product)} por ${formatMoney(cost)}. Quanto dinheiro sobrou?`,
     speech: 'Uma criança tinha dinheiro e comprou um produto. Quanto dinheiro sobrou?',
     explanation: `Para saber quanto sobrou, tiramos o que foi gasto: ${formatMoney(available)} menos ${formatMoney(cost)} são ${formatMoney(answer)}.`,
@@ -298,6 +318,7 @@ function createMissingQuestion(random, level, childName) {
     subtype: 'save-toward-price',
     answer,
     operationUnit,
+    operationAmounts: [price, available],
     prompt: `${product.article[0].toUpperCase()}${product.article.slice(1)} ${product.name} custa ${formatMoney(price)}. ${character} tem ${formatMoney(available)}. Quanto falta para comprar?`,
     speech: `Um produto custa ${formatMoney(price)}. Uma criança tem ${formatMoney(available)}. Quanto falta para comprar?`,
     explanation: `${product.article[0].toUpperCase()}${product.article.slice(1)} ${product.name} custa ${formatMoney(price)} e você tem ${formatMoney(available)}. Faltam ${formatMoney(answer)}.`,
@@ -352,6 +373,7 @@ function createChangeQuestion(random, level, childName) {
     subtype: 'pay-and-receive-change',
     answer,
     operationUnit,
+    operationAmounts: [payment.value, price],
     prompt: `${product.article[0].toUpperCase()}${product.article.slice(1)} ${product.name} custa ${formatMoney(price)}. ${character} pagou com ${formatMoney(payment.value)}. Quanto recebeu de troco?`,
     speech: `Um produto custa ${formatMoney(price)}. Uma criança pagou com ${formatMoney(payment.value)}. Quanto recebeu de troco?`,
     explanation: `O troco é o dinheiro que volta. Você pagou ${formatMoney(payment.value)} por algo que custa ${formatMoney(price)}. O troco é ${formatMoney(answer)}.`,
@@ -373,6 +395,9 @@ function createComparisonQuestion(random, level, variant) {
   }
   if (firstPrice === secondPrice) secondPrice = prices.find((price) => price !== firstPrice);
   const products = [{ ...first, price: firstPrice }, { ...second, price: secondPrice }];
+  if (!products.every(({ price }) => isMoneyAmountInUnit(price, operationUnit))) {
+    throw new Error(`${AV2_MAT_RULE_AV2_MAT_01} rejeitou uma comparação com unidades misturadas.`);
+  }
   const moreExpensive = firstPrice > secondPrice ? products[0] : products[1];
   const lessExpensive = firstPrice < secondPrice ? products[0] : products[1];
 
@@ -397,6 +422,7 @@ function createComparisonQuestion(random, level, variant) {
       answerType: 'product',
       operationUnit,
       ruleId: AV2_MAT_RULE_AV2_MAT_01,
+      rulesApplied: [AV2_MAT_RULE_AV2_MAT_01, AV2_MAT_RULE_AV2_MAT_02],
       options,
       correctIndex: options.findIndex(({ value }) => value === answer),
       operation: 'comparison',
@@ -412,6 +438,7 @@ function createComparisonQuestion(random, level, variant) {
     subtype: 'find-price-difference',
     answer,
     operationUnit,
+    operationAmounts: [firstPrice, secondPrice],
     prompt: `${first.article[0].toUpperCase()}${first.article.slice(1)} ${first.name} custa ${formatMoney(firstPrice)} e ${second.article} ${second.name} custa ${formatMoney(secondPrice)}. Qual é a diferença entre os preços?`,
     speech: `${first.article[0].toUpperCase()}${first.article.slice(1)} ${first.name} custa ${formatMoney(firstPrice)} e ${second.article} ${second.name} custa ${formatMoney(secondPrice)}. Qual é a diferença entre os preços?`,
     explanation: `${moreExpensive.article[0].toUpperCase()}${moreExpensive.article.slice(1)} ${moreExpensive.name} custa ${formatMoney(Math.max(firstPrice, secondPrice))} e ${lessExpensive.article} ${lessExpensive.name} custa ${formatMoney(Math.min(firstPrice, secondPrice))}. A diferença é de ${formatMoney(answer)}.`,
@@ -450,6 +477,7 @@ export function validateShoppingAnswer(question, answer) {
       || products?.length !== 2
       || !products.every(({ price }) => Number.isSafeInteger(price) && price >= 0)
       || question.ruleId !== AV2_MAT_RULE_AV2_MAT_01
+      || !question.rulesApplied?.includes(AV2_MAT_RULE_AV2_MAT_02)
       || !['reais', 'centavos'].includes(question.operationUnit)
       || !products.every(({ price }) => isMoneyAmountInUnit(price, question.operationUnit))
       || products[0].price === products[1].price) return false;
@@ -469,6 +497,7 @@ export function validateShoppingAnswer(question, answer) {
   }
   const values = question.options.map(({ value }) => value);
   if (question.ruleId !== AV2_MAT_RULE_AV2_MAT_01
+    || !question.rulesApplied?.includes(AV2_MAT_RULE_AV2_MAT_02)
     || !['reais', 'centavos'].includes(question.operationUnit)
     || !values.every((value) => isMoneyAmountInUnit(value, question.operationUnit))
     || new Set(values).size !== values.length
@@ -518,8 +547,7 @@ export function validateShoppingAnswer(question, answer) {
     return false;
   }
   const numericAnswer = typeof answer === 'string' && answer.trim() !== '' ? Number(answer) : answer;
-  return operationAmounts.every((amount) => isMoneyAmountInUnit(amount, question.operationUnit))
-    && isMoneyAmountInUnit(expectedAnswer, question.operationUnit)
+  return isMoneyOperationInUnit(operationAmounts, expectedAnswer, question.operationUnit)
     && Number.isSafeInteger(expectedAnswer)
     && expectedAnswer === question.answer
     && Number.isSafeInteger(numericAnswer)
