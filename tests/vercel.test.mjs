@@ -83,6 +83,7 @@ test('npm run build gera uma árvore estática publicável', async () => {
   await assert.doesNotReject(fs.access(path.join(dist, 'src/av2/money.js')));
   await assert.doesNotReject(fs.access(path.join(dist, 'src/av2/progress.js')));
   await assert.doesNotReject(fs.access(path.join(dist, 'src/av2/shopping.js')));
+  await assert.doesNotReject(fs.access(path.join(dist, 'src/av2/money-rules.js')));
   const publicSources = await Promise.all([
     fs.readFile(path.join(dist, 'index.html'), 'utf8'),
     fs.readFile(path.join(dist, 'app.js'), 'utf8'),

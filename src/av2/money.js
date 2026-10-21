@@ -38,6 +38,142 @@ export function formatMoneyAmount(centavos) {
   return `${realText} e ${remainder} ${remainder === 1 ? 'centavo' : 'centavos'}`;
 }
 
+const MONEY_DOMAINS = Object.freeze({
+  BRL_INTEIROS: 'reais',
+  CENTAVOS: 'centavos',
+});
+
+function hasDecimalMoneyNotation(question) {
+  const optionText = Array.isArray(question.options)
+    ? question.options.map((option) => (typeof option === 'string' ? option : option?.label))
+    : [];
+  const displayedText = [
+    question.prompt,
+    question.speech,
+    question.explanation,
+    question.hint,
+    question.feedback?.correct,
+    question.feedback?.retry,
+    ...optionText,
+  ].filter((value) => typeof value === 'string').join(' ');
+  return /R\$\s*\d|\b\d+[,.]\d{2}\b/i.test(displayedText);
+}
+
+function hasDistinctOptionsWithOneCorrectAnswer(question) {
+  return Array.isArray(question.options)
+    && question.options.length >= 2
+    && new Set(question.options).size === question.options.length
+    && question.options.filter((option) => option === question.correctAnswer).length === 1;
+}
+
+function validateIdentificationCandidate(question) {
+  const denomination = DENOMINATION_BY_ID.get(question.data?.denominationId);
+  if (!denomination || question.correctAnswer !== denomination.id) return false;
+  if (!hasDistinctOptionsWithOneCorrectAnswer(question) || question.options.length !== 4) return false;
+  return question.options.every((id) => DENOMINATION_BY_ID.get(id)?.kind === denomination.kind);
+}
+
+function validateComparisonCandidate(question) {
+  const { leftId, rightId, category, direction } = question.data ?? {};
+  const left = DENOMINATION_BY_ID.get(leftId);
+  const right = DENOMINATION_BY_ID.get(rightId);
+  if (!left || !right || left.id === right.id || left.valueCents === right.valueCents) return false;
+  if (!['coin', 'note', 'mixed'].includes(category) || !['greater', 'less'].includes(direction)) return false;
+  if (category === 'coin' && (left.kind !== 'coin' || right.kind !== 'coin')) return false;
+  if (category === 'note' && (left.kind !== 'note' || right.kind !== 'note')) return false;
+  if (category === 'mixed' && left.kind === right.kind) return false;
+  if (!hasDistinctOptionsWithOneCorrectAnswer(question) || question.options.length !== 2) return false;
+  if (!question.options.includes(left.id) || !question.options.includes(right.id)) return false;
+
+  const expected = direction === 'greater'
+    ? (left.valueCents > right.valueCents ? left.id : right.id)
+    : (left.valueCents < right.valueCents ? left.id : right.id);
+  return question.correctAnswer === expected;
+}
+
+function denominationValueInDomain(id, domain) {
+  const denomination = DENOMINATION_BY_ID.get(id);
+  if (!denomination) return null;
+  if (domain === 'CENTAVOS') {
+    return denomination.kind === 'coin' && denomination.valueCents < 100
+      ? denomination.valueCents
+      : null;
+  }
+  if (domain === 'BRL_INTEIROS' && denomination.valueCents % 100 === 0) {
+    return denomination.valueCents / 100;
+  }
+  return null;
+}
+
+function validateOperationCandidate(question) {
+  const {
+    operation,
+    domain,
+    operands,
+    resultUnit,
+    representations,
+  } = question.data ?? {};
+  const unit = MONEY_DOMAINS[domain];
+  if (!unit || !['addition', 'subtraction'].includes(operation)) return false;
+  if (!Array.isArray(operands) || operands.length < 2) return false;
+  if (operation === 'subtraction' && operands.length !== 2) return false;
+  if (resultUnit !== unit) return false;
+  if (!operands.every((operand) => (
+    operand
+    && Number.isInteger(operand.value)
+    && operand.value > 0
+    && operand.unit === unit
+    && (domain !== 'CENTAVOS' || (operand.value < 100 && operand.value % 5 === 0))
+  ))) return false;
+
+  if (representations !== undefined) {
+    if (!Array.isArray(representations) || representations.length !== operands.length) return false;
+    for (let index = 0; index < representations.length; index += 1) {
+      const group = representations[index];
+      if (!Array.isArray(group) || group.length === 0) return false;
+      const representedValue = group.reduce((total, id) => {
+        const value = denominationValueInDomain(id, domain);
+        return value === null ? Number.NaN : total + value;
+      }, 0);
+      if (representedValue !== operands[index].value) return false;
+    }
+  }
+
+  const expected = operation === 'addition'
+    ? operands.reduce((total, operand) => total + operand.value, 0)
+    : operands[0].value - operands[1].value;
+  if (expected < 0 || !Number.isInteger(question.correctAnswer) || question.correctAnswer !== expected) return false;
+  if (domain === 'CENTAVOS' && expected >= 100) return false;
+  return hasDistinctOptionsWithOneCorrectAnswer(question)
+    && question.options.every((option) => (
+      Number.isInteger(option)
+      && option >= 0
+      && (domain !== 'CENTAVOS' || (option < 100 && option % 5 === 0))
+    ));
+}
+
+/**
+ * Validates the pedagogical contract before a generated candidate is exposed
+ * to the interface. Operation candidates use data.domain, data.operands,
+ * data.resultUnit and, when money images are shown, data.representations.
+ */
+export function validateAv2MoneyQuestionCandidate(question) {
+  if (!question || question.revisionId !== AV2_REVISION_ID || question.activityId !== AV2_MONEY_ACTIVITY_ID) return false;
+  if (hasDecimalMoneyNotation(question)) return false;
+
+  if (question.type === 'identification') return validateIdentificationCandidate(question);
+  if (question.type === 'comparison') return validateComparisonCandidate(question);
+  if (question.type === 'operation') return validateOperationCandidate(question);
+  return false;
+}
+
+function assertAv2MoneyQuestionCandidate(question) {
+  if (!validateAv2MoneyQuestionCandidate(question)) {
+    throw new TypeError('A questão viola o contrato pedagógico da AV2 Matemática.');
+  }
+  return question;
+}
+
 function randomIndex(length, random) {
   const value = Number(random());
   const normalized = Number.isFinite(value) ? Math.min(Math.max(value, 0), 0.999999999999) : 0;
@@ -66,7 +202,7 @@ function getDenomination(value) {
 }
 
 function createQuestion({ type, data, correctAnswer, options, prompt, speech, explanation, hint, questionId }) {
-  return Object.freeze({
+  const question = Object.freeze({
     revisionId: AV2_REVISION_ID,
     activityId: AV2_MONEY_ACTIVITY_ID,
     questionId,
@@ -83,6 +219,7 @@ function createQuestion({ type, data, correctAnswer, options, prompt, speech, ex
       retry: 'Tente novamente! Observe os valores com calma.',
     }),
   });
+  return assertAv2MoneyQuestionCandidate(question);
 }
 
 export function formatMoneyComparison(left, right, direction) {

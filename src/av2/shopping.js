@@ -456,13 +456,19 @@ export function createShoppingQuestion(family, {
   salt = 0,
 } = {}) {
   const source = randomWithSalt(random, salt);
-  if (family === 'money-addition') return createMoneyAddition(source, level, variant);
-  if (family === 'price-addition') return createPriceQuestion(source, level, variant, childName);
-  if (family === 'remaining') return createRemainingQuestion(source, level, childName);
-  if (family === 'missing') return createMissingQuestion(source, level, childName);
-  if (family === 'change') return createChangeQuestion(source, level, childName);
-  if (family === 'compare') return createComparisonQuestion(source, level, variant);
-  throw new RangeError(`Família de exercício desconhecida: ${family}`);
+  let question;
+  if (family === 'money-addition') question = createMoneyAddition(source, level, variant);
+  else if (family === 'price-addition') question = createPriceQuestion(source, level, variant, childName);
+  else if (family === 'remaining') question = createRemainingQuestion(source, level, childName);
+  else if (family === 'missing') question = createMissingQuestion(source, level, childName);
+  else if (family === 'change') question = createChangeQuestion(source, level, childName);
+  else if (family === 'compare') question = createComparisonQuestion(source, level, variant);
+  else throw new RangeError(`Família de exercício desconhecida: ${family}`);
+
+  if (!validateShoppingAnswer(question, question.answer)) {
+    throw new TypeError('A questão viola as regras pedagógicas de Compras e Troco.');
+  }
+  return question;
 }
 
 export function validateShoppingAnswer(question, answer) {

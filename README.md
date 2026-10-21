@@ -13,6 +13,9 @@ mantém cada conta e suas alternativas em uma só unidade. A AV2-MAT-02 impede
 que uma soma de centavos alcance 100 e exija convertê-los em reais. A validação
 rejeita questões que violem qualquer uma das regras.
 
+O contrato completo de conteúdo e geração da avaliação está documentado no
+[Contrato Pedagógico da AV2 Matemática](docs/av2-matematica-contrato-pedagogico.md).
+
 Ao concluir a rodada, a criança recebe um desenho local para colorir. A
 aplicação inclui um servidor Node mínimo para servir os arquivos estáticos e
 gerar voz pelo endpoint de Text-to-Speech do OpenRouter, sem expor a chave no
@@ -98,9 +101,10 @@ ignorada pelo Git.
 - `app.js`: fluxo da experiência, eventos, acessibilidade e telas.
 - `src/game.js`: geração, validação e conversão de números para português.
 - `src/av2/money.js`: catálogo de moedas e cédulas em centavos inteiros,
-  geradores de perguntas da AV2 e validação isolada das respostas.
+  geradores de perguntas da AV2 e validação dos candidatos e das respostas.
 - `src/av2/money-rules.js`: identificadores AV2-MAT-01 e AV2-MAT-02 e
-  validação de unidade e de resultados monetários sem conversão.
+  validação de unidade e resultados, com centavos em múltiplos de cinco e sem
+  conversões.
 - `src/av2/progress.js`: progresso de rodadas AV2 na chave própria
   `av2-matematica.block-01.dinheiro.progress.v1`.
 - `src/av2/shopping.js`: seis geradores de problemas de compras, validação

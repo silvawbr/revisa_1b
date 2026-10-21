@@ -71,6 +71,8 @@ test('AV2-MAT-01 aceita somente valores integralmente em reais ou em centavos', 
   assert.equal(isMoneyAmountInUnit(500, 'reais'), true);
   assert.equal(isMoneyAmountInUnit(550, 'reais'), false);
   assert.equal(isMoneyAmountInUnit(75, 'centavos'), true);
+  assert.equal(isMoneyAmountInUnit(1, 'centavos'), false);
+  assert.equal(isMoneyAmountInUnit(12, 'centavos'), false);
   assert.equal(isMoneyAmountInUnit(100, 'centavos'), false);
 
   const centsQuestion = createShoppingQuestion('price-addition', {
@@ -84,6 +86,7 @@ test('AV2-MAT-01 aceita somente valores integralmente em reais ou em centavos', 
 
 test('AV2-MAT-02 impede conversões quando a soma de centavos chega a um real', () => {
   assert.equal(isMoneyOperationInUnit([25, 50], 75, 'centavos'), true);
+  assert.equal(isMoneyOperationInUnit([1, 5], 6, 'centavos'), false);
   assert.equal(isMoneyOperationInUnit([25, 50, 25], 100, 'centavos'), false);
   assert.equal(isMoneyOperationInUnit([100, 100, 100], 300, 'reais'), true);
 
