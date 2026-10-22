@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 130">
+  <title>Brinquedo robô colorido</title><rect width="180" height="130" rx="20" fill="#f3efff"/>
+  <path d="M90 20v14" stroke="#55446d" stroke-width="5" stroke-linecap="round"/><circle cx="90" cy="15" r="7" fill="#ef746b" stroke="#55446d" stroke-width="3"/>
+  <rect x="52" y="35" width="76" height="61" rx="15" fill="#62b6e8" stroke="#55446d" stroke-width="4"/>
+  <rect x="65" y="48" width="50" height="30" rx="10" fill="#fff" stroke="#55446d" stroke-width="3"/>
+  <circle cx="79" cy="62" r="5" fill="#55446d"/><circle cx="101" cy="62" r="5" fill="#55446d"/>
+  <path d="M80 72q10 8 20 0" fill="none" stroke="#ef746b" stroke-width="3" stroke-linecap="round"/>
+  <path d="M52 50H39v27h13m76-27h13v27h-13M70 97v15m40-15v15" fill="#ffd34f" stroke="#55446d" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M69 113h-9m51 0h9" stroke="#55446d" stroke-width="5" stroke-linecap="round"/>
+</svg>

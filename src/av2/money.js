@@ -1,3 +1,6 @@
+import { getAv2ProductIllustration, getAv2ProductIllustrationId } from './product-illustrations.js';
+import { numberToPortuguese } from '../game.js';
+
 export const AV2_REVISION_ID = 'av2-matematica';
 export const AV2_MONEY_ACTIVITY_ID = 'dinheiro-reconhecimento-e-comparacao';
 export const AV2_SHOPPING_ACTIVITY_ID = 'dinheiro-compras-e-troco';
@@ -469,7 +472,8 @@ function validateShoppingCandidate(question) {
   const products = data.products;
   if (!Array.isArray(products) || products.length < 2
     || products.some((product) => !product || typeof product.id !== 'string' || typeof product.label !== 'string'
-      || product.label.length === 0 || !Number.isInteger(product.priceReais) || product.priceReais <= 0 || product.priceReais > MAX_SHOPPING_PRODUCT_PRICE)
+      || product.label.length === 0 || !getAv2ProductIllustration(product.illustrationId)
+      || !Number.isInteger(product.priceReais) || product.priceReais <= 0 || product.priceReais > MAX_SHOPPING_PRODUCT_PRICE)
     || new Set(products.map(({ id }) => id)).size !== products.length) return false;
   if (question.type === 'shopping-affordability') {
     if (!Number.isInteger(data.availableReais) || data.availableReais <= 0 || data.availableReais > MAX_SHOPPING_TOTAL
@@ -552,18 +556,29 @@ export function createCurrencyCompositionQuestion({ denominationIds, options = n
   return assertAv2MoneyQuestionCandidate(createQuestion(question));
 }
 
-function createShoppingQuestion({ type, questionId, data, correctAnswer, correctAnswers, options, prompt, explanation, hint }) {
+function createShoppingQuestion({ type, questionId, data, correctAnswer, correctAnswers, options, prompt, speech = prompt, explanation, hint }) {
+  const questionData = Array.isArray(data.products)
+    ? {
+      ...data,
+      products: data.products.map((product) => {
+        const illustrationId = product.illustrationId ?? getAv2ProductIllustrationId(product.label);
+        const productIllustration = getAv2ProductIllustration(illustrationId);
+        if (!productIllustration) throw new TypeError(`Produto da AV2 sem ilustração cadastrada: ${product.label}`);
+        return { ...product, illustrationId, article: product.article ?? productIllustration.article };
+      }),
+    }
+    : data;
   const question = createQuestion({
     type,
     activityId: AV2_SHOPPING_ACTIVITY_ID,
     pedagogicalCategory: 'SHOPPING_PROBLEM',
     questionId,
-    data,
+    data: questionData,
     correctAnswer,
     correctAnswers,
     options,
     prompt,
-    speech: prompt,
+    speech,
     explanation,
     hint,
   });
@@ -577,11 +592,13 @@ function createAvailableTotal({ denominationIds, id, random }) {
     getDenomination(denominationId).kind === 'coin' ? 'moedas' : 'cédulas'
   )))];
   const moneyDescription = moneyKinds.join(' e ');
+  const prompt = 'Quanto dinheiro há ao todo?';
   return createShoppingQuestion({
     type: 'shopping-available-total', questionId: `shopping-total-${id}`,
     data: { denominationIds }, correctAnswer: total,
     options: shuffled([...new Set([total - 2, total - 1, total, total + 1])].filter((value) => value >= 0), random),
-    prompt: 'Quanto dinheiro há ao todo?',
+    prompt,
+    speech: `${prompt} Você tem ${denominationIds.map(describeDenominationForSpeech).join(', ')}.`,
     explanation: `O grupo de ${moneyDescription} soma ${total} ${total === 1 ? 'real' : 'reais'}.`,
     hint: 'Some os valores de todas as peças de dinheiro.',
   });
@@ -589,11 +606,13 @@ function createAvailableTotal({ denominationIds, id, random }) {
 
 function createAffordability({ availableReais, products, id, random }) {
   const correctAnswers = products.filter(({ priceReais }) => priceReais <= availableReais).map(({ id: productId }) => productId);
+  const prompt = `Você tem ${availableReais} reais. Quais produtos pode comprar, um de cada vez?`;
   return createShoppingQuestion({
     type: 'shopping-affordability', questionId: `shopping-afford-${id}`,
     data: { availableReais, products }, correctAnswers,
     options: shuffled(products.map(({ id: productId }) => productId), random),
-    prompt: `Você tem ${availableReais} reais. Quais produtos pode comprar, um de cada vez?`,
+    prompt,
+    speech: `Você tem ${numberToPortuguese(availableReais)} reais. Quais produtos pode comprar, um de cada vez? ${products.map(describeShoppingProduct).join(' ')}`,
     explanation: `Com ${availableReais} reais, você pode escolher os produtos que custam até esse valor.`,
     hint: 'Compare o preço de cada produto com o dinheiro que você tem.',
   });
@@ -602,13 +621,15 @@ function createAffordability({ availableReais, products, id, random }) {
 function createChange({ availableReais, products, purchaseProductId, id, random }) {
   const product = products.find(({ id: productId }) => productId === purchaseProductId);
   const change = availableReais - product.priceReais;
-  const article = product.article === 'a' ? 'a' : 'o';
+  const article = shoppingArticle(product);
   const productName = product.label.toLocaleLowerCase('pt-BR');
+  const prompt = `Quanto recebe de troco ao comprar ${article} ${productName}?`;
   return createShoppingQuestion({
     type: 'shopping-change', questionId: `shopping-change-${id}`,
     data: { availableReais, products, purchaseProductId }, correctAnswer: change,
     options: shuffled([...new Set([Math.max(0, change - 2), Math.max(0, change - 1), change, change + 1])], random),
-    prompt: `Você paga com ${availableReais} reais ao comprar ${article} ${productName}. Quanto recebe de troco?`,
+    prompt,
+    speech: `Você tem ${numberToPortuguese(availableReais)} reais. ${describeShoppingProduct(product)} Quanto receberá de troco?`,
     explanation: `Para calcular o troco, subtraímos o preço do produto do valor pago: ${availableReais} menos ${product.priceReais} são ${change} reais.`,
     hint: 'Subtraia o preço do produto do dinheiro que você tem.',
   });
@@ -617,9 +638,8 @@ function createChange({ availableReais, products, purchaseProductId, id, random 
 function createProductTotal({ type, products, selectedProductIds, id, random }) {
   const selected = selectedProductIds.map((productId) => products.find(({ id }) => id === productId));
   const total = selected.reduce((sum, product) => sum + product.priceReais, 0);
-  const names = selected.map(({ label }) => label.toLocaleLowerCase('pt-BR'));
-  const productList = names.length === 2
-    ? names.join(' e ')
+  const names = selected.map((product) => `${shoppingArticle(product)} ${product.label.toLocaleLowerCase('pt-BR')}`);
+  const productList = names.length === 2 ? names.join(' e ')
     : `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
   const prompt = `Quanto custam juntos ${productList}?`;
   return createShoppingQuestion({
@@ -627,9 +647,29 @@ function createProductTotal({ type, products, selectedProductIds, id, random }) 
     data: { products, selectedProductIds }, correctAnswer: total,
     options: shuffled([...new Set([total - 2, total - 1, total, total + 1])].filter((value) => value >= 0), random),
     prompt,
+    speech: `${prompt} ${selected.map(describeShoppingProduct).join(' ')}`,
     explanation: `Some os preços dos produtos escolhidos: ${selected.map(({ priceReais }) => priceReais).join(' + ')} = ${total} reais.`,
     hint: 'Identifique os produtos citados e some os preços deles.',
   });
+}
+
+function describeShoppingProduct(product) {
+  const article = shoppingArticle(product) === 'a' ? 'A' : 'O';
+  const priceLabel = product.priceReais === 1 ? 'real' : 'reais';
+  return `${article} ${product.label.toLocaleLowerCase('pt-BR')} custa ${numberToPortuguese(product.priceReais)} ${priceLabel}.`;
+}
+
+function shoppingArticle(product) {
+  return product.article ?? getAv2ProductIllustration(getAv2ProductIllustrationId(product.label))?.article ?? 'o';
+}
+
+function describeDenominationForSpeech(id) {
+  const denomination = getDenomination(id);
+  const isWholeReal = denomination.valueCents >= 100 && denomination.valueCents % 100 === 0;
+  const value = isWholeReal ? denomination.valueCents / 100 : denomination.valueCents;
+  const unit = isWholeReal ? (value === 1 ? 'real' : 'reais') : 'centavos';
+  const kind = denomination.kind === 'coin' ? 'moeda' : 'cédula';
+  return `uma ${kind} de ${numberToPortuguese(value)} ${unit}`;
 }
 
 /** Ten child-facing Block 02 questions, including the five official formats and five varied forms. */

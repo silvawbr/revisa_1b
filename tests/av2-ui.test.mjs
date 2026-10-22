@@ -4,6 +4,11 @@ import { MONEY_DENOMINATIONS } from '../src/av2/money.js';
 import { AV2_PROGRESS_STORAGE_KEY, AV2_SHOPPING_PROGRESS_STORAGE_KEY } from '../src/av2/progress.js';
 import { CHILD_NAME_STORAGE_KEY } from '../src/child-profile.js';
 
+const SHOPPING_PRODUCT_LABELS = [
+  'Caderno', 'Livro', 'Lápis', 'Cola', 'Tesoura', 'Borracha', 'Régua', 'Giz de cera',
+  'Boneca', 'Carrinho', 'Bola', 'Urso', 'Jogo', 'Brinquedo',
+];
+
 class FakeElement {
   constructor(attributes) {
     this.dataset = {};
@@ -120,18 +125,22 @@ function currentShoppingAnswer(markup) {
     const affordable = [];
     for (const [, attributes, content] of markup.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)) {
       const id = attributes.match(/data-av2-answer="([^"]+)"/)?.[1];
-      const price = Number(content.match(/<span>(\d+) reais<\/span>/)?.[1]);
+      const price = Number(content.match(/class="av2-product-price">(\d+) (?:real|reais)<\/span>/)?.[1]);
       if (id && Number.isFinite(price) && price <= available) affordable.push(id);
     }
     return affordable;
   }
-  const products = [...markup.matchAll(/<div class="av2-product-card"><strong>([^<]+)<\/strong><span>(\d+) reais<\/span><\/div>/g)]
-    .map(([, name, price]) => ({ name: name.toLocaleLowerCase('pt-BR'), price: Number(price) }));
+  const products = [...markup.matchAll(/<((?:article|button)\b[^>]*\bclass="[^"]*av2-product-card[^"]*"[^>]*)>([\s\S]*?)<\/(?:article|button)>/g)]
+    .map(([, attributes, content]) => ({
+      id: attributes.match(/data-av2-product-id="([^"]+)"/)?.[1],
+      name: content.match(/<strong>([^<]+)<\/strong>/)?.[1]?.toLocaleLowerCase('pt-BR'),
+      price: Number(content.match(/class="av2-product-price">(\d+) (?:real|reais)<\/span>/)?.[1]),
+    }));
   if (type === 'shopping-change') {
-    const available = Number(prompt.match(/Você paga com (\d+) reais/)?.[1]);
-    const bought = prompt.match(/ao comprar [oa] ([^.]+)\./)?.[1]?.toLocaleLowerCase('pt-BR');
-    const product = products.find(({ name }) => name === bought);
-    assert.ok(product, 'o produto comprado e seu preço estão apresentados');
+    const available = Number(markup.match(/data-av2-paid-amount="(\d+)"/)?.[1]);
+    assert.equal(products.length, 1, 'só o produto comprado aparece no exercício de troco');
+    const product = products[0];
+    assert.ok(prompt.includes(product.name), 'o produto comprado aparece no enunciado');
     return String(available - product.price);
   }
   const selected = products.filter(({ name }) => prompt.toLocaleLowerCase('pt-BR').includes(name));
@@ -226,11 +235,60 @@ test('a criança entra na AV2, termina dez questões, inicia outra rodada e reto
       Math.random = originalRandom;
     }
     assert.match(app.innerHTML, /Questão 1 de 10/);
+    const shoppingTypes = new Set();
+    let testedProductSelection = false;
     for (let questionIndex = 0; questionIndex < 10; questionIndex += 1) {
       assert.doesNotMatch(app.innerHTML, /R\$\s*\d|\b\d+[,\.]\d{2}\b/);
+      const questionType = app.innerHTML.match(/data-av2-question-type="(shopping-[^"]+)"/)?.[1];
+      assert.ok(questionType, 'a rodada renderiza uma questão de Compras e Troco');
+      shoppingTypes.add(questionType);
+      const cards = [...app.innerHTML.matchAll(/<((?:article|button)\b[^>]*\bclass="[^"]*av2-product-card[^"]*"[^>]*)>([\s\S]*?)<\/(?:article|button)>/g)];
+      if (questionType === 'shopping-available-total') {
+        assert.equal(cards.length, 0, 'total disponível mantém as ilustrações de moedas e cédulas');
+      } else {
+        assert.ok(cards.length > 0, 'produtos têm cartões ilustrados');
+        for (const [, attributes, card] of cards) {
+          assert.match(card, /<img class="av2-product-image" src="\/public\/av2-products\/[a-z-]+\.svg" alt="" aria-hidden="true"/);
+          assert.match(card, /<strong>[^<]+<\/strong>/, 'o cartão mostra o nome do produto');
+          assert.match(card, /<span class="av2-product-price">\d+ (?:real|reais)<\/span>/, 'o cartão mostra o preço');
+          assert.match(attributes, /data-av2-product-illustration="[a-z-]+"/);
+        }
+      }
+      if (questionType === 'shopping-affordability') {
+        assert.equal(cards.length, 4, 'todas as opções de compra aparecem');
+        assert.ok(cards.every(([tag]) => tag.startsWith('<button ')), 'as alternativas continuam clicáveis');
+        assert.match(app.innerHTML, /aria-label="[^"]+, \d+ (?:real|reais)"/);
+        if (!testedProductSelection) {
+          const initialId = cards[0][1].match(/data-av2-answer="([^"]+)"/)?.[1];
+          document.querySelectorAll('[data-av2-answer]').find((element) => element.dataset.av2Answer === initialId).click();
+          assert.match(app.innerHTML, new RegExp(`data-av2-answer="${initialId}"[^>]*aria-pressed="true"`));
+          document.querySelectorAll('[data-av2-answer]').find((element) => element.dataset.av2Answer === initialId).click();
+          assert.match(app.innerHTML, new RegExp(`data-av2-answer="${initialId}"[^>]*aria-pressed="false"`));
+          testedProductSelection = true;
+        }
+      }
+      if (questionType === 'shopping-change') {
+        assert.equal(cards.length, 1, 'o troco mostra apenas o produto comprado');
+        assert.match(app.innerHTML, /data-av2-paid-amount="\d+">Valor pago: <strong>\d+ reais<\/strong>/);
+        const prompt = app.innerHTML.match(/id="av2-question-prompt">([^<]+)</)?.[1]?.toLocaleLowerCase('pt-BR') ?? '';
+        const expectedNames = SHOPPING_PRODUCT_LABELS.filter((name) => prompt.includes(name.toLocaleLowerCase('pt-BR')));
+        const displayedName = cards[0][2].match(/<strong>([^<]+)<\/strong>/)?.[1];
+        assert.deepEqual(expectedNames, [displayedName], 'o único cartão de troco corresponde ao produto citado');
+      }
+      if (questionType === 'shopping-product-sum' || questionType === 'shopping-selected-total') {
+        assert.ok([2, 3].includes(cards.length), 'a soma mostra somente os dois ou três produtos pedidos');
+        const prompt = app.innerHTML.match(/id="av2-question-prompt">([^<]+)</)?.[1]?.toLocaleLowerCase('pt-BR') ?? '';
+        const expectedNames = SHOPPING_PRODUCT_LABELS.filter((name) => prompt.includes(name.toLocaleLowerCase('pt-BR'))).sort();
+        const displayedNames = cards.map(([, , card]) => card.match(/<strong>([^<]+)<\/strong>/)?.[1]).sort();
+        assert.deepEqual(displayedNames, expectedNames, 'a soma mostra exatamente os produtos citados');
+      }
       answerCurrentShoppingQuestion(document, app);
       assert.match(app.innerHTML, /Muito bem, Ana!/);
+      if (questionType === 'shopping-affordability') assert.match(app.innerHTML, /data-av2-answer="[^"]+"[^>]*disabled/);
       clickAction(document, 'next-av2');
+    }
+    for (const questionType of ['shopping-affordability', 'shopping-change', 'shopping-product-sum', 'shopping-selected-total', 'shopping-available-total']) {
+      assert.ok(shoppingTypes.has(questionType), `${questionType} é coberto pela rodada renderizada`);
     }
     assert.match(app.innerHTML, /Você concluiu as 10 questões sobre dinheiro/);
     assert.equal(JSON.parse(storage.getItem(AV2_SHOPPING_PROGRESS_STORAGE_KEY)).roundsCompleted, 1);

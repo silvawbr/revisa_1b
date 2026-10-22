@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 130">
+  <title>Bola colorida</title><rect width="180" height="130" rx="20" fill="#fff7e5"/>
+  <circle cx="90" cy="66" r="47" fill="#ffd34f" stroke="#55446d" stroke-width="4"/>
+  <path d="M90 19q-23 20-18 47t35 47M90 19q23 20 18 47t-35 47" fill="none" stroke="#ef746b" stroke-width="15"/>
+  <path d="M48 48q23 6 42 18t42 18M48 84q23-6 42-18t42-18" fill="none" stroke="#62b6e8" stroke-width="10"/>
+  <circle cx="90" cy="66" r="47" fill="none" stroke="#55446d" stroke-width="4"/>
+  <path d="M61 36q8-6 15-8" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+</svg>

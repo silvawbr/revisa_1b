@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 130">
+  <title>Balde de pipoca</title><rect width="180" height="130" rx="20" fill="#fff3ed"/>
+  <path d="M48 59h84l-10 58H58z" fill="#ef746b" stroke="#55446d" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M63 62l5 53m21-53v53m21-53-5 53" stroke="#fff" stroke-width="10"/>
+  <g fill="#fff2c9" stroke="#55446d" stroke-width="3"><circle cx="62" cy="49" r="16"/><circle cx="83" cy="42" r="19"/><circle cx="105" cy="47" r="17"/><circle cx="123" cy="52" r="13"/></g>
+  <path d="M74 43q-4-9 3-12m20 8q-3-10 5-14m17 24q-2-8 4-11" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+</svg>

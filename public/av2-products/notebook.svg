@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 130">
+  <title>Caderno azul com espiral</title><rect width="180" height="130" rx="20" fill="#fff6dc"/>
+  <rect x="45" y="14" width="103" height="103" rx="12" fill="#62b6e8" stroke="#55446d" stroke-width="4"/>
+  <rect x="56" y="22" width="81" height="86" rx="7" fill="#fff" stroke="#55446d" stroke-width="3"/>
+  <path d="M65 43h57M65 56h57M65 69h57M65 82h41" stroke="#91cbe7" stroke-width="3" stroke-linecap="round"/>
+  <path d="M45 22v87" stroke="#f29a76" stroke-width="5"/>
+  <g fill="#fff" stroke="#55446d" stroke-width="3"><circle cx="44" cy="29" r="5"/><circle cx="44" cy="48" r="5"/><circle cx="44" cy="67" r="5"/><circle cx="44" cy="86" r="5"/><circle cx="44" cy="105" r="5"/></g>
+</svg>

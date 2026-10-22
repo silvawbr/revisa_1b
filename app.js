@@ -34,6 +34,7 @@ import {
   createAv2ShoppingRound,
   validateAv2Answer,
 } from './src/av2/money.js';
+import { getAv2ProductIllustration } from './src/av2/product-illustrations.js';
 import { AV2_SHOPPING_PROGRESS_STORAGE_KEY, createAv2ProgressStore } from './src/av2/progress.js';
 import {
   createChildProfileStore,
@@ -694,23 +695,44 @@ function renderAv2Question(question) {
 function renderAv2ShoppingQuestion(question) {
   const { data } = question;
   const selectedIds = Array.isArray(state.av2Selected) ? state.av2Selected : [];
-  const productCards = Array.isArray(data.products)
-    ? `<div class="av2-products" role="group" aria-label="Produtos e preços">${data.products.map((product) => `<div class="av2-product-card"><strong>${escapeHtml(product.label)}</strong><span>${product.priceReais} ${product.priceReais === 1 ? 'real' : 'reais'}</span></div>`).join('')}</div>`
-    : '';
+  const renderProductCard = (product, { selectable = false, selected = false, incorrect = false } = {}) => {
+    const illustration = getAv2ProductIllustration(product.illustrationId);
+    if (!illustration) return '';
+    const priceLabel = `${product.priceReais} ${product.priceReais === 1 ? 'real' : 'reais'}`;
+    const image = `<img class="av2-product-image" src="${escapeAttribute(illustration.src)}" alt="" aria-hidden="true" width="180" height="130" decoding="async">`;
+    const contents = `${image}<strong>${escapeHtml(product.label)}</strong><span class="av2-product-price">${priceLabel}</span>`;
+    if (!selectable) {
+      return `<article class="av2-product-card" data-av2-product-id="${escapeAttribute(product.id)}" data-av2-product-illustration="${escapeAttribute(product.illustrationId)}">${contents}</article>`;
+    }
+    const buttonLabel = `${product.label}, ${priceLabel}`;
+    return `<button class="av2-product-card av2-product-choice ${selected ? 'is-selected' : ''} ${incorrect ? 'is-incorrect' : ''}" type="button" data-av2-answer="${escapeAttribute(product.id)}" data-av2-product-id="${escapeAttribute(product.id)}" data-av2-product-illustration="${escapeAttribute(product.illustrationId)}" aria-pressed="${selected}" aria-label="${escapeAttribute(buttonLabel)}" ${state.av2Correct ? 'disabled' : ''}>${contents}</button>`;
+  };
+  const renderProductGroup = (products, { label = 'Produtos e preços', selectable = false } = {}) => (
+    `<div class="av2-products" data-product-count="${products.length}" role="group" aria-label="${escapeAttribute(label)}">${products.map((product) => renderProductCard(product, {
+      selectable,
+      selected: selectable && selectedIds.includes(product.id),
+      incorrect: selectable && selectedIds.includes(product.id) && state.av2Attempts > 0 && !question.correctAnswers.includes(product.id),
+    })).join('')}</div>`
+  );
 
   if (question.type === 'shopping-affordability') {
-    const options = question.options.map((productId, index) => {
-      const product = data.products.find(({ id }) => id === productId);
-      const selected = selectedIds.includes(productId);
-      const incorrect = selected && state.av2Attempts > 0 && !question.correctAnswers.includes(productId);
-      return `<button class="av2-product-card av2-product-choice ${selected ? 'is-selected' : ''} ${incorrect ? 'is-incorrect' : ''}" type="button" data-av2-answer="${escapeAttribute(productId)}" aria-pressed="${selected}" aria-label="Produto ${index + 1}: ${escapeAttribute(product.label)}, ${product.priceReais} reais" ${state.av2Correct ? 'disabled' : ''}><strong>${escapeHtml(product.label)}</strong><span>${product.priceReais} reais</span></button>`;
-    }).join('');
-    return `<div class="av2-exercise is-shopping" data-av2-question-type="${question.type}"><p class="av2-available-money">Você tem <strong>${data.availableReais} reais</strong>.</p><div class="av2-products" role="group" aria-label="Escolha todos os produtos que pode comprar">${options}</div><button class="primary-button" type="button" data-action="submit-av2" ${selectedIds.length === 0 || state.av2Correct ? 'disabled' : ''}>Conferir escolhas</button></div>`;
+    const options = question.options.map((productId) => data.products.find(({ id }) => id === productId)).filter(Boolean);
+    return `<div class="av2-exercise is-shopping" data-av2-question-type="${question.type}"><p class="av2-available-money">Você tem <strong>${data.availableReais} reais</strong>.</p>${renderProductGroup(options, { label: 'Escolha todos os produtos que pode comprar', selectable: true })}<button class="primary-button" type="button" data-action="submit-av2" ${selectedIds.length === 0 || state.av2Correct ? 'disabled' : ''}>Conferir escolhas</button></div>`;
   }
 
   let visualMoney = '';
   if (question.type === 'shopping-available-total') {
     visualMoney = `<div class="av2-money-group">${data.denominationIds.map((id) => `<div class="av2-group-item">${renderMoneyIllustration(moneyById.get(id))}<span>${escapeHtml(moneyById.get(id).label)}</span></div>`).join('')}</div>`;
+  }
+  let productCards = '';
+  let paidAmount = '';
+  if (question.type === 'shopping-change') {
+    const product = data.products.find(({ id }) => id === data.purchaseProductId);
+    productCards = product ? renderProductGroup([product], { label: 'Produto comprado' }) : '';
+    paidAmount = `<p class="av2-available-money av2-shopping-paid" data-av2-paid-amount="${data.availableReais}">Valor pago: <strong>${data.availableReais} reais</strong>.</p>`;
+  } else if (question.type === 'shopping-product-sum' || question.type === 'shopping-selected-total') {
+    const products = data.selectedProductIds.map((id) => data.products.find((product) => product.id === id)).filter(Boolean);
+    productCards = renderProductGroup(products, { label: 'Produtos para somar' });
   }
   const numericOptions = question.options.map((amount, index) => {
     const selected = state.av2Selected === amount;
@@ -718,7 +740,7 @@ function renderAv2ShoppingQuestion(question) {
     const label = `${amount} ${amount === 1 ? 'real' : 'reais'}`;
     return `<button class="av2-answer-label ${selected ? 'is-selected' : ''} ${incorrect ? 'is-incorrect' : ''}" type="button" data-av2-answer="${amount}" aria-label="Alternativa ${index + 1}: ${label}" aria-pressed="${selected}" ${state.av2Correct ? 'disabled' : ''}>${label}</button>`;
   }).join('');
-  return `<div class="av2-exercise is-shopping" data-av2-question-type="${question.type}">${visualMoney || productCards}<div class="av2-answer-options label-options" role="group" aria-label="Alternativas de resposta">${numericOptions}</div></div>`;
+  return `<div class="av2-exercise is-shopping" data-av2-question-type="${question.type}">${visualMoney || `${paidAmount}${productCards}`}<div class="av2-answer-options label-options" role="group" aria-label="Alternativas de resposta">${numericOptions}</div></div>`;
 }
 
 function renderAv2Feedback(question) {
@@ -756,7 +778,7 @@ function renderAv2Game() {
       <section class="question-card av2-question-card" aria-labelledby="av2-question-title">
         <div class="prompt-row"><p class="prompt" id="av2-question-prompt">${escapeHtml(question.prompt)}</p>${renderSpeechButton('question', question.speech)}</div>
         <span class="speech-status" data-speech-status role="status" aria-live="polite"></span>
-        <div class="exercise-area av2-exercise-area">${renderAv2Question(question)}</div>
+        <div class="exercise-area av2-exercise-area${question.pedagogicalCategory === 'SHOPPING_PROBLEM' ? ' is-shopping-question' : ''}">${renderAv2Question(question)}</div>
         ${renderAv2Feedback(question)}
       </section>
     </main>

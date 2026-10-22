@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 130">
+  <title>Sanduíche de pão com queijo e alface</title><rect width="180" height="130" rx="20" fill="#fff6e7"/>
+  <path d="M36 89q4-38 54-55 50 17 54 55z" fill="#eab565" stroke="#55446d" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M43 82q18-11 34 0t34 0 34 0" fill="none" stroke="#78c66e" stroke-width="10" stroke-linecap="round"/>
+  <path d="M43 91h93v13q-46 20-93 0z" fill="#f2c96d" stroke="#55446d" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M49 97h80" stroke="#e97865" stroke-width="7" stroke-linecap="round"/>
+  <path d="M53 60q37-24 74 0" fill="none" stroke="#fff0c9" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="59" cy="77" r="4" fill="#e67868"/><circle cx="118" cy="77" r="4" fill="#e67868"/>
+</svg>

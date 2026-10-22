@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 130">
+  <title>Caixa de jogo de tabuleiro</title><rect width="180" height="130" rx="20" fill="#edf8f1"/>
+  <path d="M40 34l82-12 18 80-82 13z" fill="#f3c84c" stroke="#55446d" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M40 34l25 9 8 72-15-10z" fill="#ef796a" stroke="#55446d" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M83 45l12 13 17-5-8 17 8 15-18-4-12 12-2-18-16-9 17-4z" fill="#fff" stroke="#55446d" stroke-width="3" stroke-linejoin="round"/>
+  <circle cx="119" cy="82" r="11" fill="#77c49a" stroke="#55446d" stroke-width="3"/>
+  <circle cx="117" cy="80" r="2.5" fill="#fff"/><circle cx="122" cy="85" r="2.5" fill="#fff"/>
+</svg>

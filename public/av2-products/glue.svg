@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 130">
+  <title>Frasco de cola escolar</title><rect width="180" height="130" rx="20" fill="#eaf5ff"/>
+  <path d="M73 20h34v16H73z" fill="#ef765e" stroke="#55446d" stroke-width="4"/>
+  <path d="M78 12h24v12H78z" fill="#ffd34f" stroke="#55446d" stroke-width="4"/>
+  <path d="M61 43q0-8 9-8h40q9 0 9 8v59q0 13-13 13H74q-13 0-13-13z" fill="#fff" stroke="#55446d" stroke-width="4"/>
+  <rect x="69" y="57" width="42" height="34" rx="8" fill="#a7d8f2" stroke="#55446d" stroke-width="3"/>
+  <path d="M82 75q8-12 16 0" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+  <path d="M77 102h26" stroke="#f5c451" stroke-width="5" stroke-linecap="round"/>
+</svg>
