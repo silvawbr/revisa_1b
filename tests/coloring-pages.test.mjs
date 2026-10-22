@@ -94,17 +94,13 @@ test('o servidor entrega o catálogo e todos os SVGs localmente', async () => {
     '/src/data/officialColoringPages.js',
     '/src/child-profile.js',
     '/src/av2/money.js',
-    '/src/av2/money-rules.js',
     '/src/av2/progress.js',
-    '/src/av2/shopping.js',
     '/public/coloring-pages/ATTRIBUTIONS.md',
   ]) {
     const response = await requestStatic(sourcePath);
     assert.equal(response.status, 200, sourcePath);
   }
   assert.equal((await requestStatic('/src/av2/money.js')).headers['Content-Type'], 'text/javascript; charset=utf-8');
-  assert.equal((await requestStatic('/src/av2/money-rules.js')).headers['Content-Type'], 'text/javascript; charset=utf-8');
-  assert.equal((await requestStatic('/src/av2/shopping.js')).headers['Content-Type'], 'text/javascript; charset=utf-8');
 });
 
 test('a seleção evita repetição imediata e continua aleatória', () => {
