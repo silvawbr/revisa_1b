@@ -460,11 +460,9 @@ function validateShoppingCandidate(question) {
   if (question.type === 'shopping-available-total') {
     const ids = data.denominationIds;
     if (!Array.isArray(ids) || ids.length < 2) return false;
-    const valuesInReais = ids.map((id) => denominationValueInDomain(id, 'BRL_INTEIROS'));
-    if (valuesInReais.some((value) => value === null)) return false;
-    const total = valuesInReais.reduce((sum, value) => sum + value, 0);
-    return total <= MAX_SHOPPING_TOTAL
-      && question.correctAnswer === total
+    const totalCents = ids.reduce((sum, id) => sum + (DENOMINATION_BY_ID.get(id)?.valueCents ?? Number.NaN), 0);
+    return Number.isFinite(totalCents) && totalCents <= MAX_SHOPPING_TOTAL * 100 && totalCents % 100 === 0
+      && question.correctAnswer === totalCents / 100
       && hasDistinctOptionsWithOneCorrectAnswer(question)
       && question.options.every((option) => Number.isInteger(option) && option >= 0 && option <= MAX_SHOPPING_TOTAL);
   }

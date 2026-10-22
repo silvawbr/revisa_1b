@@ -403,12 +403,39 @@ test('a revisão oficial libera equivalências e compras específicas sem libera
   assert.ok(total24, '5 + 5 + 10 + 2 + 2 reais = 24');
   assert.equal(validateAv2MoneyQuestionCandidate({ ...total24, prompt: 'Quanto dinheiro há? R$24,00', speech: 'Quanto dinheiro há? R$24,00' }), true);
   assert.equal(validateAv2MoneyQuestionCandidate({ ...total24, prompt: 'Quanto dinheiro há? R$30,00', speech: 'Quanto dinheiro há? R$30,00' }), false);
-  assert.equal(validateAv2MoneyQuestionCandidate({
+  const fiftyCentEquivalence = {
     ...total24,
     data: { denominationIds: ['coin-50-centavos', 'coin-50-centavos'] },
     correctAnswer: 1,
     options: [0, 1, 2, 3],
-  }), false, 'compras não podem converter moedas de centavos para reais');
+    explanation: 'O grupo de moedas soma 1 real.',
+    feedback: { correct: 'Muito bem! O grupo de moedas soma 1 real.', retry: 'Tente novamente.' },
+  };
+  assert.equal(validateAv2MoneyQuestionCandidate(fiftyCentEquivalence), true, 'dinheiro disponível pode usar equivalência de centavos documentada');
+  assert.equal(validateAv2Answer(fiftyCentEquivalence, 1), true);
+  const quarterEquivalence = {
+    ...fiftyCentEquivalence,
+    data: { denominationIds: ['coin-25-centavos', 'coin-50-centavos', 'coin-25-centavos'] },
+    explanation: 'O grupo de moedas soma 1 real.',
+    feedback: { correct: 'Muito bem! O grupo de moedas soma 1 real.', retry: 'Tente novamente.' },
+  };
+  assert.equal(validateAv2MoneyQuestionCandidate(quarterEquivalence), true, '25 + 50 + 25 centavos também pode formar um real disponível');
+  const mixedWholeRealGroup = {
+    ...fiftyCentEquivalence,
+    data: { denominationIds: ['coin-1-real', 'coin-50-centavos', 'coin-25-centavos', 'coin-25-centavos'] },
+    correctAnswer: 2,
+    options: [1, 2, 3, 4],
+    explanation: 'O grupo de moedas soma 2 reais.',
+    feedback: { correct: 'Muito bem! O grupo de moedas soma 2 reais.', retry: 'Tente novamente.' },
+  };
+  assert.equal(validateAv2MoneyQuestionCandidate(mixedWholeRealGroup), true, 'dinheiro disponível pode combinar reais e uma equivalência completa de centavos');
+  const fractionalRealGroup = {
+    ...total24,
+    data: { denominationIds: ['note-2-reais', 'note-2-reais', 'coin-50-centavos', 'coin-10-centavos'] },
+    correctAnswer: 4,
+    options: [3, 4, 5, 6],
+  };
+  assert.equal(validateAv2MoneyQuestionCandidate(fractionalRealGroup), false, 'rejeita 4 reais e 60 centavos quando as respostas estão em reais inteiros');
   assert.equal(validateAv2MoneyQuestionCandidate({
     ...total24,
     data: { denominationIds: ['coin-1-real', 'note-2-reais'] },
