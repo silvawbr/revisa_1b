@@ -128,8 +128,8 @@ function currentShoppingAnswer(markup) {
   const products = [...markup.matchAll(/<div class="av2-product-card"><strong>([^<]+)<\/strong><span>(\d+) reais<\/span><\/div>/g)]
     .map(([, name, price]) => ({ name: name.toLocaleLowerCase('pt-BR'), price: Number(price) }));
   if (type === 'shopping-change') {
-    const available = Number(prompt.match(/Você tem (\d+) reais/)?.[1]);
-    const bought = prompt.match(/compra ([^.]+)\./)?.[1]?.toLocaleLowerCase('pt-BR');
+    const available = Number(prompt.match(/Você paga com (\d+) reais/)?.[1]);
+    const bought = prompt.match(/ao comprar [oa] ([^.]+)\./)?.[1]?.toLocaleLowerCase('pt-BR');
     const product = products.find(({ name }) => name === bought);
     assert.ok(product, 'o produto comprado e seu preço estão apresentados');
     return String(available - product.price);
@@ -182,7 +182,7 @@ test('a criança entra na AV2, termina dez questões, inicia outra rodada e reto
     assert.match(app.innerHTML, /AV2 Matemática/);
 
     clickAction(document, 'av2-entry');
-    assert.match(app.innerHTML, /AV2 Matemática<br><span>Dinheiro/);
+    assert.match(app.innerHTML, /AV2 Matemática<br><span>Escolha uma atividade/);
     clickAction(document, 'home');
     assert.match(app.innerHTML, /data-action="start"/);
 
