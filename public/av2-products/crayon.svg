@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 130">
+  <title>Giz de cera colorido</title><rect width="180" height="130" rx="20" fill="#fff7e5"/>
+  <g stroke="#55446d" stroke-width="4" stroke-linejoin="round">
+    <path d="M38 47l18-26 19 26v58H38z" fill="#f16d68"/><path d="M38 47h37" fill="#ffd7a2"/>
+    <path d="M72 42l18-26 19 26v63H72z" fill="#62b6e8"/><path d="M72 42h37" fill="#fff"/>
+    <path d="M106 49l17-25 19 25v56h-36z" fill="#78c69d"/><path d="M106 49h36" fill="#ffd34f"/>
+  </g>
+  <path d="M48 65v27M83 62v31M117 69v23" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".8"/>
+</svg>

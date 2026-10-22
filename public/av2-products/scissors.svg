@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 130">
+  <title>Tesoura escolar com pontas arredondadas</title><rect width="180" height="130" rx="20" fill="#f5efff"/>
+  <path d="M80 65L40 28q-8-7-15 2t1 16l42 30M78 67L39 104q-8 7-14-2t2-16l42-30" fill="#d8eaff" stroke="#55446d" stroke-width="4" stroke-linejoin="round"/>
+  <circle cx="43" cy="87" r="18" fill="#f48b82" stroke="#55446d" stroke-width="4"/>
+  <circle cx="45" cy="45" r="18" fill="#ffd35b" stroke="#55446d" stroke-width="4"/>
+  <circle cx="44" cy="45" r="7" fill="#fff"/><circle cx="42" cy="87" r="7" fill="#fff"/>
+  <path d="M78 65l75-36q8-4 10 3l-74 43M78 67l75 36q8 4 10-3L88 57" fill="#f8fbff" stroke="#55446d" stroke-width="4" stroke-linejoin="round"/>
+  <circle cx="80" cy="66" r="7" fill="#55446d"/>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 130">
+  <title>Carrinho de brinquedo vermelho</title><rect width="180" height="130" rx="20" fill="#eaf7ff"/>
+  <path d="M35 73l13-27q4-8 13-8h46q10 0 16 9l16 26 10 7v24H31V81z" fill="#ef746b" stroke="#55446d" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M57 47h47q7 0 11 8l9 17H48l8-20z" fill="#a9ddf5" stroke="#55446d" stroke-width="4" stroke-linejoin="round"/>
+  <circle cx="55" cy="101" r="14" fill="#55446d"/><circle cx="55" cy="101" r="6" fill="#fff"/>
+  <circle cx="128" cy="101" r="14" fill="#55446d"/><circle cx="128" cy="101" r="6" fill="#fff"/>
+  <path d="M34 83h17M144 83h12" stroke="#ffd34f" stroke-width="6" stroke-linecap="round"/>
+</svg>

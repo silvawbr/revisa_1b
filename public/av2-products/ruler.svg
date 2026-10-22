@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 130">
+  <title>Régua amarela com marcações</title><rect width="180" height="130" rx="20" fill="#edf8ee"/>
+  <g transform="rotate(-8 90 65)">
+    <rect x="26" y="43" width="128" height="45" rx="7" fill="#ffd34f" stroke="#55446d" stroke-width="4"/>
+    <path d="M42 45v19M55 45v12M68 45v19M81 45v12M94 45v19M107 45v12M120 45v19M133 45v12M146 45v19" stroke="#55446d" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="38" cy="76" r="3" fill="#e67868"/><circle cx="64" cy="76" r="3" fill="#e67868"/><circle cx="90" cy="76" r="3" fill="#e67868"/><circle cx="116" cy="76" r="3" fill="#e67868"/>
+  </g>
+</svg>

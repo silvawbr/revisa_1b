@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 130">
+  <title>Boneca com vestido lilás</title><rect width="180" height="130" rx="20" fill="#fff0f5"/>
+  <path d="M66 34q0-24 24-24t24 24v17H66z" fill="#8a5d46" stroke="#55446d" stroke-width="4"/>
+  <circle cx="90" cy="39" r="24" fill="#ffd6b3" stroke="#55446d" stroke-width="4"/>
+  <path d="M79 39h2M99 39h2" stroke="#55446d" stroke-width="4" stroke-linecap="round"/>
+  <path d="M84 50q6 5 12 0" fill="none" stroke="#e67868" stroke-width="3" stroke-linecap="round"/>
+  <path d="M68 67q22-17 44 0l18 42H50z" fill="#ae93e5" stroke="#55446d" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M82 68v-8h16v8M73 109l-4 11M107 109l4 11" stroke="#55446d" stroke-width="4" stroke-linecap="round"/>
+  <path d="M80 80h20M72 93h36" stroke="#f4c84e" stroke-width="4" stroke-linecap="round"/>
+</svg>

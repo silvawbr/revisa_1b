@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 130">
+  <title>Borracha rosa e azul</title><rect width="180" height="130" rx="20" fill="#fff0f3"/>
+  <g transform="rotate(-13 90 66)">
+    <rect x="42" y="38" width="96" height="55" rx="12" fill="#f28ea5" stroke="#55446d" stroke-width="4"/>
+    <path d="M91 40v51" stroke="#55446d" stroke-width="4"/>
+    <path d="M49 47q8-5 16 0" stroke="#ffd5df" stroke-width="5" stroke-linecap="round"/>
+    <path d="M98 47h30" stroke="#d5eaff" stroke-width="6" stroke-linecap="round"/>
+    <path d="M101 83h25" stroke="#d5eaff" stroke-width="5" stroke-linecap="round"/>
+  </g>
+</svg>

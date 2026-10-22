@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 130">
+  <title>Lápis amarelo apontado</title><rect width="180" height="130" rx="20" fill="#fff6dc"/>
+  <g transform="rotate(-38 90 65)">
+    <path d="M57 28h46v72H57z" fill="#ffd34f" stroke="#55446d" stroke-width="4"/>
+    <path d="M57 28h46v14H57z" fill="#f18f9b" stroke="#55446d" stroke-width="4"/>
+    <path d="M57 100h46l-23 25z" fill="#f0c7a5" stroke="#55446d" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M80 125l-7-8 14 0z" fill="#51455f"/>
+    <path d="M68 48v42" stroke="#fff0a0" stroke-width="6" stroke-linecap="round"/>
+  </g>
+</svg>

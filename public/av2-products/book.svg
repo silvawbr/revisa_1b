@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 130">
+  <title>Livro aberto com páginas</title><rect width="180" height="130" rx="20" fill="#eaf8f1"/>
+  <path d="M24 36q31-14 65 5v70q-34-19-65-5z" fill="#fff" stroke="#55446d" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M156 36q-31-14-67 5v70q36-19 67-5z" fill="#fff" stroke="#55446d" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M90 41v70" stroke="#e88472" stroke-width="4"/>
+  <path d="M37 52q22-7 41 2M37 65q22-7 41 2M37 78q22-7 41 2M101 54q19-9 42-3M101 68q19-9 42-3M101 82q19-9 42-3" stroke="#91c3a8" stroke-width="3" stroke-linecap="round"/>
+  <path d="M77 29h26" stroke="#f2c14e" stroke-width="7" stroke-linecap="round"/>
+</svg>

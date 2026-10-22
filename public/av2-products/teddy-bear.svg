@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 130">
+  <title>Urso de pelúcia marrom</title><rect width="180" height="130" rx="20" fill="#fff5e7"/>
+  <circle cx="60" cy="31" r="18" fill="#bc8055" stroke="#55446d" stroke-width="4"/><circle cx="120" cy="31" r="18" fill="#bc8055" stroke="#55446d" stroke-width="4"/>
+  <circle cx="60" cy="31" r="8" fill="#f4c2a5"/><circle cx="120" cy="31" r="8" fill="#f4c2a5"/>
+  <path d="M51 73q-2-39 39-39t39 39v34q0 13-13 13H64q-13 0-13-13z" fill="#bc8055" stroke="#55446d" stroke-width="4"/>
+  <ellipse cx="90" cy="78" rx="24" ry="19" fill="#f4d4ad" stroke="#55446d" stroke-width="3"/>
+  <circle cx="78" cy="62" r="4" fill="#55446d"/><circle cx="102" cy="62" r="4" fill="#55446d"/><path d="M85 76q5-7 10 0l-5 5z" fill="#55446d"/>
+  <path d="M90 82v5m0 0q-7 7-13 0m13 0q7 7 13 0" fill="none" stroke="#55446d" stroke-width="3" stroke-linecap="round"/>
+  <path d="M72 108q18 11 36 0" fill="none" stroke="#f2c14e" stroke-width="5"/>
+</svg>

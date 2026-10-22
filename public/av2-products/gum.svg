@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 130">
+  <title>Pacote de chiclete com pastilhas</title><rect width="180" height="130" rx="20" fill="#eef8ff"/>
+  <g transform="rotate(-7 88 64)">
+    <rect x="36" y="35" width="108" height="61" rx="12" fill="#7cc99f" stroke="#55446d" stroke-width="4"/>
+    <path d="M46 48q42-12 87 0v35q-45-12-87 0z" fill="#fff" stroke="#55446d" stroke-width="3"/>
+    <path d="M57 57h63M64 69h48" stroke="#9bc9e7" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="70" cy="108" r="9" fill="#f28ea5" stroke="#55446d" stroke-width="3"/><circle cx="94" cy="108" r="9" fill="#ffd34f" stroke="#55446d" stroke-width="3"/><circle cx="118" cy="108" r="9" fill="#b69be7" stroke="#55446d" stroke-width="3"/>
+  </g>
+</svg>
