@@ -31,9 +31,10 @@ import {
   COINS,
   MONEY_DENOMINATIONS,
   createAv2Round,
+  createAv2ShoppingRound,
   validateAv2Answer,
 } from './src/av2/money.js';
-import { createAv2ProgressStore } from './src/av2/progress.js';
+import { AV2_SHOPPING_PROGRESS_STORAGE_KEY, createAv2ProgressStore } from './src/av2/progress.js';
 import {
   createChildProfileStore,
   createPersonalizedMessage,
@@ -55,6 +56,7 @@ const officialColoringPageHistory = createRecentIdStore({
   limit: OFFICIAL_COLORING_PAGE_HISTORY_LIMIT,
 });
 const av2Progress = createAv2ProgressStore();
+const av2ShoppingProgress = createAv2ProgressStore({ key: AV2_SHOPPING_PROGRESS_STORAGE_KEY });
 const moneyById = new Map(MONEY_DENOMINATIONS.map((money) => [money.id, money]));
 let visualSelectionInteraction = null;
 
@@ -85,6 +87,7 @@ const state = {
   av2Correct: false,
   av2Attempts: 0,
   av2Selected: null,
+  av2Block: 'block-01',
 };
 
 const positiveMessageTemplates = [
@@ -609,18 +612,21 @@ function renderAv2Home() {
   const sampleCoin = COINS.find(({ id }) => id === 'coin-50-centavos');
   const sampleNote = BANKNOTES.find(({ id }) => id === 'note-20-reais');
   const roundsCompleted = av2Progress.get().roundsCompleted;
+  const shoppingRoundsCompleted = av2ShoppingProgress.get().roundsCompleted;
   return `<div class="site-shell home-screen av2-home-screen">
     <main class="home-main">
       <section class="home-card av2-home-card" aria-labelledby="av2-home-title">
         <p class="eyebrow">Revisão para 27 de outubro</p>
         <h1 id="av2-home-title">AV2 Matemática<br><span>Dinheiro</span></h1>
-        <p class="home-subtitle">Vamos conhecer moedas e cédulas e descobrir qual vale mais ou menos?</p>
+        <p class="home-subtitle">Escolha um desafio: reconhecer o dinheiro ou fazer compras e calcular o troco.</p>
         <div class="av2-samples" aria-label="Vamos estudar moedas e cédulas brasileiras">
           ${renderMoneyIllustration(sampleCoin)}
           ${renderMoneyIllustration(sampleNote)}
         </div>
-        <p class="av2-progress-summary" data-av2-rounds-completed>Rodadas concluídas: <strong>${roundsCompleted}</strong></p>
-        <button class="primary-button start-button" type="button" data-action="start-av2">Começar a revisão <span aria-hidden="true">→</span></button>
+        <p class="av2-progress-summary" data-av2-rounds-completed>Bloco 01 · Rodadas concluídas: <strong>${roundsCompleted}</strong></p>
+        <button class="primary-button start-button" type="button" data-action="start-av2">01 · Reconhecer moedas e cédulas <span aria-hidden="true">→</span></button>
+        <p class="av2-progress-summary">Bloco 02 · Rodadas concluídas: <strong>${shoppingRoundsCompleted}</strong></p>
+        <button class="secondary-button start-button" type="button" data-action="start-av2-shopping">02 · Compras e troco <span aria-hidden="true">→</span></button>
         <button class="secondary-button av2-back-button" type="button" data-action="home">Voltar às revisões</button>
         ${renderGuide('Moedas e cédulas têm valores diferentes. Vamos descobrir!')}
       </section>
@@ -646,10 +652,21 @@ function renderAv2Header() {
 }
 
 function renderAv2Question(question) {
-  const interactiveOptions = question.options.map((moneyId, index) => {
-    const money = moneyById.get(moneyId);
-    const selected = state.av2Selected === moneyId;
+  if (question.pedagogicalCategory === 'SHOPPING_PROBLEM') return renderAv2ShoppingQuestion(question);
+
+  const moneyGroup = (ids) => `<div class="av2-money-group">${ids.map((id) => `<div class="av2-group-item">${renderMoneyIllustration(moneyById.get(id))}<span>${escapeHtml(moneyById.get(id).label)}</span></div>`).join('')}</div>`;
+  let promptMoney = '';
+  if (question.type === 'identification') promptMoney = renderMoneyIllustration(moneyById.get(question.data.denominationId));
+  if (question.type === 'equivalence' || question.type === 'composition') promptMoney = moneyGroup(question.data.denominationIds);
+
+  const interactiveOptions = question.options.map((answer, index) => {
+    const selected = state.av2Selected === answer;
     const incorrect = selected && !state.av2Correct && state.av2Attempts > 0;
+    if (typeof answer === 'number') {
+      const label = `${answer} ${answer === 1 ? 'real' : 'reais'}`;
+      return `<button class="av2-answer-label ${selected ? 'is-selected' : ''} ${incorrect ? 'is-incorrect' : ''}" type="button" data-av2-answer="${answer}" aria-label="Alternativa ${index + 1}: ${label}" aria-pressed="${selected}" ${state.av2Correct ? 'disabled' : ''}>${label}</button>`;
+    }
+    const money = moneyById.get(answer);
     const label = `${money.kind === 'coin' ? 'Moeda' : 'Cédula'} de ${money.label}`;
     if (question.type === 'identification') {
       return `<button class="av2-answer-label ${selected ? 'is-selected' : ''} ${incorrect ? 'is-incorrect' : ''}" type="button" data-av2-answer="${money.id}" aria-label="Alternativa ${index + 1}: ${escapeAttribute(label)}" aria-pressed="${selected}" ${state.av2Correct ? 'disabled' : ''}>${escapeHtml(money.label)}</button>`;
@@ -657,15 +674,42 @@ function renderAv2Question(question) {
     return `<button class="av2-money-option ${selected ? 'is-selected' : ''} ${incorrect ? 'is-incorrect' : ''}" type="button" data-av2-answer="${money.id}" aria-label="Alternativa ${index + 1}: ${escapeAttribute(label)}" aria-pressed="${selected}" ${state.av2Correct ? 'disabled' : ''}>${renderMoneyIllustration(money)}<span class="av2-option-label">${escapeHtml(money.label)}</span></button>`;
   }).join('');
 
-  const promptMoney = question.type === 'identification'
-    ? renderMoneyIllustration(moneyById.get(question.data.denominationId))
-    : '';
-  return `<div class="av2-exercise ${question.type === 'identification' ? 'is-identification' : 'is-comparison'}">
+  return `<div class="av2-exercise ${question.type === 'identification' ? 'is-identification' : 'is-comparison'}" data-av2-question-type="${question.type}">
     ${promptMoney ? `<div class="av2-prompt-money">${promptMoney}</div>` : ''}
-    <div class="av2-answer-options ${question.type === 'identification' ? 'label-options' : 'money-options'}" role="group" aria-label="Alternativas de resposta">
+    <div class="av2-answer-options ${question.type === 'identification' || typeof question.options[0] === 'number' ? 'label-options' : 'money-options'}" role="group" aria-label="Alternativas de resposta">
       ${interactiveOptions}
     </div>
   </div>`;
+}
+
+function renderAv2ShoppingQuestion(question) {
+  const { data } = question;
+  const selectedIds = Array.isArray(state.av2Selected) ? state.av2Selected : [];
+  const productCards = Array.isArray(data.products)
+    ? `<div class="av2-products" role="group" aria-label="Produtos e preços">${data.products.map((product) => `<div class="av2-product-card"><strong>${escapeHtml(product.label)}</strong><span>${product.priceReais} ${product.priceReais === 1 ? 'real' : 'reais'}</span></div>`).join('')}</div>`
+    : '';
+
+  if (question.type === 'shopping-affordability') {
+    const options = question.options.map((productId, index) => {
+      const product = data.products.find(({ id }) => id === productId);
+      const selected = selectedIds.includes(productId);
+      const incorrect = selected && state.av2Attempts > 0 && !question.correctAnswers.includes(productId);
+      return `<button class="av2-product-card av2-product-choice ${selected ? 'is-selected' : ''} ${incorrect ? 'is-incorrect' : ''}" type="button" data-av2-answer="${escapeAttribute(productId)}" aria-pressed="${selected}" aria-label="Produto ${index + 1}: ${escapeAttribute(product.label)}, ${product.priceReais} reais" ${state.av2Correct ? 'disabled' : ''}><strong>${escapeHtml(product.label)}</strong><span>${product.priceReais} reais</span></button>`;
+    }).join('');
+    return `<div class="av2-exercise is-shopping" data-av2-question-type="${question.type}"><p class="av2-available-money">Você tem <strong>${data.availableReais} reais</strong>.</p><div class="av2-products" role="group" aria-label="Escolha todos os produtos que pode comprar">${options}</div><button class="primary-button" type="button" data-action="submit-av2" ${selectedIds.length === 0 || state.av2Correct ? 'disabled' : ''}>Conferir escolhas</button></div>`;
+  }
+
+  let visualMoney = '';
+  if (question.type === 'shopping-available-total') {
+    visualMoney = `<div class="av2-money-group">${data.denominationIds.map((id) => `<div class="av2-group-item">${renderMoneyIllustration(moneyById.get(id))}<span>${escapeHtml(moneyById.get(id).label)}</span></div>`).join('')}</div>`;
+  }
+  const numericOptions = question.options.map((amount, index) => {
+    const selected = state.av2Selected === amount;
+    const incorrect = selected && !state.av2Correct && state.av2Attempts > 0;
+    const label = `${amount} ${amount === 1 ? 'real' : 'reais'}`;
+    return `<button class="av2-answer-label ${selected ? 'is-selected' : ''} ${incorrect ? 'is-incorrect' : ''}" type="button" data-av2-answer="${amount}" aria-label="Alternativa ${index + 1}: ${label}" aria-pressed="${selected}" ${state.av2Correct ? 'disabled' : ''}>${label}</button>`;
+  }).join('');
+  return `<div class="av2-exercise is-shopping" data-av2-question-type="${question.type}">${visualMoney || productCards}<div class="av2-answer-options label-options" role="group" aria-label="Alternativas de resposta">${numericOptions}</div></div>`;
 }
 
 function renderAv2Feedback(question) {
@@ -692,7 +736,9 @@ function renderAv2Feedback(question) {
 
 function renderAv2Game() {
   const question = state.av2Round[state.av2Index];
-  const activityName = question.type === 'identification' ? 'Reconhecer o dinheiro' : 'Comparar valores';
+  const activityName = state.av2Block === 'block-02' ? 'Compras e troco'
+    : question.type === 'identification' || question.type === 'equivalence' || question.type === 'composition'
+      ? 'Reconhecer o dinheiro' : 'Comparar valores';
   return `<div class="site-shell game-screen av2-game-screen">
     ${renderAv2Header()}
     <main class="main-content av2-main-content">
@@ -865,6 +911,7 @@ function resetRoundState() {
   state.av2Correct = false;
   state.av2Attempts = 0;
   state.av2Selected = null;
+  state.av2Block = 'block-01';
 }
 
 function requestChangeChild() {
@@ -926,11 +973,12 @@ function beginRound() {
   render();
 }
 
-function beginAv2Round() {
+function beginAv2Round(block = 'block-01') {
   cancelSpeech();
   state.activeRevision = AV2_REVISION_ID;
+  state.av2Block = block;
   state.screen = 'av2-game';
-  state.av2Round = createAv2Round();
+  state.av2Round = block === 'block-02' ? createAv2ShoppingRound() : createAv2Round();
   state.av2Index = 0;
   state.av2Correct = false;
   state.av2Attempts = 0;
@@ -965,7 +1013,7 @@ function nextAv2Question() {
   if (!state.av2Correct) return;
   cancelSpeech();
   if (state.av2Index >= state.av2Round.length - 1) {
-    av2Progress.completeRound();
+    (state.av2Block === 'block-02' ? av2ShoppingProgress : av2Progress).completeRound();
     selectRewardPage();
     state.screen = 'reward';
     render();
@@ -1017,9 +1065,20 @@ function selectVisualOption(shapeKey) {
 function selectAv2Option(moneyId) {
   if (state.av2Correct) return;
   const question = state.av2Round[state.av2Index];
-  if (!question?.options.includes(moneyId)) return;
-  state.av2Selected = moneyId;
-  if (validateAv2Answer(question, moneyId)) {
+  if (question?.type === 'shopping-affordability') {
+    if (!question.options.includes(moneyId)) return;
+    const selected = Array.isArray(state.av2Selected) ? state.av2Selected : [];
+    state.av2Selected = selected.includes(moneyId)
+      ? selected.filter((id) => id !== moneyId)
+      : [...selected, moneyId];
+    render();
+    return;
+  }
+  const answer = question?.options.includes(moneyId) ? moneyId
+    : question?.options.includes(Number(moneyId)) ? Number(moneyId) : null;
+  if (answer === null) return;
+  state.av2Selected = answer;
+  if (validateAv2Answer(question, answer)) {
     state.av2Correct = true;
     cancelSpeech();
     render();
@@ -1029,6 +1088,19 @@ function selectAv2Option(moneyId) {
   cancelSpeech();
   render();
   document.querySelector(`[data-av2-answer="${moneyId}"]`)?.focus();
+}
+
+function submitAv2Answer() {
+  if (state.av2Correct) return;
+  const question = state.av2Round[state.av2Index];
+  const answer = Array.isArray(state.av2Selected) ? state.av2Selected : [];
+  if (validateAv2Answer(question, answer)) {
+    state.av2Correct = true;
+  } else {
+    state.av2Attempts += 1;
+  }
+  cancelSpeech();
+  render();
 }
 
 function collectInputAnswers() {
@@ -1068,8 +1140,9 @@ function bindEvents() {
       const action = element.dataset.action;
       if (action === 'start') beginRound();
       if (action === 'start-av2') beginAv2Round();
+      if (action === 'start-av2-shopping') beginAv2Round('block-02');
       if (action === 'restart') {
-        if (state.activeRevision === AV2_REVISION_ID) beginAv2Round();
+        if (state.activeRevision === AV2_REVISION_ID) beginAv2Round(state.av2Block);
         else beginRound();
       }
       if (action === 'av2-entry') {
@@ -1089,6 +1162,7 @@ function bindEvents() {
       }
       if (action === 'next') nextQuestion();
       if (action === 'next-av2') nextAv2Question();
+      if (action === 'submit-av2') submitAv2Answer();
       if (action === 'check-answer') checkAnswer();
       if (action === 'hint') {
         state.hintVisible = true;

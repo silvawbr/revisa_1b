@@ -60,8 +60,8 @@ const TENS = {
 };
 
 export function numberToPortuguese(value) {
-  if (!Number.isInteger(value) || value < 0 || value > 140) {
-    throw new RangeError('O número deve ser inteiro entre 0 e 140.');
+  if (!Number.isInteger(value) || value < 0 || (value > 250 && ![300, 400].includes(value))) {
+    throw new RangeError('O número deve estar entre 0 e 250, ou ser 300 ou 400.');
   }
 
   if (value < 10) return UNITS[value];
@@ -72,8 +72,12 @@ export function numberToPortuguese(value) {
     return units === 0 ? TENS[tens] : `${TENS[tens]} e ${UNITS[units]}`;
   }
   if (value === 100) return 'cem';
-
-  return `cento e ${numberToPortuguese(value - 100)}`;
+  if (value < 200) return `cento e ${numberToPortuguese(value - 100)}`;
+  if (value === 200) return 'duzentos';
+  if (value < 300) return `duzentos e ${numberToPortuguese(value - 200)}`;
+  if (value === 300) return 'trezentos';
+  if (value === 400) return 'quatrocentos';
+  throw new RangeError('O número deve estar entre 0 e 250, ou ser 300 ou 400.');
 }
 
 export function numberToDigits(value) {
