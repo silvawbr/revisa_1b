@@ -3,8 +3,9 @@
 Aplicação web infantil, responsiva e em português do Brasil para revisar
 conteúdos de Matemática do 1º ano Vita. A tela inicial oferece a revisão
 original, com seis atividades, e a revisão independente AV2 Matemática. O
-Bloco 01 da AV2 ensina a reconhecer moedas e cédulas brasileiras e comparar
-seus valores em rodadas de dez questões.
+Bloco 01 da AV2 ensina a reconhecer moedas e cédulas brasileiras, comparar
+seus valores e formar equivalências. O Bloco 02 pratica compras, dinheiro
+disponível, soma de preços e troco em rodadas próprias de dez questões.
 
 As regras de conteúdo e geração para a avaliação estão documentadas no
 [Contrato Pedagógico da AV2 Matemática](docs/av2-matematica-contrato-pedagogico.md).
@@ -94,9 +95,8 @@ ignorada pelo Git.
 - `app.js`: fluxo da experiência, eventos, acessibilidade e telas.
 - `src/game.js`: geração, validação e conversão de números para português.
 - `src/av2/money.js`: catálogo de moedas e cédulas em centavos inteiros,
-  geradores de perguntas da AV2 e validação isolada das respostas.
-- `src/av2/progress.js`: progresso de rodadas AV2 na chave própria
-  `av2-matematica.block-01.dinheiro.progress.v1`.
+  geradores e validadores pedagógicos dos Blocos 01 e 02 da AV2.
+- `src/av2/progress.js`: progresso separado dos Blocos 01 e 02 da AV2.
 - `src/figures.js`: renderização das figuras espaciais em SVG.
 - `src/data/coloringPages.js`: catálogo local, seleção aleatória e metadados de
   licença dos desenhos da recompensa.
@@ -137,9 +137,10 @@ para o catálogo local. O primeiro acesso solicita somente o primeiro nome ou
 apelido e o mantém exclusivamente no `localStorage` do navegador, na chave
 versionada `revisao-matematica.childName.v1`. Em dispositivos compartilhados, a
 ação “Trocar criança” remove somente esse nome e volta à tela de identificação.
-O Bloco 01 da AV2 guarda somente a quantidade de rodadas concluídas em sua
-própria chave versionada; esse dado não inclui o nome da criança nem altera o
-progresso ou os históricos da revisão original.
+Os Blocos 01 e 02 da AV2 guardam somente a quantidade de rodadas concluídas em
+chaves versionadas próprias (`av2-matematica.block-01.dinheiro.progress.v1` e
+`av2-matematica.block-02.compras.progress.v1`); esses dados não incluem o nome
+da criança nem alteram o progresso ou os históricos da revisão original.
 Os desenhos locais da recompensa são instalados junto com o projeto; não há
 hotlink nem download durante o uso. A seleção mantém apenas os IDs recentes dos
 desenhos locais e dos destinos oficiais em chaves separadas do `localStorage`,

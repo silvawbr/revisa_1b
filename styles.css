@@ -780,6 +780,19 @@ h1 span { color: var(--blue-deep); }
 .av2-money-option { min-width: 0; min-height: 235px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 9px; padding: 13px 10px; border: 3px solid #e6e1f2; border-radius: 20px; background: #fff; transition: transform 150ms ease, border-color 150ms ease, background 150ms ease; }
 .av2-money-option .money-illustration { transform: scale(0.84); transform-origin: center; margin: -10px 0; }
 .av2-option-label { font-size: 1.13rem; font-weight: 900; }
+.av2-money-group { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; width: 100%; margin: 0 auto 20px; }
+.av2-group-item { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 7px; border-radius: 12px; background: #fff9e8; font-weight: 900; }
+.av2-group-item .money-coin { width: min(150px, 25vw); }
+.av2-group-item .money-note { width: min(190px, 34vw); }
+.av2-products { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: min(100%, 720px); margin: 8px auto 18px; }
+.av2-product-card { min-height: 86px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 6px; padding: 12px; border: 3px solid #e6e1f2; border-radius: 17px; background: #fff; color: #45435a; font-size: 1.1rem; text-align: center; }
+.av2-product-card strong { font-size: 1.1rem; }
+.av2-product-card span { font-weight: 900; }
+.av2-product-choice.is-selected { border-color: var(--pink-deep); background: #fff0f5; }
+.av2-product-choice.is-incorrect { border-color: #df806c; background: #fff1ed; }
+.av2-available-money { margin: 0 auto 10px; text-align: center; font-size: 1.2rem; }
+.is-shopping > .av2-answer-options { margin-top: 12px; }
+.is-shopping > [data-action="submit-av2"] { display: block; margin: 0 auto; }
 
 @media (max-width: 760px) {
   .av2-topbar { grid-template-columns: auto 1fr auto; gap: 7px; padding-inline: 10px; }
@@ -791,6 +804,8 @@ h1 span { color: var(--blue-deep); }
   .av2-samples .money-note { width: 202px; }
   .av2-money-option { min-height: 205px; }
   .av2-money-option .money-illustration { transform: scale(0.73); margin: -17px 0; }
+  .av2-group-item .money-coin { width: min(112px, 25vw); }
+  .av2-group-item .money-note { width: min(148px, 34vw); }
 }
 
 @media (max-width: 460px) {
@@ -819,4 +834,7 @@ h1 span { color: var(--blue-deep); }
   .av2-money-option { min-height: 180px; gap: 2px; padding: 7px 4px; border-radius: 15px; }
   .av2-money-option .money-illustration { width: min(100%, 215px); transform: scale(0.73); margin: -17px 0; }
   .av2-option-label { font-size: 0.93rem; }
+  .av2-products { gap: 8px; }
+  .av2-product-card { min-height: 72px; padding: 8px 5px; font-size: 0.95rem; }
+  .av2-product-card strong { font-size: 0.95rem; }
 }
