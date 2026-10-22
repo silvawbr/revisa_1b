@@ -460,9 +460,11 @@ function validateShoppingCandidate(question) {
   if (question.type === 'shopping-available-total') {
     const ids = data.denominationIds;
     if (!Array.isArray(ids) || ids.length < 2) return false;
-    const totalCents = ids.reduce((sum, id) => sum + (DENOMINATION_BY_ID.get(id)?.valueCents ?? Number.NaN), 0);
-    return Number.isFinite(totalCents) && totalCents <= MAX_SHOPPING_TOTAL * 100 && totalCents % 100 === 0
-      && question.correctAnswer === totalCents / 100
+    const valuesInReais = ids.map((id) => denominationValueInDomain(id, 'BRL_INTEIROS'));
+    if (valuesInReais.some((value) => value === null)) return false;
+    const total = valuesInReais.reduce((sum, value) => sum + value, 0);
+    return total <= MAX_SHOPPING_TOTAL
+      && question.correctAnswer === total
       && hasDistinctOptionsWithOneCorrectAnswer(question)
       && question.options.every((option) => Number.isInteger(option) && option >= 0 && option <= MAX_SHOPPING_TOTAL);
   }
@@ -573,13 +575,17 @@ function createShoppingQuestion({ type, questionId, data, correctAnswer, correct
 function createAvailableTotal({ denominationIds, id, random }) {
   const totalCents = denominationIds.reduce((sum, denominationId) => sum + getDenomination(denominationId).valueCents, 0);
   const total = totalCents / 100;
+  const moneyKinds = [...new Set(denominationIds.map((denominationId) => (
+    getDenomination(denominationId).kind === 'coin' ? 'moedas' : 'cédulas'
+  )))];
+  const moneyDescription = moneyKinds.join(' e ');
   return createShoppingQuestion({
     type: 'shopping-available-total', questionId: `shopping-total-${id}`,
     data: { denominationIds }, correctAnswer: total,
     options: shuffled([...new Set([total - 2, total - 1, total, total + 1])].filter((value) => value >= 0), random),
     prompt: 'Quanto dinheiro há ao todo?',
-    explanation: `As cédulas somam ${total} ${total === 1 ? 'real' : 'reais'}.`,
-    hint: 'Some os valores de todas as cédulas.',
+    explanation: `O grupo de ${moneyDescription} soma ${total} ${total === 1 ? 'real' : 'reais'}.`,
+    hint: 'Some os valores de todas as peças de dinheiro.',
   });
 }
 

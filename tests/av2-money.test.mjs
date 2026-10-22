@@ -403,6 +403,20 @@ test('a revisão oficial libera equivalências e compras específicas sem libera
   assert.ok(total24, '5 + 5 + 10 + 2 + 2 reais = 24');
   assert.equal(validateAv2MoneyQuestionCandidate({ ...total24, prompt: 'Quanto dinheiro há? R$24,00', speech: 'Quanto dinheiro há? R$24,00' }), true);
   assert.equal(validateAv2MoneyQuestionCandidate({ ...total24, prompt: 'Quanto dinheiro há? R$30,00', speech: 'Quanto dinheiro há? R$30,00' }), false);
+  assert.equal(validateAv2MoneyQuestionCandidate({
+    ...total24,
+    data: { denominationIds: ['coin-50-centavos', 'coin-50-centavos'] },
+    correctAnswer: 1,
+    options: [0, 1, 2, 3],
+  }), false, 'compras não podem converter moedas de centavos para reais');
+  assert.equal(validateAv2MoneyQuestionCandidate({
+    ...total24,
+    data: { denominationIds: ['coin-1-real', 'note-2-reais'] },
+    correctAnswer: 3,
+    options: [2, 3, 4, 5],
+    explanation: 'O grupo de moedas e cédulas soma 3 reais.',
+    feedback: { correct: 'Muito bem! O grupo de moedas e cédulas soma 3 reais.', retry: 'Tente novamente.' },
+  }), true, 'dinheiro disponível pode combinar denominações inteiras em reais');
   const affordability = shopping.find((question) => question.type === 'shopping-affordability' && question.data.availableReais === 24);
   assert.deepEqual([...affordability.correctAnswers].sort(), ['caderno-3', 'livro-20']);
   assert.equal(validateAv2Answer(affordability, ['caderno-3', 'livro-20']), true);
