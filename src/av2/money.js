@@ -573,13 +573,17 @@ function createShoppingQuestion({ type, questionId, data, correctAnswer, correct
 function createAvailableTotal({ denominationIds, id, random }) {
   const totalCents = denominationIds.reduce((sum, denominationId) => sum + getDenomination(denominationId).valueCents, 0);
   const total = totalCents / 100;
+  const moneyKinds = [...new Set(denominationIds.map((denominationId) => (
+    getDenomination(denominationId).kind === 'coin' ? 'moedas' : 'cédulas'
+  )))];
+  const moneyDescription = moneyKinds.join(' e ');
   return createShoppingQuestion({
     type: 'shopping-available-total', questionId: `shopping-total-${id}`,
     data: { denominationIds }, correctAnswer: total,
     options: shuffled([...new Set([total - 2, total - 1, total, total + 1])].filter((value) => value >= 0), random),
     prompt: 'Quanto dinheiro há ao todo?',
-    explanation: `As cédulas somam ${total} ${total === 1 ? 'real' : 'reais'}.`,
-    hint: 'Some os valores de todas as cédulas.',
+    explanation: `O grupo de ${moneyDescription} soma ${total} ${total === 1 ? 'real' : 'reais'}.`,
+    hint: 'Some os valores de todas as peças de dinheiro.',
   });
 }
 
