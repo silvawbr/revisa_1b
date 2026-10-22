@@ -598,12 +598,14 @@ function createAffordability({ availableReais, products, id, random }) {
 function createChange({ availableReais, products, purchaseProductId, id, random }) {
   const product = products.find(({ id: productId }) => productId === purchaseProductId);
   const change = availableReais - product.priceReais;
+  const article = product.article === 'a' ? 'a' : 'o';
+  const productName = product.label.toLocaleLowerCase('pt-BR');
   return createShoppingQuestion({
     type: 'shopping-change', questionId: `shopping-change-${id}`,
     data: { availableReais, products, purchaseProductId }, correctAnswer: change,
     options: shuffled([...new Set([Math.max(0, change - 2), Math.max(0, change - 1), change, change + 1])], random),
-    prompt: `Você tem ${availableReais} reais e compra ${product.label.toLocaleLowerCase('pt-BR')}. Quanto sobra?`,
-    explanation: `Tire ${product.priceReais} de ${availableReais}. Sobram ${change} reais.`,
+    prompt: `Você paga com ${availableReais} reais ao comprar ${article} ${productName}. Quanto recebe de troco?`,
+    explanation: `Para calcular o troco, subtraímos o preço do produto do valor pago: ${availableReais} menos ${product.priceReais} são ${change} reais.`,
     hint: 'Subtraia o preço do produto do dinheiro que você tem.',
   });
 }
@@ -612,9 +614,10 @@ function createProductTotal({ type, products, selectedProductIds, id, random }) 
   const selected = selectedProductIds.map((productId) => products.find(({ id }) => id === productId));
   const total = selected.reduce((sum, product) => sum + product.priceReais, 0);
   const names = selected.map(({ label }) => label.toLocaleLowerCase('pt-BR'));
-  const prompt = type === 'shopping-product-sum'
-    ? `Quanto custam juntos ${names.join(', ')}?`
-    : `Quanto custam juntos ${names.join(' e ')}?`;
+  const productList = names.length === 2
+    ? names.join(' e ')
+    : `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
+  const prompt = `Quanto custam juntos ${productList}?`;
   return createShoppingQuestion({
     type, questionId: `shopping-products-${id}`,
     data: { products, selectedProductIds }, correctAnswer: total,
@@ -634,7 +637,7 @@ export function createAv2ShoppingRound(random = Math.random) {
       { id: 'bola-25', label: 'Bola', priceReais: 25 }, { id: 'caderno-3', label: 'Caderno', priceReais: 3 },
     ], id: '24-oficial', random }),
     createChange({ availableReais: 24, products: [
-      { id: 'brinquedo-20', label: 'Brinquedo', priceReais: 20 }, { id: 'livro-25', label: 'Livro', priceReais: 25 },
+      { id: 'brinquedo-20', label: 'Brinquedo', article: 'o', priceReais: 20 }, { id: 'livro-25', label: 'Livro', priceReais: 25 },
     ], purchaseProductId: 'brinquedo-20', id: '24-20-oficial', random }),
     createProductTotal({ type: 'shopping-product-sum', products: [
       { id: 'borracha-3', label: 'Borracha', priceReais: 3 }, { id: 'lapis-2', label: 'Lápis', priceReais: 2 },
@@ -670,7 +673,7 @@ export function createAv2ShoppingRound(random = Math.random) {
       { id: `giz-${Math.min(5, budget - 2)}`, label: 'Giz de cera', priceReais: Math.min(5, budget - 2) },
     ], id: `budget-${budget}`, random }),
     createChange({ availableReais: cashAvailable, products: [
-      { id: `boneca-${purchasePrice}`, label: 'Boneca', priceReais: purchasePrice },
+      { id: `boneca-${purchasePrice}`, label: 'Boneca', article: 'a', priceReais: purchasePrice },
       { id: `carrinho-${cashAvailable + 2}`, label: 'Carrinho', priceReais: cashAvailable + 2 },
     ], purchaseProductId: `boneca-${purchasePrice}`, id: `change-${cashAvailable}-${purchasePrice}`, random }),
     createProductTotal({ type: 'shopping-product-sum', products: [
@@ -712,7 +715,7 @@ export function createAv2Round(random = Math.random) {
     { denominationIds: ['coin-25-centavos', 'coin-50-centavos', 'coin-25-centavos'] },
     { denominationIds: Array(5).fill('coin-1-real'), targetDenominationId: 'note-5-reais' },
     { denominationIds: ['coin-1-real', 'coin-1-real'], targetDenominationId: 'note-2-reais' },
-    { denominationIds: ['coin-1-real', 'coin-1-real', 'coin-1-real', 'coin-1-real', 'coin-50-centavos', 'coin-25-centavos', 'coin-25-centavos'], targetDenominationId: 'note-5-reais' },
+    { denominationIds: ['coin-1-real', 'coin-50-centavos', 'coin-25-centavos', 'coin-25-centavos'], targetDenominationId: 'note-2-reais' },
   ];
   const equivalenceQuestions = [createCurrencyEquivalenceQuestion({
     ...equivalenceGroups[randomIndex(equivalenceGroups.length, random)], random,

@@ -617,16 +617,27 @@ function renderAv2Home() {
     <main class="home-main">
       <section class="home-card av2-home-card" aria-labelledby="av2-home-title">
         <p class="eyebrow">Revisão para 27 de outubro</p>
-        <h1 id="av2-home-title">AV2 Matemática<br><span>Dinheiro</span></h1>
-        <p class="home-subtitle">Escolha um desafio: reconhecer o dinheiro ou fazer compras e calcular o troco.</p>
-        <div class="av2-samples" aria-label="Vamos estudar moedas e cédulas brasileiras">
-          ${renderMoneyIllustration(sampleCoin)}
-          ${renderMoneyIllustration(sampleNote)}
+        <h1 id="av2-home-title">AV2 Matemática<br><span>Escolha uma atividade</span></h1>
+        <div class="av2-activity-grid" aria-label="Atividades da AV2 de Matemática">
+          <article class="av2-activity-card">
+            <h2>Dinheiro</h2>
+            <p>Reconheça moedas e cédulas, compare valores e descubra equivalências.</p>
+            <div class="av2-samples" aria-label="Moeda e cédula brasileiras">
+              ${renderMoneyIllustration(sampleCoin)}
+              ${renderMoneyIllustration(sampleNote)}
+            </div>
+            <p class="av2-progress-summary" data-av2-rounds-completed>Rodadas concluídas: <strong>${roundsCompleted}</strong></p>
+            <button class="primary-button start-button" type="button" data-action="start-av2">Começar <span aria-hidden="true">→</span></button>
+          </article>
+          <article class="av2-activity-card shopping-activity-card">
+            <span class="shopping-activity-icon" aria-hidden="true">🧮</span>
+            <h2>Compras e troco</h2>
+            <p>Some preços, compare produtos e descubra quanto sobra.</p>
+            <div class="shopping-activity-samples" aria-hidden="true"><span>🪙</span><span>✏️</span><span>⭐</span></div>
+            <p class="av2-progress-summary" data-shopping-rounds-completed>Rodadas concluídas: <strong>${shoppingRoundsCompleted}</strong></p>
+            <button class="primary-button start-button" type="button" data-action="start-av2-shopping">Começar <span aria-hidden="true">→</span></button>
+          </article>
         </div>
-        <p class="av2-progress-summary" data-av2-rounds-completed>Bloco 01 · Rodadas concluídas: <strong>${roundsCompleted}</strong></p>
-        <button class="primary-button start-button" type="button" data-action="start-av2">01 · Reconhecer moedas e cédulas <span aria-hidden="true">→</span></button>
-        <p class="av2-progress-summary">Bloco 02 · Rodadas concluídas: <strong>${shoppingRoundsCompleted}</strong></p>
-        <button class="secondary-button start-button" type="button" data-action="start-av2-shopping">02 · Compras e troco <span aria-hidden="true">→</span></button>
         <button class="secondary-button av2-back-button" type="button" data-action="home">Voltar às revisões</button>
         ${renderGuide('Moedas e cédulas têm valores diferentes. Vamos descobrir!')}
       </section>

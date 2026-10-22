@@ -105,6 +105,18 @@ h1 {
 
 h1 span { color: var(--blue-deep); }
 
+.av2-activity-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 22px 0 8px; text-align: left; }
+.av2-activity-card { min-width: 0; display: flex; flex-direction: column; align-items: stretch; padding: 20px; border: 2px solid #e7e1f2; border-radius: 22px; background: #fff; box-shadow: 0 6px 0 rgba(61, 49, 93, 0.08); }
+.av2-activity-card h2 { margin: 0 0 8px; color: #44365f; font-size: clamp(1.2rem, 2.3vw, 1.55rem); }
+.av2-activity-card p:not(.av2-progress-summary) { min-height: 48px; margin: 0; color: var(--muted); line-height: 1.45; }
+.av2-activity-card .av2-samples { margin-block: 14px; }
+.av2-activity-card .av2-samples .money-coin { width: min(38%, 125px); }
+.av2-activity-card .av2-samples .money-note { width: min(57%, 190px); }
+.av2-activity-card .av2-progress-summary { margin: auto 0 14px; padding-top: 14px; font-size: 0.9rem; }
+.shopping-activity-icon { margin-bottom: 8px; font-size: 2rem; }
+.shopping-activity-samples { display: flex; justify-content: center; align-items: center; gap: 20px; min-height: 106px; margin-block: 14px; border-radius: 16px; background: #fff8df; font-size: 2rem; }
+.av2-activity-card .start-button { width: 100%; min-height: 54px; }
+
 .home-subtitle,
 .reward-copy {
   max-width: 480px;
@@ -795,6 +807,10 @@ h1 span { color: var(--blue-deep); }
 .is-shopping > [data-action="submit-av2"] { display: block; margin: 0 auto; }
 
 @media (max-width: 760px) {
+  .av2-activity-grid { grid-template-columns: 1fr; gap: 14px; }
+  .av2-activity-card { padding: 16px; }
+  .av2-activity-card p:not(.av2-progress-summary) { min-height: 0; }
+  .av2-activity-card .av2-samples { min-height: 95px; }
   .av2-topbar { grid-template-columns: auto 1fr auto; gap: 7px; padding-inline: 10px; }
   .av2-topbar .av2-progress { gap: 3px; font-size: 1.03rem; }
   .av2-topbar .brand { font-size: 0.92rem; }
@@ -809,6 +825,9 @@ h1 span { color: var(--blue-deep); }
 }
 
 @media (max-width: 460px) {
+  .av2-activity-card { padding: 13px; }
+  .av2-activity-card .av2-samples .money-coin { width: 34%; }
+  .av2-activity-card .av2-samples .money-note { width: 56%; }
   .revision-choice { min-height: 76px; padding-left: 14px; }
   .revision-choice-title { font-size: 1rem; }
   .revision-choice-copy { font-size: 0.82rem; }

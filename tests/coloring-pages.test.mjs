@@ -1,9 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { once } from 'node:events';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
-import { createServer } from '../server.js';
+import { serveStatic } from '../server.js';
 import {
   COLORING_PAGE_HISTORY_KEY,
   COLORING_PAGES,
@@ -25,14 +27,32 @@ const appSource = await fs.readFile(path.join(root, 'app.js'), 'utf8');
 const cssSource = await fs.readFile(path.join(root, 'styles.css'), 'utf8');
 const attributions = await fs.readFile(path.join(root, 'public/coloring-pages/ATTRIBUTIONS.md'), 'utf8');
 
-async function listen(server) {
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
-  return `http://127.0.0.1:${address.port}`;
+class StaticResponse extends Writable {
+  constructor() {
+    super();
+    this.chunks = [];
+  }
+
+  writeHead(status, headers) {
+    this.status = status;
+    this.headers = headers;
+    return this;
+  }
+
+  _write(chunk, _encoding, callback) {
+    this.chunks.push(Buffer.from(chunk));
+    callback();
+  }
+
+  get body() { return Buffer.concat(this.chunks); }
 }
 
-async function close(server) {
-  await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+async function requestStatic(url, method = 'GET') {
+  const response = new StaticResponse();
+  const finished = once(response, 'finish');
+  await serveStatic({ method, url }, response);
+  await finished;
+  return response;
 }
 
 test('o catálogo local tem entre 20 e 30 desenhos aprovados', async () => {
@@ -63,30 +83,24 @@ test('cada desenho tem origem, licença e registro correspondente', () => {
 });
 
 test('o servidor entrega o catálogo e todos os SVGs localmente', async () => {
-  const server = createServer({ env: {}, fetchImpl: async () => new Response('audio', { status: 200, headers: { 'content-type': 'audio/wav' } }) });
-  const base = await listen(server);
-  try {
-    for (const page of COLORING_PAGES) {
-      const response = await fetch(`${base}${page.src}`);
-      assert.equal(response.status, 200, page.src);
-      assert.equal(response.headers.get('content-type'), 'image/svg+xml');
-    }
-    const manifestResponse = await fetch(`${base}/src/data/coloringPages.js`);
-    assert.equal(manifestResponse.status, 200);
-    const officialManifestResponse = await fetch(`${base}/src/data/officialColoringPages.js`);
-    assert.equal(officialManifestResponse.status, 200);
-    const profileResponse = await fetch(`${base}/src/child-profile.js`);
-    assert.equal(profileResponse.status, 200);
-    const av2MoneyResponse = await fetch(`${base}/src/av2/money.js`);
-    assert.equal(av2MoneyResponse.status, 200);
-    assert.equal(av2MoneyResponse.headers.get('content-type'), 'text/javascript; charset=utf-8');
-    const av2ProgressResponse = await fetch(`${base}/src/av2/progress.js`);
-    assert.equal(av2ProgressResponse.status, 200);
-    const attributionResponse = await fetch(`${base}/public/coloring-pages/ATTRIBUTIONS.md`);
-    assert.equal(attributionResponse.status, 200);
-  } finally {
-    await close(server);
+  for (const page of COLORING_PAGES) {
+    const response = await requestStatic(page.src);
+    assert.equal(response.status, 200, page.src);
+    assert.equal(response.headers['Content-Type'], 'image/svg+xml');
+    assert.match(response.body.toString('utf8'), /<svg\b/);
   }
+  for (const sourcePath of [
+    '/src/data/coloringPages.js',
+    '/src/data/officialColoringPages.js',
+    '/src/child-profile.js',
+    '/src/av2/money.js',
+    '/src/av2/progress.js',
+    '/public/coloring-pages/ATTRIBUTIONS.md',
+  ]) {
+    const response = await requestStatic(sourcePath);
+    assert.equal(response.status, 200, sourcePath);
+  }
+  assert.equal((await requestStatic('/src/av2/money.js')).headers['Content-Type'], 'text/javascript; charset=utf-8');
 });
 
 test('a seleção evita repetição imediata e continua aleatória', () => {

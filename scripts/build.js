@@ -1,6 +1,6 @@
 import { cp, mkdir, readdir, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = path.join(ROOT, 'dist');
@@ -63,7 +63,7 @@ async function copyDirectory(relativeDirectory) {
   }
 }
 
-async function build() {
+export async function build() {
   await rm(DIST, { recursive: true, force: true });
   await mkdir(DIST, { recursive: true });
 
@@ -76,7 +76,9 @@ async function build() {
   console.info(`Build estático concluído: ${path.relative(ROOT, DIST)}/`);
 }
 
-build().catch((error) => {
-  console.error(`Falha no build estático: ${error.message}`);
-  process.exitCode = 1;
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  build().catch((error) => {
+    console.error(`Falha no build estático: ${error.message}`);
+    process.exitCode = 1;
+  });
+}
