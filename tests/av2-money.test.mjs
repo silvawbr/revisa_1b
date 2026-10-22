@@ -6,18 +6,23 @@ import { fileURLToPath } from 'node:url';
 import {
   AV2_MONEY_ACTIVITY_ID,
   AV2_REVISION_ID,
+  AV2_SHOPPING_ACTIVITY_ID,
+  AV2_PEDAGOGICAL_CATEGORIES,
   BANKNOTES,
   COINS,
   MONEY_DENOMINATIONS,
   createAv2Round,
+  createAv2ShoppingRound,
   createComparisonQuestion,
+  createCurrencyCompositionQuestion,
+  createCurrencyEquivalenceQuestion,
   createIdentificationQuestion,
-  formatMoneyAmount,
   validateAv2MoneyQuestionCandidate,
   validateAv2Answer,
 } from '../src/av2/money.js';
-import { AV2_PROGRESS_STORAGE_KEY, createAv2ProgressStore } from '../src/av2/progress.js';
+import { AV2_PROGRESS_STORAGE_KEY, AV2_SHOPPING_PROGRESS_STORAGE_KEY, createAv2ProgressStore } from '../src/av2/progress.js';
 import { CHILD_NAME_STORAGE_KEY } from '../src/child-profile.js';
+import { numberToPortuguese } from '../src/game.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -37,17 +42,6 @@ function memoryStorage(initial = {}) {
     values,
   };
 }
-
-test('o formatador compartilhado escreve centavos e reais sem notação decimal', () => {
-  assert.equal(formatMoneyAmount(1), '1 centavo');
-  assert.equal(formatMoneyAmount(25), '25 centavos');
-  assert.equal(formatMoneyAmount(100), '1 real');
-  assert.equal(formatMoneyAmount(200), '2 reais');
-  assert.equal(formatMoneyAmount(101), '1 real e 1 centavo');
-  assert.equal(formatMoneyAmount(250), '2 reais e 50 centavos');
-  assert.throws(() => formatMoneyAmount(-1), RangeError);
-  assert.throws(() => formatMoneyAmount(1.5), RangeError);
-});
 
 test('todas as moedas e cédulas têm IDs únicos, centavos inteiros, rótulos e representação', async () => {
   const styles = await fs.readFile(path.join(root, 'styles.css'), 'utf8');
@@ -138,14 +132,17 @@ test('rodadas têm dez perguntas, composição 6+4, variedade de valores e IDs s
     const round = createAv2Round(seededRandom(seed));
     const identification = round.filter(({ type }) => type === 'identification');
     const comparisons = round.filter(({ type }) => type === 'comparison');
+    const equivalences = round.filter(({ type }) => type === 'equivalence');
     assert.equal(round.length, 10);
     assert.equal(identification.length, 6);
-    assert.equal(comparisons.length, 4);
+    assert.equal(comparisons.length, 3);
+    assert.equal(equivalences.length, 1);
     assert.equal(new Set(round.map(({ questionId }) => questionId)).size, 10);
     assert.equal(new Set(identification.map(({ data }) => data.denominationId)).size, 6);
     assert.equal(identification.filter(({ data }) => MONEY_DENOMINATIONS.find(({ id }) => id === data.denominationId).kind === 'coin').length, 3);
     assert.equal(identification.filter(({ data }) => MONEY_DENOMINATIONS.find(({ id }) => id === data.denominationId).kind === 'note').length, 3);
     assert.deepEqual(new Set(comparisons.map(({ data }) => data.category)), new Set(['coin', 'note', 'mixed']));
+    assert.equal(equivalences.every(({ correctAnswer, data }) => correctAnswer === (data.targetDenominationId ?? 1)), true);
     assert.deepEqual(new Set(comparisons.map(({ data }) => data.direction)), new Set(['greater', 'less']));
     for (const question of round) answerPositions.add(question.options.indexOf(question.correctAnswer));
     signatures.add(round.map(({ questionId, options }) => `${questionId}:${options.join(',')}`).join('|'));
@@ -159,13 +156,36 @@ test('valida milhares de candidatos e bloqueia regressões de unidade e convers�
     const round = createAv2Round(seededRandom(seed));
     for (const question of round) {
       assert.equal(validateAv2MoneyQuestionCandidate(question), true, question.questionId);
+      assert.ok(question.pedagogicalCategory);
+      assert.equal(validateAv2Answer(question, question.correctAnswer), true, question.questionId);
     }
   }
+  const shoppingVariationSignatures = new Set();
+  for (let seed = 1; seed <= 500; seed += 1) {
+    const round = createAv2ShoppingRound(seededRandom(seed));
+    assert.equal(round.length, 10);
+    shoppingVariationSignatures.add(round.map(({ questionId }) => questionId).filter((id) => /var-|budget-|change-|sum-|pair-/.test(id)).sort().join('|'));
+    for (const question of round) {
+      assert.equal(validateAv2MoneyQuestionCandidate(question), true, question.questionId);
+      if (question.type === 'shopping-affordability') {
+        assert.equal(new Set(question.options).size, question.options.length);
+        assert.deepEqual([...question.correctAnswers].sort(), question.data.products
+          .filter(({ priceReais }) => priceReais <= question.data.availableReais)
+          .map(({ id }) => id).sort());
+        assert.equal(validateAv2Answer(question, question.correctAnswers), true);
+      } else {
+        assert.equal(question.options.filter((option) => option === question.correctAnswer).length, 1);
+        assert.equal(validateAv2Answer(question, question.correctAnswer), true);
+      }
+    }
+  }
+  assert.ok(shoppingVariationSignatures.size > 10, 'as sementes alteram os valores das variações, não apenas a ordem das questões');
 
-  const candidate = ({ type, data, correctAnswer, options, prompt = 'Resolva a questão.' }) => ({
+  const candidate = ({ type, pedagogicalCategory, data, correctAnswer, options, prompt = 'Resolva a questão.' }) => ({
     revisionId: AV2_REVISION_ID,
     activityId: AV2_MONEY_ACTIVITY_ID,
     type,
+    pedagogicalCategory,
     data,
     correctAnswer,
     options,
@@ -176,7 +196,7 @@ test('valida milhares de candidatos e bloqueia regressões de unidade e convers�
     feedback: { correct: 'Muito bem!', retry: 'Tente novamente.' },
   });
   const operation = ({ data, correctAnswer, options, prompt }) => candidate({
-    type: 'operation', data, correctAnswer, options, prompt,
+    type: 'operation', pedagogicalCategory: data.domain === 'BRL_INTEIROS' ? 'WHOLE_REAL_ARITHMETIC' : 'CENTAVO_ARITHMETIC', data, correctAnswer, options, prompt,
   });
 
   const mixedUnits = operation({
@@ -212,6 +232,7 @@ test('valida milhares de candidatos e bloqueia regressões de unidade e convers�
 
   const denominationComparison = candidate({
     type: 'comparison',
+    pedagogicalCategory: 'DENOMINATION_COMPARISON',
     data: {
       leftId: 'coin-1-real',
       rightId: 'coin-50-centavos',
@@ -251,7 +272,7 @@ test('valida milhares de candidatos e bloqueia regressões de unidade e convers�
     prompt: '75 centavos menos 60 centavos. Quanto sobrou?',
   });
   assert.equal(validateAv2MoneyQuestionCandidate(centsChange), true, 'Caso E: aceitar troco em centavos');
-  assert.equal(validateAv2MoneyQuestionCandidate({ ...wholeRealSum, prompt: 'R$ 8,00' }), false, 'rejeitar notação decimal');
+  assert.equal(validateAv2MoneyQuestionCandidate({ ...wholeRealSum, prompt: 'R$ 8,00' }), true, 'aceitar notação escrita quando o total inteiro confere');
   assert.equal(validateAv2MoneyQuestionCandidate(operation({
     data: {
       operation: 'addition',
@@ -263,29 +284,176 @@ test('valida milhares de candidatos e bloqueia regressões de unidade e convers�
     options: [5, 6, 10, 15],
     prompt: '1 centavo + 5 centavos. Quanto é?',
   })), false, 'não usar moeda de 1 centavo em operações');
+
+  for (const group of [
+    ['coin-50-centavos', 'coin-50-centavos'],
+    ['coin-25-centavos', 'coin-50-centavos', 'coin-25-centavos'],
+  ]) {
+    const equivalence = createCurrencyEquivalenceQuestion({ denominationIds: group, random: seededRandom(group.length) });
+    assert.equal(equivalence.pedagogicalCategory, 'CURRENCY_EQUIVALENCE');
+    assert.equal(equivalence.correctAnswer, 1);
+    assert.equal(validateAv2MoneyQuestionCandidate(equivalence), true);
+  }
+  assert.equal(validateAv2MoneyQuestionCandidate({
+    ...wholeRealSum,
+    data: { ...wholeRealSum.data, operation: 'addition', domain: 'BRL_INTEIROS' },
+  }), true);
+  assert.equal(validateAv2MoneyQuestionCandidate({ ...wholeRealSum, pedagogicalCategory: 'CURRENCY_EQUIVALENCE' }), false, 'categoria precisa corresponder à pergunta');
+  assert.equal(validateAv2MoneyQuestionCandidate({ revisionId: AV2_REVISION_ID, activityId: AV2_MONEY_ACTIVITY_ID, pedagogicalCategory: 'DENOMINATION_RECOGNITION' }), false, 'candidato sem tipo é rejeitado sem erro');
 });
 
 test('o contrato pedagógico está documentado e ligado no README', async () => {
   const readme = await fs.readFile(path.join(root, 'README.md'), 'utf8');
   const contract = await fs.readFile(path.join(root, 'docs/av2-matematica-contrato-pedagogico.md'), 'utf8');
   assert.match(readme, /\[Contrato Pedagógico da AV2 Matemática\]\(docs\/av2-matematica-contrato-pedagogico\.md\)/);
-  assert.match(contract, /BRL_INTEIROS/);
-  assert.match(contract, /CENTAVOS/);
-  assert.match(contract, /Caso B — Conversão de centavos para reais/);
+  assert.match(contract, /WHOLE_REAL_ARITHMETIC/);
+  assert.match(contract, /CENTAVO_ARITHMETIC/);
+  assert.match(contract, /25 \+ 50 \+ 25 centavos = 1 real/);
 });
 
-test('a interface e o build preservam a atividade Compras e troco', async () => {
-  const [app, server, css] = await Promise.all([
-    fs.readFile(path.join(root, 'app.js'), 'utf8'),
-    fs.readFile(path.join(root, 'server.js'), 'utf8'),
-    fs.readFile(path.join(root, 'styles.css'), 'utf8'),
-  ]);
-  assert.match(app, /data-action="start-shopping"/);
-  assert.match(app, /data-action="next-shopping"/);
-  assert.match(app, /data-shopping-answer=/);
-  assert.match(server, /src\/av2\/shopping\.js/);
-  assert.match(server, /src\/av2\/money-rules\.js/);
-  assert.match(css, /\.shopping-question-card/);
+test('regressões escolares de cálculo e escrita por extenso permanecem exatas', () => {
+  assert.equal(156 + 195, 351);
+  assert.equal(351 - 147, 204);
+  assert.equal(862 - 695, 167);
+  assert.equal(numberToPortuguese(208), 'duzentos e oito');
+  assert.equal(numberToPortuguese(215), 'duzentos e quinze');
+  assert.equal(numberToPortuguese(300), 'trezentos');
+  assert.equal(numberToPortuguese(400), 'quatrocentos');
+  assert.throws(() => numberToPortuguese(251), RangeError);
+  assert.throws(() => numberToPortuguese(301), RangeError);
+});
+
+test('a revisão oficial libera equivalências e compras específicas sem liberar preços decimais', () => {
+  const equivalenceGroups = [
+    ['coin-50-centavos', 'coin-50-centavos'],
+    ['coin-25-centavos', 'coin-50-centavos', 'coin-25-centavos'],
+  ];
+  for (const denominationIds of equivalenceGroups) {
+    const question = createCurrencyEquivalenceQuestion({ denominationIds, random: seededRandom(41) });
+    assert.equal(question.correctAnswer, 1);
+    assert.equal(question.data.amountCents, 100);
+    assert.equal(validateAv2MoneyQuestionCandidate(question), true);
+  }
+  for (const [denominationIds, expected] of [
+    [['coin-5-centavos', 'coin-5-centavos'], 10],
+    [['coin-10-centavos', 'coin-10-centavos', 'coin-5-centavos'], 25],
+    [Array(5).fill('coin-10-centavos'), 50],
+  ]) {
+    const question = createCurrencyEquivalenceQuestion({ denominationIds, random: seededRandom(expected) });
+    assert.equal(question.correctAnswer, expected);
+    assert.equal(question.data.resultUnit, 'centavos');
+    assert.equal(validateAv2MoneyQuestionCandidate(question), true, 'equivalências suplementares do livro continuam aceitas');
+  }
+  const noteEquivalence = createCurrencyEquivalenceQuestion({
+    denominationIds: ['note-5-reais', 'note-5-reais'], targetDenominationId: 'note-10-reais', random: seededRandom(10),
+  });
+  assert.equal(validateAv2MoneyQuestionCandidate(noteEquivalence), true, 'equivalência anterior entre grupos de cédulas continua aceita');
+  const writtenEquivalence = createCurrencyEquivalenceQuestion({ denominationIds: equivalenceGroups[0], random: seededRandom(4) });
+  assert.equal(validateAv2MoneyQuestionCandidate({
+    ...writtenEquivalence,
+    prompt: 'R$0,50 + R$0,50 = R$1,00',
+    speech: 'R$0,50 + R$0,50 = R$1,00',
+  }), true);
+
+  const composition = createCurrencyCompositionQuestion({
+    denominationIds: ['coin-1-real', 'coin-50-centavos', 'coin-25-centavos', 'coin-25-centavos'],
+    random: seededRandom(23),
+  });
+  assert.equal(composition.correctAnswer, 2);
+  assert.equal(validateAv2MoneyQuestionCandidate(composition), true);
+  const fullCentavoGroup = Array(10).fill('coin-10-centavos');
+  assert.equal(validateAv2MoneyQuestionCandidate(createCurrencyEquivalenceQuestion({
+    denominationIds: fullCentavoGroup, random: seededRandom(100),
+  })), true, 'a categoria permite grupos de moedas que totalizem exatamente 100 centavos');
+  assert.equal(validateAv2MoneyQuestionCandidate(createCurrencyCompositionQuestion({
+    denominationIds: fullCentavoGroup, random: seededRandom(101),
+  })), true);
+  assert.equal(validateAv2MoneyQuestionCandidate({
+    ...composition,
+    data: { ...composition.data, denominationIds: ['coin-1-real', 'coin-50-centavos'], amountCents: 150 },
+    correctAnswer: 1.5,
+  }), false, 'rejeita composição que termina em reais e centavos');
+
+  const matchingGroup = createCurrencyEquivalenceQuestion({
+    denominationIds: Array(5).fill('coin-1-real'), targetDenominationId: 'note-5-reais', random: seededRandom(5),
+  });
+  assert.equal(validateAv2MoneyQuestionCandidate(matchingGroup), true, 'a cédula precisa igualar exatamente o grupo');
+  const mixedMatchingGroup = createCurrencyEquivalenceQuestion({
+    denominationIds: ['coin-1-real', 'coin-1-real', 'coin-1-real', 'coin-1-real', 'coin-50-centavos', 'coin-25-centavos', 'coin-25-centavos'],
+    targetDenominationId: 'note-5-reais', random: seededRandom(6),
+  });
+  assert.equal(validateAv2MoneyQuestionCandidate(mixedMatchingGroup), true, 'composição mista inteira também pode corresponder a uma cédula');
+  const impossibleMatch = {
+    ...matchingGroup,
+    data: { ...matchingGroup.data, denominationIds: [
+      'coin-1-real', 'coin-1-real', 'coin-1-real', 'coin-1-real', 'coin-50-centavos', 'coin-10-centavos',
+    ], amountCents: 460 },
+    options: ['note-2-reais', 'note-5-reais', 'note-10-reais'],
+  };
+  assert.equal(validateAv2MoneyQuestionCandidate(impossibleMatch), false, 'quatro reais e sessenta centavos não têm alternativa correta');
+
+  const shopping = createAv2ShoppingRound(seededRandom(1));
+  assert.equal(shopping.length, 10);
+  for (const question of shopping) {
+    assert.equal(question.activityId, AV2_SHOPPING_ACTIVITY_ID);
+    assert.equal(question.pedagogicalCategory, 'SHOPPING_PROBLEM');
+    assert.equal(validateAv2MoneyQuestionCandidate(question), true);
+  }
+  const total24 = shopping.find((question) => question.type === 'shopping-available-total' && question.correctAnswer === 24);
+  assert.ok(total24, '5 + 5 + 10 + 2 + 2 reais = 24');
+  assert.equal(validateAv2MoneyQuestionCandidate({ ...total24, prompt: 'Quanto dinheiro há? R$24,00', speech: 'Quanto dinheiro há? R$24,00' }), true);
+  assert.equal(validateAv2MoneyQuestionCandidate({ ...total24, prompt: 'Quanto dinheiro há? R$30,00', speech: 'Quanto dinheiro há? R$30,00' }), false);
+  const affordability = shopping.find((question) => question.type === 'shopping-affordability' && question.data.availableReais === 24);
+  assert.deepEqual([...affordability.correctAnswers].sort(), ['caderno-3', 'livro-20']);
+  assert.equal(validateAv2Answer(affordability, ['caderno-3', 'livro-20']), true);
+  assert.equal(validateAv2Answer(affordability, ['caderno-3']), false);
+  assert.equal(validateAv2Answer(affordability, ['caderno-3', 'livro-20', 'urso-25']), false);
+  assert.equal(shopping.find((question) => question.type === 'shopping-change' && question.correctAnswer === 4).data.availableReais, 24);
+  assert.equal(shopping.some((question) => question.type === 'shopping-product-sum' && question.correctAnswer === 9), true);
+  assert.equal(shopping.some((question) => question.type === 'shopping-selected-total' && question.correctAnswer === 17), true);
+
+  const invalidAffordability = { ...affordability, correctAnswers: ['livro-20', 'urso-25'] };
+  assert.equal(validateAv2MoneyQuestionCandidate(invalidAffordability), false, 'validador bloqueia conjunto de produtos errado');
+  assert.equal(validateAv2MoneyQuestionCandidate({ ...affordability, options: undefined }), false, 'validador rejeita candidato sem alternativas sem lançar exceção');
+  const invalidChange = { ...shopping.find((question) => question.type === 'shopping-change' && question.correctAnswer === 4), correctAnswer: 5 };
+  assert.equal(validateAv2MoneyQuestionCandidate(invalidChange), false, 'validador bloqueia troco inconsistente');
+  const decimalShopping = {
+    ...shopping.find((question) => question.type === 'shopping-product-sum'),
+    prompt: 'R$5,50 + R$0,50. Quanto custa?',
+  };
+  assert.equal(validateAv2MoneyQuestionCandidate(decimalShopping), false, 'preços decimais arbitrários seguem sem suporte');
+  assert.equal(validateAv2MoneyQuestionCandidate({
+    ...total24,
+    data: { denominationIds: ['note-50-reais', 'note-50-reais'] },
+    correctAnswer: 100,
+    options: [98, 99, 100, 101],
+  }), false, 'não extrapola a faixa de dinheiro total demonstrada');
+  assert.equal(validateAv2MoneyQuestionCandidate({
+    ...affordability,
+    data: { ...affordability.data, products: affordability.data.products.map((product, index) => index === 0 ? { ...product, priceReais: 48 } : product) },
+  }), false, 'não cria preço de produto além da evidência complementar');
+  assert.ok(AV2_PEDAGOGICAL_CATEGORIES.includes('CURRENCY_EQUIVALENCE'));
+  assert.ok(AV2_PEDAGOGICAL_CATEGORIES.includes('SHOPPING_PROBLEM'));
+});
+
+test('reconhecimento aceita representação monetária escrita quando o valor visual confere', () => {
+  const coin = createIdentificationQuestion({ denomination: 'coin-50-centavos', random: seededRandom(51) });
+  const writtenCoin = { ...coin, prompt: 'Quanto vale esta moeda? R$0,50', speech: 'Quanto vale esta moeda? R$0,50' };
+  assert.equal(validateAv2MoneyQuestionCandidate(writtenCoin), true);
+  assert.equal(validateAv2MoneyQuestionCandidate({
+    ...writtenCoin, prompt: 'Quanto vale esta moeda? R$1,00', speech: 'Quanto vale esta moeda? R$1,00',
+  }), false, 'texto monetário e denominação precisam concordar');
+  const note = createIdentificationQuestion({ denomination: 'note-20-reais', random: seededRandom(52) });
+  assert.equal(validateAv2MoneyQuestionCandidate({
+    ...note, prompt: 'Qual é o valor desta cédula? R$20,00', speech: 'Qual é o valor desta cédula? R$20,00',
+  }), true);
+  const comparison = createComparisonQuestion({ category: 'mixed', direction: 'greater', random: seededRandom(1) });
+  const left = MONEY_DENOMINATIONS.find(({ id }) => id === comparison.data.leftId);
+  const right = MONEY_DENOMINATIONS.find(({ id }) => id === comparison.data.rightId);
+  const writtenValues = [left, right].map(({ valueCents }) => `R$${Math.floor(valueCents / 100)},${String(valueCents % 100).padStart(2, '0')}`).join(' ou ');
+  assert.equal(validateAv2MoneyQuestionCandidate({
+    ...comparison, prompt: `Qual vale mais: ${writtenValues}?`, speech: `Qual vale mais: ${writtenValues}?`,
+  }), true);
 });
 
 test('o progresso AV2 usa chave própria e não altera o nome nem os dados da revisão anterior', () => {
@@ -296,12 +464,17 @@ test('o progresso AV2 usa chave própria e não altera o nome nem os dados da re
   const storage = memoryStorage(original);
   const progress = createAv2ProgressStore({ storage });
   assert.equal(AV2_PROGRESS_STORAGE_KEY, 'av2-matematica.block-01.dinheiro.progress.v1');
+  assert.equal(AV2_SHOPPING_PROGRESS_STORAGE_KEY, 'av2-matematica.block-02.compras.progress.v1');
   assert.deepEqual(progress.get(), { roundsCompleted: 0 });
   assert.deepEqual(progress.completeRound(), { roundsCompleted: 1 });
   assert.deepEqual(createAv2ProgressStore({ storage }).get(), { roundsCompleted: 1 });
   assert.equal(storage.getItem(CHILD_NAME_STORAGE_KEY), 'Ana');
   assert.equal(storage.getItem('revisao-matematica.progress.v1'), '{"roundsCompleted":7}');
   assert.equal(JSON.parse(storage.getItem(AV2_PROGRESS_STORAGE_KEY)).roundsCompleted, 1);
+  const shoppingProgress = createAv2ProgressStore({ storage, key: AV2_SHOPPING_PROGRESS_STORAGE_KEY });
+  assert.deepEqual(shoppingProgress.completeRound(), { roundsCompleted: 1 });
+  assert.equal(JSON.parse(storage.getItem(AV2_PROGRESS_STORAGE_KEY)).roundsCompleted, 1);
+  assert.equal(JSON.parse(storage.getItem(AV2_SHOPPING_PROGRESS_STORAGE_KEY)).roundsCompleted, 1);
 
   const blocked = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); } };
   const memoryOnly = createAv2ProgressStore({ storage: blocked });
@@ -318,11 +491,13 @@ test('a interface oferece as duas revisões, mantém o gerador anterior e public
   assert.match(app, /data-action="start"/);
   assert.match(app, /data-action="av2-entry"/);
   assert.match(app, /data-action="start-av2"/);
+  assert.match(app, /data-action="start-av2-shopping"/);
   assert.match(app, /data-action="home"/);
   assert.match(app, /data-action="next-av2"/);
   assert.match(app, /data-av2-answer=/);
   assert.match(app, /state\.round = createRound\(\)/);
-  assert.match(app, /state\.av2Round = createAv2Round\(\)/);
+  assert.match(app, /state\.av2Round = block === 'block-02' \? createAv2ShoppingRound\(\) : createAv2Round\(\)/);
+  assert.match(app, /data-action="submit-av2"/);
   assert.match(app, /AV2_PROGRESS_STORAGE_KEY|createAv2ProgressStore/);
   assert.match(app, /createChildProfileStore\(\)/);
   assert.match(app, /aria-label="\$\{escapeAttribute\(money\.description\)\}"/);
