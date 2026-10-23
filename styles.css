@@ -926,3 +926,20 @@ h1 span { color: var(--blue-deep); }
   .av2-addition-actions { gap: 8px; }
   .av2-addition-actions button { min-height: 45px; padding-inline: 12px; }
 }
+
+/* Borrow histories share the C/D/U grid; successive changes stack vertically. */
+.is-subtraction { width: 100%; max-width: 540px; margin: 0 auto; }
+.is-subtraction .cdu-board { width: 100%; }
+.is-subtraction .cdu-row, .is-subtraction .cdu-line { grid-template-columns: minmax(64px, 1.3fr) repeat(3, minmax(0, 1fr)); }
+.is-subtraction .cdu-row-label { overflow-wrap: anywhere; white-space: normal; }
+.is-subtraction .cdu-marker-cell { height: auto; min-height: 48px; align-self: stretch; }
+.subtraction-history { display: flex; flex-direction: column; font-size: clamp(16px, 4vw, 24px); line-height: 1.25; }
+.subtraction-previous { text-decoration: line-through; color: #64748b; }
+.is-subtraction .secondary-button { margin-top: 12px; }
+@media (max-width: 460px) {
+  .is-subtraction .cdu-row, .is-subtraction .cdu-line { grid-template-columns: minmax(64px, 1.3fr) repeat(3, minmax(0, 1fr)); }
+  .is-subtraction .cdu-row-label { font-size: 12px; }
+}
+
+.is-subtraction .subtraction-borrow-input { font-size: clamp(20px, 5vw, 30px); width: min(100%, 64px); }
+.is-subtraction .subtraction-history { font-size: 14px; overflow-wrap: anywhere; }

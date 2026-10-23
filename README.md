@@ -252,3 +252,7 @@ Para o teste real de voz, use uma frase curta como `Olá, criança!`, confirme
 antes que as cinco variáveis estão configuradas e verifique que a resposta
 binária começa com `RIFF` e contém `WAVE`. Os testes automatizados usam apenas
 mocks e nunca consomem créditos da OpenRouter.
+
+### AV2 — Bloco 04
+
+A atividade **Subtração com reagrupamento** oferece rodadas de 12 questões com contas de dois e três algarismos, trocas D → U e C → D, trocas sucessivas, termos e problemas de retirada. Veja [arquitetura, limites e verificação do Bloco 04](docs/av2-block-04-subtracao.md).

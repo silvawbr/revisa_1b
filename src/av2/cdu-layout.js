@@ -31,6 +31,9 @@ export function renderCduLayout({
   resultRowLabel = 'resposta',
   operator = '+',
   markerRowLabel = 'vai um',
+  markerMode = 'carry',
+  firstOperandCells = null,
+  showMarkerRow = true,
 }) {
   if (!Array.isArray(resultCells) || resultCells.length !== 3
     || resultCells.some((cell) => typeof cell !== 'string')) {
@@ -42,9 +45,9 @@ export function renderCduLayout({
   const names = { hundreds: 'centenas', tens: 'dezenas', units: 'unidades' };
   const markerCells = columns.map((column) => {
     const marker = markers[column] ?? null;
-    const value = marker?.value ? String(marker.value) : '';
-    const isCarryDestination = column !== 'units';
-    const label = value
+    const value = marker?.value || (markerMode === 'borrow' && marker?.value === 0) ? String(marker.value) : '';
+    const isCarryDestination = markerMode === 'borrow' || column !== 'units';
+    const label = markerMode === 'borrow' ? marker?.ariaLabel ?? `Sem troca nas ${names[column]}` : value
       ? marker.ariaLabel ?? `vai um na casa de ${names[column]}`
       : marker?.ariaLabel ?? (isCarryDestination ? `casa da reserva das ${names[column]} vazia` : 'não há casa de reserva nas unidades');
     const content = isCarryDestination
@@ -57,9 +60,9 @@ export function renderCduLayout({
 
   return `<div class="av2-addition-board cdu-board" role="table" aria-label="${escapeHtml(ariaLabel)}">
     <div class="av2-addition-row av2-addition-position cdu-row" role="row"><span role="cell"></span><b role="columnheader">C</b><b role="columnheader">D</b><b role="columnheader">U</b></div>
-    <div class="av2-addition-row av2-addition-carry-row cdu-row" role="row"><span class="av2-addition-row-label cdu-row-label">${escapeHtml(markerRowLabel)}</span>${markerCells.join('')}</div>
-    <div class="av2-addition-row cdu-row" role="row" aria-label="${escapeHtml(`${firstRowLabel}: ${firstOperand}`)}"><span class="av2-addition-row-label cdu-row-label">${escapeHtml(firstRowLabel)}</span>${operandCells(firstDigits)}</div>
-    <div class="av2-addition-row cdu-row" role="row" aria-label="${escapeHtml(`${operator === '+' ? 'Mais' : operator} ${secondRowLabel}: ${secondOperand}`)}"><span class="av2-addition-row-label cdu-row-label"><b aria-label="${operator === '+' ? 'mais' : escapeHtml(operator)}">${escapeHtml(operator)}</b> ${escapeHtml(secondRowLabel)}</span>${operandCells(secondDigits)}</div>
+${showMarkerRow ? `<div class="av2-addition-row av2-addition-carry-row cdu-row" role="row"><span class="av2-addition-row-label cdu-row-label">${escapeHtml(markerRowLabel)}</span>${markerCells.join('')}</div>` : ''}
+    <div class="av2-addition-row cdu-row" role="row" aria-label="${escapeHtml(`${firstRowLabel}: ${firstOperand}`)}"><span class="av2-addition-row-label cdu-row-label">${escapeHtml(firstRowLabel)}</span>${firstOperandCells ? firstOperandCells.join('') : operandCells(firstDigits)}</div>
+    <div class="av2-addition-row cdu-row" role="row" aria-label="${escapeHtml(`${operator === '+' ? 'Mais' : operator === '−' ? 'Menos' : operator} ${secondRowLabel}: ${secondOperand}`)}"><span class="av2-addition-row-label cdu-row-label"><b aria-label="${operator === '+' ? 'mais' : operator === '−' ? 'menos' : escapeHtml(operator)}">${escapeHtml(operator)}</b> ${escapeHtml(secondRowLabel)}</span>${operandCells(secondDigits)}</div>
     <div class="av2-addition-line cdu-line" role="presentation"><span></span><span></span><span></span><span></span></div>
     <div class="av2-addition-row av2-addition-answer-row cdu-row" role="row"><span class="av2-addition-row-label cdu-row-label">${escapeHtml(resultRowLabel)}</span>${resultCells.join('')}</div>
   </div>`;
