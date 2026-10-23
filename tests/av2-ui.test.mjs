@@ -623,18 +623,21 @@ test('Block 05 completes mixed questions, preserves writing input, rewards progr
       const sequenceInput=document.querySelector('[data-sequence-answer]');
       const tableInputs=document.querySelectorAll('[data-table-gap]');
       if(wordInput){
-        assert.match(app.innerHTML,/inputmode="text"/);const value=Number(app.innerHTML.match(/Escreva por extenso o número (\d+)/)?.[1]);
+        assert.match(app.innerHTML,/class="number-prompt"/);assert.match(app.innerHTML,/inputmode="text"/);const value=Number(app.innerHTML.match(/Escreva por extenso o número (\d+)/)?.[1]);
         if(!preserved){wordInput.value='duzentos errado';wordInput.dispatchEvent(new Event('input',{bubbles:true}));clickAction(document,'submit-av2');assert.match(app.innerHTML,/value="duzentos errado"/);preserved=true;}
         const current=document.querySelector('[data-word-answer]');current.value=numberToWordsPtBr(value).toUpperCase();current.dispatchEvent(new Event('input',{bubbles:true}));clickAction(document,'submit-av2');
       } else if(sequenceInput){
-        const row=app.innerHTML.match(/<div class="sequence-practice-values">([\s\S]*?)<\/div>/)?.[1]??'';
-        const tokens=[...row.matchAll(/<span>(\d+)<\/span>|<input[^>]*data-sequence-answer/g)];const blank=tokens.findIndex(t=>t[0].includes('data-sequence-answer'));const direction=app.innerHTML.includes('diminuem de um em um')?-1:1;const visible=tokens.findIndex(t=>t[1]!==undefined);const first=Number(tokens[visible][1]);const start=first-visible*direction;sequenceInput.value=String(start+blank*direction);sequenceInput.dispatchEvent(new Event('input',{bubbles:true}));clickAction(document,'submit-av2');
+        assert.match(app.innerHTML,/class="number-sequence/);const neighbor=app.innerHTML.match(/Qual é o (antecessor|sucessor) de (\d+)\?/);
+        let answer;
+        if(neighbor) answer=Number(neighbor[2])+(neighbor[1]==='antecessor'?-1:1);
+        else {const row=app.innerHTML.match(/<div class="number-sequence[^\"]*"[^>]*>([\s\S]*?)<\/div>/)?.[1]??'';const tokens=[...row.matchAll(/<span>(\d+)<\/span>|<input[^>]*data-sequence-answer/g)];const blank=tokens.findIndex(t=>t[0].includes('data-sequence-answer'));const direction=app.innerHTML.includes('diminuem de um em um')?-1:1;const visible=tokens.findIndex(t=>t[1]!==undefined);const first=Number(tokens[visible][1]);const start=first-visible*direction;answer=start+blank*direction;}
+        sequenceInput.value=String(answer);sequenceInput.dispatchEvent(new Event('input',{bubbles:true}));clickAction(document,'submit-av2');
       } else if(tableInputs.length){
         for(const input of tableInputs){const m=input.attributes['aria-label'].match(/entre (\d+) e (\d+)/);input.value=String(Number(m[1])+1);input.dispatchEvent(new Event('input',{bubbles:true}));}clickAction(document,'submit-av2');
       } else {
-        let answer;const word=app.innerHTML.match(/<div class="number-word-prompt"><strong>([^<]+)<\/strong>/)?.[1];
-        if(word){answer=[...Array(251).keys(),300,400].find(n=>numberToWordsPtBr(n)===word);}else{const m=app.innerHTML.match(/Qual é o (antecessor|sucessor) de (\d+)\?/);answer=Number(m[2])+(m[1]==='antecessor'?-1:1);}
-        const option=document.querySelectorAll('[data-av2-answer]').find(b=>b.dataset.av2Answer===String(answer));assert.ok(option);option.click();
+        let answer;const word=app.innerHTML.match(/<div class="word-prompt cursive-text">([^<]+)<\/div>/)?.[1];
+        if(word){assert.match(app.innerHTML,/class="word-wrap av2-number-word-recognition"/);answer=[...Array(251).keys(),300,400].find(n=>numberToWordsPtBr(n)===word);}else{const m=app.innerHTML.match(/Qual é o (antecessor|sucessor) de (\d+)\?/);answer=Number(m[2])+(m[1]==='antecessor'?-1:1);}
+        const option=document.querySelectorAll('[data-av2-answer]').find(b=>b.dataset.av2Answer===String(answer));assert.ok(option);option.click();if(word){assert.doesNotMatch(app.innerHTML,/Muito bem, Ana!/);clickAction(document,'submit-av2');}
       }
       assert.match(app.innerHTML,/Muito bem, Ana!/);clickAction(document,'next-av2');
     }

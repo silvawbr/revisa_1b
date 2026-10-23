@@ -1,17 +1,11 @@
+import { numberToPortuguese } from '../game.js';
+
 export const AV2_SEQUENCES_ACTIVITY_ID = 'av2-sequences';
 export const AV2_SEQUENCES_PROGRESS_STORAGE_KEY = 'av2-matematica.block-05.sequencias.progress.v1';
 export const NUMBER_WORD_VALUES = Object.freeze([...Array(251).keys(), 300, 400]);
-const units = ['zero','um','dois','três','quatro','cinco','seis','sete','oito','nove'];
-const teens = ['dez','onze','doze','treze','quatorze','quinze','dezesseis','dezessete','dezoito','dezenove'];
-const tens = ['', '', 'vinte','trinta','quarenta','cinquenta','sessenta','setenta','oitenta','noventa'];
-function under100(n) { return n < 10 ? units[n] : n < 20 ? teens[n-10] : n%10 ? `${tens[Math.floor(n/10)]} e ${units[n%10]}` : tens[n/10]; }
-export function numberToWordsPtBr(n) {
- if (!Number.isInteger(n) || !(n >= 0 && n <= 250 || n === 300 || n === 400)) throw new RangeError('Número fora do conteúdo desta atividade.');
- if (n < 100) return under100(n);
- if (n === 100) return 'cem'; if(n===300)return 'trezentos';if(n===400)return 'quatrocentos';
- const h=Math.floor(n/100),r=n%100, hundred=h===1?'cento':'duzentos';
- return r===0? (h===1?'cem':'duzentos') : `${hundred} e ${under100(r)}`;
-}
+// Share the original revision's deterministic spelling and keep AV2's domain
+// local in NUMBER_WORD_VALUES and its candidate validators.
+export const numberToWordsPtBr = numberToPortuguese;
 export function normalizeWordAnswer(value) { return String(value ?? '').normalize('NFC').trim().toLocaleLowerCase('pt-BR').replace(/\s+/g,' '); }
 function revealsWrittenAnswer(text,answer){const tokens=normalizeWordAnswer(text).split(/[^a-záàâãéêíóôõúüç]+/u).filter(Boolean),target=normalizeWordAnswer(answer).split(' ');return tokens.some((_,i)=>tokens.slice(i,i+target.length).join(' ')===target.join(' '));}
 export function validateWordAnswer(expected,value) { return normalizeWordAnswer(value) === normalizeWordAnswer(numberToWordsPtBr(expected)); }
