@@ -37,6 +37,7 @@ coverage/
 .cache/
 .tmp/
 tmp/
+work/
 
 # Bancos de dados locais e arquivos de desenvolvimento
 *.db

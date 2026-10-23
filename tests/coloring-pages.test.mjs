@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -55,12 +56,19 @@ async function requestStatic(url, method = 'GET') {
   return response;
 }
 
-test('o catálogo local tem entre 20 e 30 desenhos aprovados', async () => {
-  assert.ok(COLORING_PAGES.length >= 20 && COLORING_PAGES.length <= 30);
+test('o catálogo local tem pelo menos 50 desenhos aprovados e IDs únicos', async () => {
+  assert.ok(COLORING_PAGES.length >= 50);
+  assert.equal(new Set(COLORING_PAGES.map((page) => page.id)).size, COLORING_PAGES.length);
+  assert.equal(new Set(COLORING_PAGES.map((page) => page.src)).size, COLORING_PAGES.length);
+  const assetHashes = new Set();
   for (const page of COLORING_PAGES) {
     assert.equal(isLocalColoringPage(page), true);
     assert.equal(/^https?:\/\//i.test(page.src), false);
-    await assert.doesNotReject(fs.access(path.join(root, page.src.replace(/^\//, ''))));
+    const assetPath = path.join(root, page.src.replace(/^\//, ''));
+    await assert.doesNotReject(fs.access(assetPath));
+    const digest = createHash('sha256').update(await fs.readFile(assetPath)).digest('hex');
+    assert.equal(assetHashes.has(digest), false, `${page.id} duplica outro asset local`);
+    assetHashes.add(digest);
   }
 });
 
@@ -74,6 +82,10 @@ test('cada desenho tem origem, licença e registro correspondente', () => {
     assert.ok(page.license);
     assert.match(page.licenseUrl, /^https?:\/\//);
     assert.match(attributions, new RegExp(`## ${page.src.split('/').pop().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+    if (page.origin === 'original') {
+      assert.match(attributions, /criação vetorial original para o catálogo local/);
+      assert.equal(page.attributionRequired, false);
+    }
     if (page.attributionRequired) {
       assert.match(attributions, new RegExp(`${page.author}`));
       assert.match(attributions, new RegExp(`${page.license.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
@@ -212,6 +224,8 @@ test('os assets são SVGs autossuficientes e adequados a uma página A4', async 
     assert.doesNotMatch(source, /url\(\s*https?:/i);
   }
   assert.match(cssSource, /@page \{ size: A4 portrait; margin: 10mm; \}/);
+  assert.match(cssSource, /@page coloring-landscape \{ size: A4 landscape; margin: 10mm; \}/);
+  assert.match(cssSource, /\.print-sheet\[data-orientation="landscape"\] \{ page: coloring-landscape; \}/);
   assert.match(cssSource, /max-width: 100%;[\s\S]*max-height: calc\(100% - 8mm\)/);
   assert.match(cssSource, /object-fit: contain/);
   assert.match(cssSource, /width: auto;[\s\S]*height: auto/);

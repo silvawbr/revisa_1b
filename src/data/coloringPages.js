@@ -1,3 +1,6 @@
+import { ORIGINAL_COLORING_PAGES } from './originalColoringPages.js';
+import { GENERATED_COLORING_PAGES } from './generatedColoringPages.js';
+
 /**
  * @typedef {Object} ColoringPage
  * @property {string} id
@@ -62,7 +65,7 @@ export function createRecentIdStore({ key, limit, storage = getDefaultStorage() 
 }
 
 /** @type {readonly ColoringPage[]} */
-export const COLORING_PAGES = Object.freeze([
+const EXISTING_COLORING_PAGES = Object.freeze([
   {
     id: 'student-writing',
     src: `${LOCAL_ASSET_PREFIX}student-writing-02.svg`,
@@ -163,6 +166,12 @@ export const COLORING_PAGES = Object.freeze([
   {
     id: 'christmas-tree', src: `${LOCAL_ASSET_PREFIX}christmas-tree.svg`, alt: 'Árvore de Natal de contorno preto para colorir.', title: 'Árvore de Natal', orientation: 'portrait', attributionRequired: false, author: 'pianoBrad', sourceUrl: 'https://openclipart.org/detail/187781/christmas-tree-coloring-page', sourceFileUrl: 'https://openclipart.org/download/187781', license: 'CC0 1.0', licenseUrl: 'https://creativecommons.org/publicdomain/zero/1.0/',
   },
+]);
+
+export const COLORING_PAGES = Object.freeze([
+  ...EXISTING_COLORING_PAGES,
+  ...ORIGINAL_COLORING_PAGES,
+  ...GENERATED_COLORING_PAGES,
 ]);
 
 export const REWARD_MESSAGE = 'Você terminou a revisão! Parabéns, {name}! Escolha suas cores e divirta-se! 🎉';
