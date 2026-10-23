@@ -623,7 +623,7 @@ test('Block 05 completes mixed questions, preserves writing input, rewards progr
       const sequenceInput=document.querySelector('[data-sequence-answer]');
       const tableInputs=document.querySelectorAll('[data-table-gap]');
       if(wordInput){
-        assert.match(app.innerHTML,/class="number-prompt"/);assert.match(app.innerHTML,/inputmode="text"/);const value=Number(app.innerHTML.match(/Escreva por extenso o número (\d+)/)?.[1]);
+        assert.match(app.innerHTML,/class="number-prompt"/);assert.match(app.innerHTML,/class="number-word-input cursive-text"/);assert.match(app.innerHTML,/inputmode="text"/);const value=Number(app.innerHTML.match(/Escreva por extenso o número (\d+)/)?.[1]);
         if(!preserved){wordInput.value='duzentos errado';wordInput.dispatchEvent(new Event('input',{bubbles:true}));clickAction(document,'submit-av2');assert.match(app.innerHTML,/value="duzentos errado"/);preserved=true;}
         const current=document.querySelector('[data-word-answer]');current.value=numberToWordsPtBr(value).toUpperCase();current.dispatchEvent(new Event('input',{bubbles:true}));clickAction(document,'submit-av2');
       } else if(sequenceInput){
