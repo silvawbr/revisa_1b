@@ -1,5 +1,6 @@
 export const AV2_PROGRESS_STORAGE_KEY = 'av2-matematica.block-01.dinheiro.progress.v1';
 export const AV2_SHOPPING_PROGRESS_STORAGE_KEY = 'av2-matematica.block-02.compras.progress.v1';
+export const AV2_ADDITION_PROGRESS_STORAGE_KEY = 'av2-matematica.block-03.adicao.progress.v1';
 
 function getDefaultStorage() {
   try {

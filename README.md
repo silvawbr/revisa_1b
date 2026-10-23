@@ -5,7 +5,9 @@ conteúdos de Matemática do 1º ano Vita. A tela inicial oferece a revisão
 original, com seis atividades, e a revisão independente AV2 Matemática. O
 Bloco 01 da AV2 ensina a reconhecer moedas e cédulas brasileiras, comparar
 seus valores e formar equivalências. O Bloco 02 pratica compras, dinheiro
-disponível, soma de preços e troco em rodadas próprias de dez questões.
+disponível, soma de preços e troco em rodadas próprias de dez questões. O
+Bloco 03 pratica adições de dois e três algarismos, reagrupamento em C/D/U,
+termos da adição e problemas curtos em rodadas próprias de doze questões.
 
 As regras de conteúdo e geração para a avaliação estão documentadas no
 [Contrato Pedagógico da AV2 Matemática](docs/av2-matematica-contrato-pedagogico.md).
@@ -96,7 +98,11 @@ ignorada pelo Git.
 - `src/game.js`: geração, validação e conversão de números para português.
 - `src/av2/money.js`: catálogo de moedas e cédulas em centavos inteiros,
   geradores e validadores pedagógicos dos Blocos 01 e 02 da AV2.
-- `src/av2/progress.js`: progresso separado dos Blocos 01 e 02 da AV2.
+- `src/av2/addition.js`: trilha C/D/U, geradores e validação pedagógica do
+  Bloco 03, com regras próprias para cada padrão de reagrupamento.
+- `src/av2/cdu-layout.js`: estrutura visual alinhada de centena, dezena e
+  unidade para reutilização por atividades futuras.
+- `src/av2/progress.js`: progresso separado dos Blocos 01, 02 e 03 da AV2.
 - `src/figures.js`: renderização das figuras espaciais em SVG.
 - `src/data/coloringPages.js`: catálogo local, seleção aleatória e metadados de
   licença dos desenhos da recompensa.

@@ -34,8 +34,19 @@ import {
   createAv2ShoppingRound,
   validateAv2Answer,
 } from './src/av2/money.js';
+import {
+  AV2_ADDITION_ACTIVITY_ID,
+  AV2_ADDITION_ROUND_LENGTH,
+  createAv2AdditionRound,
+  validateAv2AdditionAnswer,
+} from './src/av2/addition.js';
+import { renderCduLayout, renderCduLegend } from './src/av2/cdu-layout.js';
 import { getAv2ProductIllustration } from './src/av2/product-illustrations.js';
-import { AV2_SHOPPING_PROGRESS_STORAGE_KEY, createAv2ProgressStore } from './src/av2/progress.js';
+import {
+  AV2_ADDITION_PROGRESS_STORAGE_KEY,
+  AV2_SHOPPING_PROGRESS_STORAGE_KEY,
+  createAv2ProgressStore,
+} from './src/av2/progress.js';
 import {
   createChildProfileStore,
   createPersonalizedMessage,
@@ -58,6 +69,7 @@ const officialColoringPageHistory = createRecentIdStore({
 });
 const av2Progress = createAv2ProgressStore();
 const av2ShoppingProgress = createAv2ProgressStore({ key: AV2_SHOPPING_PROGRESS_STORAGE_KEY });
+const av2AdditionProgress = createAv2ProgressStore({ key: AV2_ADDITION_PROGRESS_STORAGE_KEY });
 const moneyById = new Map(MONEY_DENOMINATIONS.map((money) => [money.id, money]));
 let visualSelectionInteraction = null;
 
@@ -89,6 +101,10 @@ const state = {
   av2Attempts: 0,
   av2Selected: null,
   av2Block: 'block-01',
+  av2HintIndex: -1,
+  av2AdditionAnswer: {},
+  av2AdditionInputError: false,
+  av2ActiveAdditionField: null,
 };
 
 const positiveMessageTemplates = [
@@ -612,6 +628,7 @@ function renderAv2Home() {
   const sampleNote = BANKNOTES.find(({ id }) => id === 'note-20-reais');
   const roundsCompleted = av2Progress.get().roundsCompleted;
   const shoppingRoundsCompleted = av2ShoppingProgress.get().roundsCompleted;
+  const additionRoundsCompleted = av2AdditionProgress.get().roundsCompleted;
   return `<div class="site-shell home-screen av2-home-screen">
     <main class="home-main">
       <section class="home-card av2-home-card" aria-labelledby="av2-home-title">
@@ -636,6 +653,14 @@ function renderAv2Home() {
             <p class="av2-progress-summary" data-shopping-rounds-completed>Rodadas concluídas: <strong>${shoppingRoundsCompleted}</strong></p>
             <button class="primary-button start-button" type="button" data-action="start-av2-shopping">Começar <span aria-hidden="true">→</span></button>
           </article>
+          <article class="av2-activity-card addition-activity-card">
+            <span class="addition-activity-icon" aria-hidden="true">➕</span>
+            <h2>Adição com reagrupamento</h2>
+            <p>Some dezenas e centenas, use o vai um e descubra as parcelas e o total.</p>
+            <div class="addition-activity-sample" aria-label="Exemplo de adição: 156 mais 195">156 + 195 = ?</div>
+            <p class="av2-progress-summary" data-addition-rounds-completed>Rodadas concluídas: <strong>${additionRoundsCompleted}</strong></p>
+            <button class="primary-button start-button" type="button" data-action="start-av2-addition">Começar <span aria-hidden="true">→</span></button>
+          </article>
         </div>
         <button class="secondary-button av2-back-button" type="button" data-action="home">Voltar às revisões</button>
         ${renderGuide('Moedas e cédulas têm valores diferentes. Vamos descobrir!')}
@@ -645,8 +670,9 @@ function renderAv2Home() {
 }
 
 function renderAv2Progress() {
-  return `<div class="av2-progress" role="img" aria-label="Progresso: questão ${state.av2Index + 1} de 10">
-    ${Array.from({ length: 10 }, (_, index) => `<span class="av2-progress-dot ${index < state.av2Index ? 'is-complete' : ''} ${index === state.av2Index ? 'is-current' : ''}" aria-hidden="true">${index < state.av2Index ? '★' : '☆'}</span>`).join('')}
+  const total = state.av2Round.length || (state.av2Block === 'block-03' ? AV2_ADDITION_ROUND_LENGTH : 10);
+  return `<div class="av2-progress" role="img" aria-label="Progresso: questão ${state.av2Index + 1} de ${total}">
+    ${Array.from({ length: total }, (_, index) => `<span class="av2-progress-dot ${index < state.av2Index ? 'is-complete' : ''} ${index === state.av2Index ? 'is-current' : ''}" aria-hidden="true">${index < state.av2Index ? '★' : '☆'}</span>`).join('')}
   </div>`;
 }
 
@@ -656,12 +682,101 @@ function renderAv2Header() {
     ${renderAv2Progress()}
     <div class="header-actions">
       <button class="change-child-button" type="button" data-action="change-child" aria-label="Trocar criança">Trocar criança</button>
-      <button class="secondary-button av2-exit-button" type="button" data-action="home" aria-label="Voltar às revisões">Revisões</button>
+      ${state.av2Block === 'block-03'
+    ? '<button class="secondary-button av2-exit-button" type="button" data-action="av2-home" aria-label="Voltar às atividades AV2">Atividades</button>'
+    : '<button class="secondary-button av2-exit-button" type="button" data-action="home" aria-label="Voltar às revisões">Revisões</button>'}
     </div>
   </header>`;
 }
 
+function renderAdditionBoard(question, { showResult = false } = {}) {
+  const { a, b, trace } = question.data;
+  const revealedCarries = showResult
+    ? ['toTens', 'toHundreds']
+    : question.hints[Math.max(0, state.av2HintIndex)]?.revealsCarries ?? [];
+  const markers = {
+    hundreds: revealedCarries.includes('toHundreds') && trace.carries.toHundreds > 0
+      ? { value: '1', ariaLabel: 'vai um para as centenas' } : null,
+    tens: revealedCarries.includes('toTens') && trace.carries.toTens > 0
+      ? { value: '1', ariaLabel: 'vai um para as dezenas' } : null,
+  };
+  const digitInput = (name, label, extraClass = '') => `<input class="av2-addition-digit ${extraClass} ${state.av2Attempts > 0 && !state.av2Correct ? 'is-incorrect' : ''}" type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" data-av2-add-field="${name}" aria-label="${label}" aria-describedby="av2-addition-entry-help" value="${escapeAttribute(state.av2AdditionAnswer[name] ?? '')}" ${state.av2Correct ? 'disabled' : ''}>`;
+  const answerDigit = (name, label) => `<span role="cell">${digitInput(name, `${label} do resultado`)}</span>`;
+  if (!showResult) {
+    markers.hundreds = {
+      inputHtml: digitInput('carryHundreds', 'Reserva para a centena', 'av2-addition-carry-digit'),
+      isRevealed: revealedCarries.includes('toHundreds') && trace.carries.toHundreds > 0,
+      ariaLabel: 'casa da reserva das centenas',
+    };
+    markers.tens = {
+      inputHtml: digitInput('carryTens', 'Reserva para a dezena', 'av2-addition-carry-digit'),
+      isRevealed: revealedCarries.includes('toTens') && trace.carries.toTens > 0,
+      ariaLabel: 'casa da reserva das dezenas',
+    };
+  }
+  const resultDigits = String(trace.result).length;
+  const resultCells = showResult
+    ? [resultDigits === 3 ? Math.floor(trace.result / 100) : '', Math.floor(trace.result / 10) % 10, trace.result % 10]
+      .map((digit) => `<span class="addition-static-digit" role="cell">${digit}</span>`)
+    : [resultDigits === 3 ? answerDigit('hundreds', 'Centena') : '<span class="addition-empty-digit" role="cell" aria-label="Sem centena"></span>', answerDigit('tens', 'Dezena'), answerDigit('units', 'Unidade')];
+  const accessibleAddition = `${a} mais ${b}${showResult ? ` é igual a ${trace.result}` : ''}`;
+  return `<div class="av2-addition-wrap">${renderCduLegend()}${renderCduLayout({
+    firstOperand: a,
+    secondOperand: b,
+    markers,
+    resultCells,
+    ariaLabel: `Adição vertical: ${accessibleAddition}. Colunas de centena, dezena e unidade.`,
+    firstRowLabel: '1ª parcela',
+    secondRowLabel: '2ª parcela',
+    resultRowLabel: showResult ? 'soma' : 'resposta',
+    operator: '+',
+    markerRowLabel: 'vai um',
+  })}</div>`;
+}
+
+function renderAv2AdditionQuestion(question) {
+  if (question.type === 'terms') {
+    const options = question.options.map((answer, index) => {
+      const selected = state.av2Selected === answer;
+      const incorrect = selected && !state.av2Correct && state.av2Attempts > 0;
+      const label = typeof answer === 'number' ? String(answer) : answer;
+      return `<button class="av2-answer-label ${selected ? 'is-selected' : ''} ${incorrect ? 'is-incorrect' : ''}" type="button" data-av2-answer="${escapeAttribute(answer)}" aria-label="Alternativa ${index + 1}: ${escapeAttribute(label)}" aria-pressed="${selected}" ${state.av2Correct ? 'disabled' : ''}>${escapeHtml(label)}</button>`;
+    }).join('');
+    const hintIndex = state.av2HintIndex;
+    const hintLimit = state.av2Attempts === 0 ? 0 : question.hints.length - 1;
+    const hint = hintIndex >= 0 ? question.hints[hintIndex] : null;
+    return `<div class="av2-exercise is-addition is-terms" data-av2-question-type="terms">
+      ${renderAdditionBoard(question, { showResult: true })}
+      <div class="av2-answer-options label-options" role="group" aria-label="Alternativas de resposta">${options}</div>
+      <div class="av2-addition-actions">
+        <button class="secondary-button av2-hint-button" type="button" data-action="av2-hint" ${!state.av2Correct && hintIndex < hintLimit ? '' : 'disabled'}>${hintIndex >= 0 ? 'Outra dica' : 'Quero uma dica'}</button>
+      </div>
+      ${hint ? `<p class="hint-box av2-addition-hint" role="status" aria-live="polite"><b>Dica ${hintIndex + 1}:</b> ${escapeHtml(hint.text)}</p>` : ''}
+    </div>`;
+  }
+
+  const hintIndex = state.av2HintIndex;
+  const hint = hintIndex >= 0 ? question.hints[hintIndex] : null;
+  const hintLimit = state.av2Attempts === 0 ? 0 : question.hints.length - 1;
+  const canShowAnotherHint = !state.av2Correct && hintIndex < hintLimit;
+  return `<div class="av2-exercise is-addition" data-av2-question-type="${question.type}">
+    ${renderAdditionBoard(question)}
+    <p class="av2-addition-entry-help" id="av2-addition-entry-help">Digite a soma nas casas C, D e U. Você também pode preencher as reservas.</p>
+    ${state.av2AdditionInputError ? `<p class="av2-addition-input-error" role="alert">${escapeHtml(state.av2AdditionInputError)}</p>` : ''}
+    <div class="number-pad av2-addition-pad" role="group" aria-label="Teclado numérico">
+      ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((digit) => `<button type="button" data-av2-add-digit="${digit}" ${state.av2Correct ? 'disabled' : ''}>${digit}</button>`).join('')}
+      <button type="button" class="pad-clear" data-av2-add-clear ${state.av2Correct ? 'disabled' : ''}>Limpar</button>
+    </div>
+    <div class="av2-addition-actions">
+      <button class="primary-button" type="button" data-action="submit-av2" ${state.av2Correct ? 'disabled' : ''}>Conferir resposta <span aria-hidden="true">→</span></button>
+      <button class="secondary-button av2-hint-button" type="button" data-action="av2-hint" aria-describedby="av2-addition-entry-help" ${canShowAnotherHint ? '' : 'disabled'}>${hintIndex >= 0 ? 'Outra dica' : 'Quero uma dica'}</button>
+    </div>
+    ${hint ? `<p class="hint-box av2-addition-hint" role="status" aria-live="polite"><b>Dica ${hintIndex + 1}:</b> ${escapeHtml(hint.text)}</p>` : ''}
+  </div>`;
+}
+
 function renderAv2Question(question) {
+  if (question.activityId === AV2_ADDITION_ACTIVITY_ID) return renderAv2AdditionQuestion(question);
   if (question.pedagogicalCategory === 'SHOPPING_PROBLEM') return renderAv2ShoppingQuestion(question);
 
   const moneyGroup = (ids) => `<div class="av2-money-group">${ids.map((id) => `<div class="av2-group-item">${renderMoneyIllustration(moneyById.get(id))}<span>${escapeHtml(moneyById.get(id).label)}</span></div>`).join('')}</div>`;
@@ -759,6 +874,11 @@ function renderAv2Feedback(question) {
     </div>`;
   }
   if (state.av2Attempts === 0) return '';
+  if (question.activityId === AV2_ADDITION_ACTIVITY_ID) {
+    return `<div class="feedback retry-feedback" role="alert" aria-live="polite">
+      <p class="feedback-title">${state.av2Attempts === 1 ? question.feedback.retry : 'Observe a conta com calma e tente mais uma vez.'}</p>
+    </div>`;
+  }
   return `<div class="feedback retry-feedback" role="alert" aria-live="polite">
     <p class="feedback-title">${state.av2Attempts === 1 ? question.feedback.retry : 'Observe os valores e tente mais uma vez.'}</p>
     ${state.av2Attempts >= 2 ? `<p class="hint-box"><b>Dica:</b> ${escapeHtml(question.hint)}</p>` : ''}
@@ -767,13 +887,14 @@ function renderAv2Feedback(question) {
 
 function renderAv2Game() {
   const question = state.av2Round[state.av2Index];
-  const activityName = state.av2Block === 'block-02' ? 'Compras e troco'
+  const activityName = state.av2Block === 'block-03' ? 'Adição com reagrupamento'
+    : state.av2Block === 'block-02' ? 'Compras e troco'
     : question.type === 'identification' || question.type === 'equivalence' || question.type === 'composition'
       ? 'Reconhecer o dinheiro' : 'Comparar valores';
   return `<div class="site-shell game-screen av2-game-screen">
     ${renderAv2Header()}
     <main class="main-content av2-main-content">
-      <div class="question-topline"><span class="activity-badge">Questão ${state.av2Index + 1} de 10</span><span class="activity-count">${activityName}</span></div>
+      <div class="question-topline"><span class="activity-badge">Questão ${state.av2Index + 1} de ${state.av2Round.length}</span><span class="activity-count">${activityName}</span></div>
       <div class="question-heading"><div><h1 id="av2-question-title">${activityName}</h1></div>${renderGuide(state.av2Correct ? 'Que conquista linda! Vamos continuar.' : 'Vamos com calma! Você consegue!')}</div>
       <section class="question-card av2-question-card" aria-labelledby="av2-question-title">
         <div class="prompt-row"><p class="prompt" id="av2-question-prompt">${escapeHtml(question.prompt)}</p>${renderSpeechButton('question', question.speech)}</div>
@@ -853,20 +974,22 @@ function renderReward() {
   const rewardPage = getColoringPageById(state.rewardPageId);
   const rewardMessage = createRewardMessage();
   const av2Reward = state.activeRevision === AV2_REVISION_ID;
-  const starCount = av2Reward ? 10 : 6;
+  const additionReward = av2Reward && state.av2Block === 'block-03';
+  const starCount = additionReward ? AV2_ADDITION_ROUND_LENGTH : av2Reward ? 10 : 6;
   const starsLabel = `${starCount} estrelas conquistadas`;
   return `<div class="site-shell reward-screen">
     <main class="reward-main">
       <section class="reward-card" aria-labelledby="reward-title">
-        <div class="reward-stars${av2Reward ? ' av2-reward-stars' : ''}" aria-label="${starsLabel}">${Array.from({ length: starCount }, () => av2Reward ? '<span aria-hidden="true">★</span>' : '★').join(av2Reward ? '' : ' ')}</div>
+        <div class="reward-stars${av2Reward ? ' av2-reward-stars' : ''}${additionReward ? ' av2-addition-reward-stars' : ''}" aria-label="${starsLabel}">${Array.from({ length: starCount }, () => av2Reward ? '<span aria-hidden="true">★</span>' : '★').join(av2Reward ? '' : ' ')}</div>
         <p class="eyebrow">Missão cumprida!</p>
         <h1 id="reward-title">${escapeHtml(rewardMessage.visualText)}</h1>
-        <p class="reward-copy">${av2Reward ? 'Você concluiu as 10 questões sobre dinheiro. Agora é hora de colorir!' : 'Você passou por todas as atividades. Agora é hora de colorir!'}</p>
+        <p class="reward-copy">${additionReward ? 'Você concluiu as 12 questões de adição. Agora é hora de colorir!' : av2Reward ? 'Você concluiu as 10 questões sobre dinheiro. Agora é hora de colorir!' : 'Você passou por todas as atividades. Agora é hora de colorir!'}</p>
         ${state.rewardFallback ? renderColoringPage(null) : renderColoringPage(rewardPage)}
         <div class="reward-actions">
           <button class="primary-button" type="button" data-action="print">🖨 Imprimir meu desenho</button>
           <button class="secondary-button" type="button" data-action="another-coloring-page">🎨 Ver outro desenho</button>
           <button class="secondary-button" type="button" data-action="restart">↻ ${av2Reward ? 'Outra rodada AV2' : 'Jogar novamente'}</button>
+          ${additionReward ? '<button class="secondary-button" type="button" data-action="av2-home">Voltar às atividades AV2</button>' : ''}
           ${av2Reward ? '<button class="secondary-button" type="button" data-action="home">Voltar às revisões</button>' : ''}
           <button class="change-child-home" type="button" data-action="change-child">Trocar criança</button>
         </div>
@@ -1009,11 +1132,16 @@ function beginAv2Round(block = 'block-01') {
   state.activeRevision = AV2_REVISION_ID;
   state.av2Block = block;
   state.screen = 'av2-game';
-  state.av2Round = block === 'block-02' ? createAv2ShoppingRound() : createAv2Round();
+  state.av2Round = block === 'block-03' ? createAv2AdditionRound()
+    : block === 'block-02' ? createAv2ShoppingRound() : createAv2Round();
   state.av2Index = 0;
   state.av2Correct = false;
   state.av2Attempts = 0;
   state.av2Selected = null;
+  state.av2HintIndex = -1;
+  state.av2AdditionAnswer = {};
+  state.av2AdditionInputError = false;
+  state.av2ActiveAdditionField = null;
   state.rewardPageId = null;
   state.rewardFallback = false;
   state.officialOpenFailure = null;
@@ -1044,7 +1172,9 @@ function nextAv2Question() {
   if (!state.av2Correct) return;
   cancelSpeech();
   if (state.av2Index >= state.av2Round.length - 1) {
-    (state.av2Block === 'block-02' ? av2ShoppingProgress : av2Progress).completeRound();
+    const progressStore = state.av2Block === 'block-03' ? av2AdditionProgress
+      : state.av2Block === 'block-02' ? av2ShoppingProgress : av2Progress;
+    progressStore.completeRound();
     selectRewardPage();
     state.screen = 'reward';
     render();
@@ -1054,6 +1184,10 @@ function nextAv2Question() {
   state.av2Correct = false;
   state.av2Attempts = 0;
   state.av2Selected = null;
+  state.av2HintIndex = -1;
+  state.av2AdditionAnswer = {};
+  state.av2AdditionInputError = false;
+  state.av2ActiveAdditionField = null;
   render();
 }
 
@@ -1109,13 +1243,19 @@ function selectAv2Option(moneyId) {
     : question?.options.includes(Number(moneyId)) ? Number(moneyId) : null;
   if (answer === null) return;
   state.av2Selected = answer;
-  if (validateAv2Answer(question, answer)) {
+  const isCorrect = question.activityId === AV2_ADDITION_ACTIVITY_ID
+    ? validateAv2AdditionAnswer(question, answer)
+    : validateAv2Answer(question, answer);
+  if (isCorrect) {
     state.av2Correct = true;
     cancelSpeech();
     render();
     return;
   }
   state.av2Attempts += 1;
+  if (question.activityId === AV2_ADDITION_ACTIVITY_ID) {
+    state.av2HintIndex = Math.min(state.av2HintIndex + 1, question.hints.length - 1);
+  }
   cancelSpeech();
   render();
   document.querySelector(`[data-av2-answer="${moneyId}"]`)?.focus();
@@ -1124,6 +1264,44 @@ function selectAv2Option(moneyId) {
 function submitAv2Answer() {
   if (state.av2Correct) return;
   const question = state.av2Round[state.av2Index];
+  if (question.activityId === AV2_ADDITION_ACTIVITY_ID && question.type !== 'terms') {
+    const requiredFields = question.data.result >= 100 ? ['hundreds', 'tens', 'units'] : ['tens', 'units'];
+    const inputs = [...document.querySelectorAll('[data-av2-add-field]')];
+    const values = Object.fromEntries(inputs.map((input) => [input.dataset.av2AddField, input.value]));
+    const missingField = requiredFields.find((field) => !/^\d$/.test(values[field] ?? ''));
+    if (missingField) {
+      state.av2AdditionInputError = 'Preencha as casas do resultado antes de conferir.';
+      render();
+      document.querySelector(`[data-av2-add-field="${missingField}"]`)?.focus();
+      return;
+    }
+    state.av2AdditionInputError = false;
+    const incorrectCarry = [
+      ['carryHundreds', question.data.trace.carries.toHundreds],
+      ['carryTens', question.data.trace.carries.toTens],
+    ].find(([field, expected]) => values[field] !== '' && Number(values[field]) !== expected);
+    if (incorrectCarry) {
+      const [field] = incorrectCarry;
+      state.av2AdditionInputError = 'Confira o número que você escreveu na casa da reserva.';
+      state.av2Attempts += 1;
+      state.av2HintIndex = Math.min(state.av2HintIndex + 1, question.hints.length - 1);
+      cancelSpeech();
+      render();
+      document.querySelector(`[data-av2-add-field="${field}"]`)?.focus();
+      return;
+    }
+    const answer = Number(requiredFields.map((field) => values[field]).join(''));
+    state.av2Selected = answer;
+    if (validateAv2AdditionAnswer(question, answer)) {
+      state.av2Correct = true;
+    } else {
+      state.av2Attempts += 1;
+      state.av2HintIndex = Math.min(state.av2HintIndex + 1, question.hints.length - 1);
+    }
+    cancelSpeech();
+    render();
+    return;
+  }
   const answer = Array.isArray(state.av2Selected) ? state.av2Selected : [];
   if (validateAv2Answer(question, answer)) {
     state.av2Correct = true;
@@ -1131,6 +1309,16 @@ function submitAv2Answer() {
     state.av2Attempts += 1;
   }
   cancelSpeech();
+  render();
+}
+
+function requestAv2Hint() {
+  if (state.av2Correct) return;
+  const question = state.av2Round[state.av2Index];
+  if (question?.activityId !== AV2_ADDITION_ACTIVITY_ID || !question.hints?.length) return;
+  const maximumIndex = state.av2Attempts === 0 ? 0 : question.hints.length - 1;
+  if (state.av2HintIndex >= maximumIndex) return;
+  state.av2HintIndex += 1;
   render();
 }
 
@@ -1172,6 +1360,7 @@ function bindEvents() {
       if (action === 'start') beginRound();
       if (action === 'start-av2') beginAv2Round();
       if (action === 'start-av2-shopping') beginAv2Round('block-02');
+      if (action === 'start-av2-addition') beginAv2Round('block-03');
       if (action === 'restart') {
         if (state.activeRevision === AV2_REVISION_ID) beginAv2Round(state.av2Block);
         else beginRound();
@@ -1191,9 +1380,16 @@ function bindEvents() {
         state.screen = 'home';
         render();
       }
+      if (action === 'av2-home') {
+        cancelSpeech();
+        state.activeRevision = AV2_REVISION_ID;
+        state.screen = 'av2-home';
+        render();
+      }
       if (action === 'next') nextQuestion();
       if (action === 'next-av2') nextAv2Question();
       if (action === 'submit-av2') submitAv2Answer();
+      if (action === 'av2-hint') requestAv2Hint();
       if (action === 'check-answer') checkAnswer();
       if (action === 'hint') {
         state.hintVisible = true;
@@ -1263,6 +1459,18 @@ function bindEvents() {
     });
   });
 
+  document.querySelectorAll('[data-av2-add-field]').forEach((input) => {
+    input.addEventListener('focus', () => {
+      state.av2ActiveAdditionField = input.dataset.av2AddField;
+    });
+    input.addEventListener('input', () => {
+      sanitizeDigitInput(input);
+      state.av2AdditionAnswer[input.dataset.av2AddField] = input.value;
+      state.av2AdditionInputError = false;
+      focusNextInput(input, '[data-av2-add-field]');
+    });
+  });
+
   document.querySelectorAll('[data-neighbor-field]').forEach((input) => {
     input.addEventListener('input', () => {
       sanitizeDigitInput(input, 3);
@@ -1303,6 +1511,27 @@ function bindEvents() {
     state.activeAddField = null;
     document.querySelectorAll('[data-add-field]').forEach((input) => { input.value = ''; });
     document.querySelector('[data-add-field]')?.focus();
+  });
+
+  document.querySelectorAll('[data-av2-add-digit]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const additionFields = [...document.querySelectorAll('[data-av2-add-field]')];
+      const active = additionFields.find((input) => input.dataset.av2AddField === state.av2ActiveAdditionField);
+      const resultFields = additionFields.filter((input) => !input.dataset.av2AddField.startsWith('carry'));
+      const empty = resultFields.find((input) => !input.value);
+      const target = active || empty || document.querySelector('[data-av2-add-field="units"]');
+      if (!target) return;
+      target.value = button.dataset.av2AddDigit;
+      target.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  });
+
+  document.querySelector('[data-av2-add-clear]')?.addEventListener('click', () => {
+    state.av2AdditionAnswer = {};
+    state.av2ActiveAdditionField = null;
+    state.av2AdditionInputError = false;
+    document.querySelectorAll('[data-av2-add-field]').forEach((input) => { input.value = ''; });
+    document.querySelector('[data-av2-add-field="units"]')?.focus();
   });
 }
 

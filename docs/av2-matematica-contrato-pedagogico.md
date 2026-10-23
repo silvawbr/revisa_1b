@@ -102,11 +102,15 @@ O cartão de cada produto apresenta seu nome e preço uma vez. O enunciado ident
 
 As categorias anteriores de compra, comparação, composição, soma de preços e troco que já eram compatíveis com as páginas do livro permanecem permitidas. Os exemplos acima não autorizam preços decimais ou multiplicação como procedimento obrigatório.
 
-## 6. Bloco 03 — Adição (especificação futura)
+## 6. Bloco 03 — Adição com reagrupamento
 
-Não implementado nesta entrega. Deve apoiar adições de dois e três algarismos, reagrupamento entre unidades, dezenas e centenas, visualização em C/D/U e os termos primeira parcela, segunda parcela e soma/total.
+O bloco contém rodadas próprias de 12 questões: duas sem reagrupamento, duas com reagrupamento das unidades, duas com reagrupamento das dezenas, duas com reagrupamento em unidades e dezenas, duas sobre parcelas/soma e duas situações-problema. A ordem é aleatória e cada rodada inclui contas de dois e três algarismos.
 
-Referência oficial: **156 + 195 = 351**. Ela confirma adição de três algarismos com reagrupamento nas ordens necessárias.
+As contas usam a representação alinhada C/D/U e uma trilha calculada da direita para a esquerda. O gerador separa as categorias **ADD-01** (sem reserva), **ADD-02** (unidades para dezenas, sem uma segunda reserva), **ADD-03** (dezenas para centenas) e **ADD-04** (ambas as reservas), valida a soma e a trilha antes da renderização e limita o total a 999. O reagrupamento aparece como “vai um” nas dicas progressivas; a criança informa apenas o resultado.
+
+Os exercícios de termos conferem a ordem das parcelas e reconhecem a soma ou o total. As situações-problema usam uma única adição com livros, figurinhas, lápis ou objetos em caixas e podem trazer somente a etapa **156 + 195 = 351** da questão da biblioteca; não usam dinheiro, centavos, multiplicação ou divisão. O progresso do bloco tem chave própria e usa o fluxo existente de feedback, TTS e páginas para colorir.
+
+Referências escolares cobertas nos testes: **236 + 227 = 463**, **119 + 218 = 337**, **157 + 323 = 480**, **593 + 324 = 917**, **156 + 195 = 351**, **27 + 15 = 42** e **38 + 17 = 55**.
 
 ## 7. Bloco 04 — Subtração (especificação futura)
 
@@ -149,6 +153,6 @@ Todo candidato é validado antes de chegar à interface. Cada questão deve decl
 
 ## 12. Escopo e manutenção
 
-Esta implementação atualiza os Blocos 01 e 02 e as regras futuras dos Blocos 03–07. Os blocos futuros permanecem especificações. A revisão independente anterior mantém seus geradores e ordem de atividades. O conversor numérico compartilhado ganhou suporte de leitura para 200–499, sem ampliar as faixas ou as questões geradas pela revisão anterior.
+Esta entrega mantém os Blocos 01 e 02, implementa o Bloco 03 e conserva as regras futuras dos Blocos 04–07 como especificações. A revisão independente anterior mantém seus geradores e ordem de atividades. O conversor numérico compartilhado ganhou suporte de leitura para 200–499, sem ampliar as faixas ou as questões geradas pela revisão anterior.
 
 Os exemplos do livro fora das quatro páginas oficiais continuam suplementando as regras deste contrato. Na ausência de evidência escolar, não transformar uma possibilidade matemática em novo requisito curricular.

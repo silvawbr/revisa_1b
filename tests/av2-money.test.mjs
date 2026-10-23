@@ -523,7 +523,7 @@ test('o progresso AV2 usa chave própria e não altera o nome nem os dados da re
   assert.deepEqual(memoryOnly.get(), { roundsCompleted: 1 });
 });
 
-test('a interface oferece as duas revisões, mantém o gerador anterior e publica os módulos AV2', async () => {
+test('a interface oferece as revisões e atividades AV2 sem alterar o gerador anterior', async () => {
   const [app, server, css] = await Promise.all([
     fs.readFile(path.join(root, 'app.js'), 'utf8'),
     fs.readFile(path.join(root, 'server.js'), 'utf8'),
@@ -533,11 +533,12 @@ test('a interface oferece as duas revisões, mantém o gerador anterior e public
   assert.match(app, /data-action="av2-entry"/);
   assert.match(app, /data-action="start-av2"/);
   assert.match(app, /data-action="start-av2-shopping"/);
+  assert.match(app, /data-action="start-av2-addition"/);
   assert.match(app, /data-action="home"/);
   assert.match(app, /data-action="next-av2"/);
   assert.match(app, /data-av2-answer=/);
   assert.match(app, /state\.round = createRound\(\)/);
-  assert.match(app, /state\.av2Round = block === 'block-02' \? createAv2ShoppingRound\(\) : createAv2Round\(\)/);
+  assert.match(app, /state\.av2Round = block === 'block-03' \? createAv2AdditionRound\(\)\s*: block === 'block-02' \? createAv2ShoppingRound\(\) : createAv2Round\(\)/);
   assert.match(app, /data-action="submit-av2"/);
   assert.match(app, /AV2_PROGRESS_STORAGE_KEY|createAv2ProgressStore/);
   assert.match(app, /createChildProfileStore\(\)/);
@@ -547,6 +548,8 @@ test('a interface oferece as duas revisões, mantém o gerador anterior e public
   const av2Interface = app.slice(app.indexOf('function renderMoneyIllustration'), app.indexOf('function renderAv2Feedback'));
   assert.doesNotMatch(av2Interface, /R\$\s*\d|\b\d+,\d{2}\b|\b0\.\d{2}\b/);
   assert.match(server, /src\/av2\/money\.js/);
+  assert.match(server, /src\/av2\/addition\.js/);
+  assert.match(server, /src\/av2\/cdu-layout\.js/);
   assert.match(server, /src\/av2\/progress\.js/);
   assert.match(server, /public\/currency\/ATTRIBUTIONS\.md/);
   assert.match(css, /@media \(max-width: 460px\)/);
