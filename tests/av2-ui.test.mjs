@@ -1,6 +1,7 @@
 import { createAv2SubtractionRound } from '../src/av2/subtraction.js';
 import { createAv2SequencesRound, AV2_SEQUENCES_PROGRESS_STORAGE_KEY, numberToWordsPtBr } from '../src/av2/sequences.js';
 import { AV2_SUBTRACTION_PROGRESS_STORAGE_KEY } from '../src/av2/progress.js';
+import { AV2_MONEY_COMPOSITION_PROGRESS_STORAGE_KEY } from '../src/av2/progress.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MONEY_DENOMINATIONS } from '../src/av2/money.js';
@@ -11,6 +12,7 @@ import {
   AV2_SHOPPING_PROGRESS_STORAGE_KEY,
 } from '../src/av2/progress.js';
 import { CHILD_NAME_STORAGE_KEY } from '../src/child-profile.js';
+import { createAv2MoneyCompositionRound, findMoneyCompositionSolutions, formatMoneyCompositionTotal } from '../src/av2/money-composition.js';
 
 const SHOPPING_PRODUCT_LABELS = [
   'Caderno', 'Livro', 'Lápis', 'Cola', 'Tesoura', 'Borracha', 'Régua', 'Giz de cera',
@@ -99,7 +101,7 @@ function parseElements(markup, selector) {
   const selectorMatch = selector.match(/^\[(data-[\w-]+)(?:="([^"]*)")?\]$/);
   if (!selectorMatch) return [];
   const [, attribute, expectedValue] = selectorMatch;
-  if (!['data-action', 'data-av2-answer', 'data-av2-add-field', 'data-av2-add-digit', 'data-av2-add-clear', 'data-sequence-answer', 'data-table-gap'].includes(attribute)) return [];
+  if (!['data-action', 'data-av2-answer', 'data-av2-add-field', 'data-av2-add-digit', 'data-av2-add-clear', 'data-sequence-answer', 'data-table-gap', 'data-add-money', 'data-remove-money-item'].includes(attribute)) return [];
   return [...markup.matchAll(/<(?:button|input|a)\b[^>]*>/g)].flatMap(([tag]) => {
     const attributes = Object.fromEntries([...tag.matchAll(/([\w:-]+)="([^"]*)"/g)].map((match) => [match[1], match[2]]));
     return attributes[attribute] !== undefined && (expectedValue === undefined || attributes[attribute] === expectedValue)
@@ -644,4 +646,120 @@ test('Block 05 completes mixed questions, selects cursive number-word options, r
     assert.match(app.innerHTML,/Você concluiu as 12 questões de sequências/);assert.match(app.innerHTML,/aria-label="12 estrelas conquistadas"/);
     assert.equal(JSON.parse(storage.getItem(AV2_SEQUENCES_PROGRESS_STORAGE_KEY)).roundsCompleted,1);clickAction(document,'restart');assert.match(app.innerHTML,/Questão 1 de 12/);clickAction(document,'av2-home');assert.match(app.innerHTML,/Escolha uma atividade/);
   } finally {globalThis.document=previousDocument;if(previousWindow===undefined)delete globalThis.window;else globalThis.window=previousWindow;if(previousStorage)Object.defineProperty(globalThis,'localStorage',previousStorage);else delete globalThis.localStorage;}
+});
+
+test('Block 06 lets the child add and remove money, solve two-way and banknote challenges, and finish a reward round', async () => {
+  const previousDocument = globalThis.document;
+  const previousWindow = globalThis.window;
+  const previousStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const values = new Map([[CHILD_NAME_STORAGE_KEY, 'Ana']]);
+  const storage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, String(value)), removeItem: (key) => values.delete(key) };
+  const app = new FakeApp();
+  const document = { title: '', querySelector: (selector) => selector === '#app' ? app : app.querySelector(selector), querySelectorAll: (selector) => app.querySelectorAll(selector) };
+  globalThis.document = document;
+  globalThis.window = { innerWidth: 390, addEventListener() {} };
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage });
+  try {
+    await import(`../app.js?av2-money-composition-ui-${Date.now()}`);
+    clickAction(document, 'av2-entry');
+    assert.match(app.innerHTML, /Formar quantias/);
+    assert.match(app.innerHTML, /data-action="start-av2-money-composition"/);
+
+    const seed = 1;
+    const round = createAv2MoneyCompositionRound(seededRandom(seed));
+    const originalRandom = Math.random;
+    try { Math.random = seededRandom(seed); clickAction(document, 'start-av2-money-composition'); }
+    finally { Math.random = originalRandom; }
+    assert.match(app.innerHTML, /Questão 1 de 12/);
+    assert.match(app.innerHTML, /data-speech-button="question"/);
+
+    const first = round[0];
+    const firstId = first.allowedDenominationIds[0];
+    const firstMoney = MONEY_DENOMINATIONS.find(({ id }) => id === firstId);
+    const secondId = first.allowedDenominationIds[1];
+    const secondMoney = MONEY_DENOMINATIONS.find(({ id }) => id === secondId);
+    const add = (denominationId) => {
+      const button = document.querySelectorAll('[data-add-money]').find((item) => item.dataset.addMoney === denominationId);
+      assert.ok(button, `botão para adicionar ${denominationId} aparece`);
+      button.click();
+    };
+    const totalText = (cents) => `Você formou: <strong>${formatMoneyCompositionTotal(cents)}</strong>`;
+
+    add(firstId);
+    add(firstId);
+    add(secondId);
+    assert.match(app.innerHTML, new RegExp(totalText(firstMoney.valueCents * 2 + secondMoney.valueCents)));
+    assert.equal((app.innerHTML.match(/class="av2-composition-selected-item"/g) ?? []).length, 3);
+    const removeFirst = () => document.querySelectorAll('[data-remove-money-item]').find((button) => button.attributes['aria-label'].includes(firstMoney.spokenLabel));
+    removeFirst().click();
+    assert.match(app.innerHTML, new RegExp(totalText(firstMoney.valueCents + secondMoney.valueCents)));
+    removeFirst().click();
+    assert.match(app.innerHTML, new RegExp(totalText(secondMoney.valueCents)));
+    document.querySelectorAll('[data-remove-money-item]')[0].click();
+    assert.match(app.innerHTML, new RegExp(totalText(0)));
+
+    add(firstId);
+    add(secondId);
+    clickAction(document, 'clear-av2-money');
+    assert.match(app.innerHTML, new RegExp(totalText(0)));
+    clickAction(document, 'submit-av2');
+    assert.match(app.innerHTML, /Você ainda não chegou ao valor pedido/);
+    clickAction(document, 'av2-hint');
+    assert.ok(app.innerHTML.includes(first.hint));
+    assert.match(app.innerHTML, /data-speech-button="hint"/);
+
+    const selectCounts = (counts) => {
+      for (const [denominationId, quantity] of Object.entries(counts)) {
+        for (let index = 0; index < quantity; index += 1) add(denominationId);
+      }
+    };
+    for (let questionIndex = 0; questionIndex < round.length; questionIndex += 1) {
+      const question = round[questionIndex];
+      const solutions = findMoneyCompositionSolutions(question, { limit: question.requiredDistinctSolutions });
+      assert.ok(solutions.length >= question.requiredDistinctSolutions, question.challengeId);
+      assert.match(app.innerHTML, /Você formou: <strong>0 reais<\/strong>/, 'cada novo desafio começa sem itens anteriores');
+      if (question.challengeId === 'exact-17-three-notes') {
+        selectCounts({ 'note-5-reais': 3, 'note-2-reais': 1 });
+        clickAction(document, 'submit-av2');
+        assert.match(app.innerHTML, /O valor está certo, mas confira a quantidade de cédulas/);
+        clickAction(document, 'clear-av2-money');
+      }
+      for (const solution of solutions) {
+        selectCounts(solution);
+        clickAction(document, 'submit-av2');
+        if (question.requiredDistinctSolutions > 1 && solution === solutions[0]) {
+          assert.match(app.innerHTML, /Primeira maneira: correta!/);
+          assert.match(app.innerHTML, /Agora forme o mesmo valor de outro jeito/);
+          assert.match(app.innerHTML, /av2-composition-first-way/);
+          selectCounts(solutions[0]);
+          clickAction(document, 'submit-av2');
+          assert.match(app.innerHTML, /Essa combinação já foi usada\. Tente formar o valor de outro jeito!/);
+          assert.match(app.innerHTML, /class="feedback av2-composition-duplicate-feedback" role="status"/);
+          assert.doesNotMatch(app.innerHTML, /class="feedback retry-feedback"/);
+          clickAction(document, 'clear-av2-money');
+        }
+      }
+      assert.match(app.innerHTML, /data-action="next-av2"/);
+      assert.match(app.innerHTML, /data-speech-button="feedback"/);
+      if (questionIndex < round.length - 1) clickAction(document, 'next-av2');
+    }
+    clickAction(document, 'next-av2');
+    assert.match(app.innerHTML, /Você concluiu os 12 desafios de formar quantias/);
+    assert.match(app.innerHTML, /aria-label="12 estrelas conquistadas"/);
+    assert.equal(JSON.parse(storage.getItem(AV2_MONEY_COMPOSITION_PROGRESS_STORAGE_KEY)).roundsCompleted, 1);
+    assert.equal(storage.getItem(AV2_PROGRESS_STORAGE_KEY), null);
+    assert.equal(storage.getItem(AV2_SHOPPING_PROGRESS_STORAGE_KEY), null);
+    assert.equal(storage.getItem(AV2_ADDITION_PROGRESS_STORAGE_KEY), null);
+    assert.equal(storage.getItem(AV2_SUBTRACTION_PROGRESS_STORAGE_KEY), null);
+    clickAction(document, 'restart');
+    assert.match(app.innerHTML, /Questão 1 de 12/);
+    assert.match(app.innerHTML, /Você formou: <strong>0 reais<\/strong>/);
+    clickAction(document, 'av2-home');
+    assert.match(app.innerHTML, /Escolha uma atividade/);
+    assert.equal(JSON.parse(storage.getItem(AV2_MONEY_COMPOSITION_PROGRESS_STORAGE_KEY)).roundsCompleted, 1);
+  } finally {
+    globalThis.document = previousDocument;
+    if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow;
+    if (previousStorage) Object.defineProperty(globalThis, 'localStorage', previousStorage); else delete globalThis.localStorage;
+  }
 });

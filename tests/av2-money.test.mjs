@@ -534,11 +534,13 @@ test('a interface oferece as revisões e atividades AV2 sem alterar o gerador an
   assert.match(app, /data-action="start-av2"/);
   assert.match(app, /data-action="start-av2-shopping"/);
   assert.match(app, /data-action="start-av2-addition"/);
+  assert.match(app, /data-action="start-av2-money-composition"/);
   assert.match(app, /data-action="home"/);
   assert.match(app, /data-action="next-av2"/);
   assert.match(app, /data-av2-answer=/);
   assert.match(app, /state\.round = createRound\(\)/);
-  assert.match(app, /state\.av2Round = block === 'block-05' \? createAv2SequencesRound\(\)\s*: block === 'block-04' \? createAv2SubtractionRound\(\)\s*: block === 'block-03' \? createAv2AdditionRound\(\)\s*: block === 'block-02' \? createAv2ShoppingRound\(\) : createAv2Round\(\)/);
+  assert.match(app, /state\.av2Round = block === 'block-06' \? createAv2MoneyCompositionRound\(\)/);
+  assert.match(app, /: block === 'block-05' \? createAv2SequencesRound\(\)\s*: block === 'block-04' \? createAv2SubtractionRound\(\)\s*: block === 'block-03' \? createAv2AdditionRound\(\)\s*: block === 'block-02' \? createAv2ShoppingRound\(\) : createAv2Round\(\)/);
   assert.match(app, /data-action="submit-av2"/);
   assert.match(app, /AV2_PROGRESS_STORAGE_KEY|createAv2ProgressStore/);
   assert.match(app, /createChildProfileStore\(\)/);
@@ -548,6 +550,7 @@ test('a interface oferece as revisões e atividades AV2 sem alterar o gerador an
   const av2Interface = app.slice(app.indexOf('function renderMoneyIllustration'), app.indexOf('function renderAv2Feedback'));
   assert.doesNotMatch(av2Interface, /R\$\s*\d|\b\d+,\d{2}\b|\b0\.\d{2}\b/);
   assert.match(server, /src\/av2\/money\.js/);
+  assert.match(server, /src\/av2\/money-composition\.js/);
   assert.match(server, /src\/av2\/addition\.js/);
   assert.match(server, /src\/av2\/cdu-layout\.js/);
   assert.match(server, /src\/av2\/progress\.js/);

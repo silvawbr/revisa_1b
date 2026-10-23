@@ -2,6 +2,14 @@ import { AV2_SUBTRACTION_ACTIVITY_ID, createAv2SubtractionRound, validateAv2Subt
 import { AV2_SEQUENCES_PROGRESS_STORAGE_KEY, createAv2SequencesRound, validateAv2SequencesAnswer } from './src/av2/sequences.js';
 import { renderSubtractionQuestion } from './src/av2/subtraction-layout.js';
 import {
+  AV2_MONEY_COMPOSITION_ACTIVITY_ID,
+  countMoneyCompositionSelection,
+  createAv2MoneyCompositionRound,
+  formatMoneyCompositionTotal,
+  totalMoneyCompositionCents,
+  validateAv2MoneyCompositionSelection,
+} from './src/av2/money-composition.js';
+import {
   ACTIVITY_NAMES,
   FLAT_SHAPES,
   SPATIAL_SHAPES,
@@ -47,6 +55,7 @@ import { renderCduLayout, renderCduLegend } from './src/av2/cdu-layout.js';
 import { getAv2ProductIllustration } from './src/av2/product-illustrations.js';
 import {
   AV2_ADDITION_PROGRESS_STORAGE_KEY,
+  AV2_MONEY_COMPOSITION_PROGRESS_STORAGE_KEY,
   AV2_SUBTRACTION_PROGRESS_STORAGE_KEY,
   AV2_SHOPPING_PROGRESS_STORAGE_KEY,
   createAv2ProgressStore,
@@ -76,6 +85,7 @@ const av2ShoppingProgress = createAv2ProgressStore({ key: AV2_SHOPPING_PROGRESS_
 const av2AdditionProgress = createAv2ProgressStore({ key: AV2_ADDITION_PROGRESS_STORAGE_KEY });
 const av2SubtractionProgress = createAv2ProgressStore({ key: AV2_SUBTRACTION_PROGRESS_STORAGE_KEY });
 const av2SequencesProgress = createAv2ProgressStore({ key: AV2_SEQUENCES_PROGRESS_STORAGE_KEY });
+const av2MoneyCompositionProgress = createAv2ProgressStore({ key: AV2_MONEY_COMPOSITION_PROGRESS_STORAGE_KEY });
 const moneyById = new Map(MONEY_DENOMINATIONS.map((money) => [money.id, money]));
 let visualSelectionInteraction = null;
 
@@ -112,6 +122,10 @@ const state = {
   av2AdditionAnswer: {},
   av2AdditionInputError: false,
   av2ActiveAdditionField: null,
+  av2MoneySelection: [],
+  av2MoneyNextItemId: 0,
+  av2MoneySolutions: [],
+  av2MoneyFeedback: null,
 };
 
 const positiveMessageTemplates = [
@@ -637,6 +651,7 @@ function renderAv2Home() {
   const shoppingRoundsCompleted = av2ShoppingProgress.get().roundsCompleted;
   const additionRoundsCompleted = av2AdditionProgress.get().roundsCompleted;
   const sequenceRoundsCompleted = av2SequencesProgress.get().roundsCompleted;
+  const compositionRoundsCompleted = av2MoneyCompositionProgress.get().roundsCompleted;
   return `<div class="site-shell home-screen av2-home-screen">
     <main class="home-main">
       <section class="home-card av2-home-card" aria-labelledby="av2-home-title">
@@ -677,6 +692,14 @@ function renderAv2Home() {
             <p class="av2-progress-summary">Rodadas concluídas: <strong>${sequenceRoundsCompleted}</strong></p>
             <button class="primary-button start-button" type="button" data-action="start-av2-sequences">Começar <span aria-hidden="true">→</span></button>
           </article>
+          <article class="av2-activity-card money-composition-activity-card">
+            <span class="addition-activity-icon" aria-hidden="true">🪙</span>
+            <h2>Formar quantias</h2>
+            <p>Junte moedas e cédulas, forme valores e descubra equivalências.</p>
+            <div class="addition-activity-sample" aria-label="Exemplo: duas moedas de 50 centavos formam 1 real">50 + 50 = 1 real</div>
+            <p class="av2-progress-summary">Rodadas concluídas: <strong>${compositionRoundsCompleted}</strong></p>
+            <button class="primary-button start-button" type="button" data-action="start-av2-money-composition">Começar <span aria-hidden="true">→</span></button>
+          </article>
           <article class="av2-activity-card subtraction-activity-card">
             <span class="addition-activity-icon" aria-hidden="true">➖</span>
             <h2>Subtração com reagrupamento</h2>
@@ -706,7 +729,7 @@ function renderAv2Header() {
     ${renderAv2Progress()}
     <div class="header-actions">
       <button class="change-child-button" type="button" data-action="change-child" aria-label="Trocar criança">Trocar criança</button>
-      ${['block-03', 'block-04', 'block-05'].includes(state.av2Block)
+      ${['block-03', 'block-04', 'block-05', 'block-06'].includes(state.av2Block)
     ? '<button class="secondary-button av2-exit-button" type="button" data-action="av2-home" aria-label="Voltar às atividades AV2">Atividades</button>'
     : '<button class="secondary-button av2-exit-button" type="button" data-action="home" aria-label="Voltar às revisões">Revisões</button>'}
     </div>
@@ -814,7 +837,66 @@ function renderAv2SequencesQuestion(question) {
   return `<div class="word-wrap av2-number-word-recognition"><div class="word-prompt cursive-text">${escapeHtml(question.displayWord)}</div><div class="word-options av2-word-options" role="radiogroup" aria-label="Escolha o número correspondente">${question.options.map((value,index)=>`<button class="word-option ${selected===value?'is-selected':''}" type="button" role="radio" aria-checked="${selected===value}" data-av2-answer="${value}" aria-label="Alternativa ${index+1}: ${value}" ${state.av2Correct?'disabled':''}>${value}</button>`).join('')}</div><button class="primary-button check-button" type="button" data-action="submit-av2" ${selected===null||selected===undefined||state.av2Correct?'disabled':''}>Conferir resposta <span aria-hidden="true">→</span></button></div>`;
 }
 
+function renderAv2MoneyCompositionQuestion(question) {
+  const selectedItems = state.av2MoneySelection;
+  const counts = countMoneyCompositionSelection(selectedItems);
+  const total = formatMoneyCompositionTotal(totalMoneyCompositionCents(counts));
+  const selectedMoney = selectedItems.map((item) => {
+    const money = moneyById.get(item.denominationId);
+    if (!money) return '';
+    return `<article class="av2-composition-selected-item">
+      ${renderMoneyIllustration(money)}
+      <span>${escapeHtml(money.label)}</span>
+      <button class="av2-composition-remove" type="button" data-remove-money-item="${item.key}" aria-label="Remover ${escapeAttribute(money.spokenLabel)} da seleção" ${state.av2Correct ? 'disabled' : ''}>Remover</button>
+    </article>`;
+  }).join('');
+  const palette = question.allowedDenominationIds.map((id) => {
+    const money = moneyById.get(id);
+    if (!money) return '';
+    const quantity = counts[id] ?? 0;
+    const unavailable = quantity >= question.quantityLimits[id] || selectedItems.length >= question.maxItems;
+    return `<button class="av2-composition-option" type="button" data-add-money="${escapeAttribute(money.id)}" aria-label="Adicionar ${escapeAttribute(money.spokenLabel)}${quantity ? `; selecionada ${quantity} ${quantity === 1 ? 'vez' : 'vezes'}` : ''}" ${state.av2Correct || unavailable ? 'disabled' : ''}>
+      ${renderMoneyIllustration(money)}
+      <span class="av2-composition-option-label">${escapeHtml(money.label)}</span>
+      ${quantity ? `<span class="av2-composition-count">Na seleção: ${quantity}</span>` : ''}
+    </button>`;
+  }).join('');
+  const referenceMoney = question.referenceDenominationId ? moneyById.get(question.referenceDenominationId) : null;
+  const reference = referenceMoney
+    ? `<div class="av2-composition-reference" aria-label="Valor de referência">${renderMoneyIllustration(referenceMoney)}<span>Valor para comparar: ${escapeHtml(referenceMoney.label)}</span></div>`
+    : '';
+  let firstWay = '';
+  if (question.requiredDistinctSolutions > 1 && state.av2MoneySolutions.length > 0) {
+    const summary = Object.entries(state.av2MoneySolutions[0])
+      .filter(([, quantity]) => quantity > 0)
+      .sort(([left], [right]) => (moneyById.get(left)?.valueCents ?? 0) - (moneyById.get(right)?.valueCents ?? 0))
+      .map(([id, quantity]) => {
+        const money = moneyById.get(id);
+        return money ? `<span class="av2-composition-summary-item">${renderMoneyIllustration(money)}<b>${quantity} × ${escapeHtml(money.label)}</b></span>` : '';
+      }).join('');
+    firstWay = `<div class="av2-composition-first-way"><strong>Primeira maneira</strong><div class="av2-composition-summary">${summary}</div></div>`;
+  }
+  return `<div class="av2-exercise av2-money-composition" data-av2-question-type="money-composition" data-composition-stage="${state.av2MoneySolutions.length + 1}">
+    ${reference}
+    <section class="av2-composition-section" aria-labelledby="av2-composition-palette-title">
+      <h2 id="av2-composition-palette-title">Dinheiro disponível</h2>
+      <div class="av2-composition-palette" role="group" aria-label="Toque para adicionar uma moeda ou cédula">${palette}</div>
+    </section>
+    <section class="av2-composition-section" aria-labelledby="av2-composition-selection-title">
+      <h2 id="av2-composition-selection-title">Sua seleção</h2>
+      ${selectedItems.length ? `<div class="av2-composition-selected" role="group" aria-label="Itens selecionados">${selectedMoney}</div>` : '<p class="av2-composition-empty">Toque no dinheiro para começar.</p>'}
+      <p class="av2-composition-total" data-av2-money-total aria-live="polite" aria-atomic="true">Você formou: <strong>${escapeHtml(total)}</strong></p>
+      ${firstWay}
+      <div class="av2-composition-controls">
+        <button class="secondary-button" type="button" data-action="clear-av2-money" ${selectedItems.length === 0 || state.av2Correct ? 'disabled' : ''}>Limpar seleção</button>
+        <button class="primary-button" type="button" data-action="submit-av2" ${state.av2Correct ? 'disabled' : ''}>Conferir resposta</button>
+      </div>
+    </section>
+  </div>`;
+}
+
 function renderAv2Question(question) {
+  if (question.activityId === AV2_MONEY_COMPOSITION_ACTIVITY_ID) return renderAv2MoneyCompositionQuestion(question);
   if (question.activityId === 'av2-sequences') return renderAv2SequencesQuestion(question);
   if (question.activityId === AV2_SUBTRACTION_ACTIVITY_ID) return renderSubtractionQuestion(question, {
     hintIndex: state.av2HintIndex, correct: state.av2Correct, selected: state.av2Selected,
@@ -902,17 +984,60 @@ function renderAv2ShoppingQuestion(question) {
   return `<div class="av2-exercise is-shopping" data-av2-question-type="${question.type}">${visualMoney || `${paidAmount}${productCards}`}<div class="av2-answer-options label-options" role="group" aria-label="Alternativas de resposta">${numericOptions}</div></div>`;
 }
 
+function renderAv2MoneyCompositionFeedback(question) {
+  if (state.av2MoneyFeedback === 'first-way' && state.av2MoneySolutions.length === 1) {
+    const text = 'Primeira maneira: correta! Agora forme o mesmo valor de outro jeito.';
+    return `<div class="feedback success-feedback av2-composition-step-feedback" role="status" aria-live="polite">
+      <p class="feedback-title">Primeira maneira: correta!</p>
+      <p>Agora forme o mesmo valor de outro jeito.</p>
+      ${renderSpeechButton('feedback', text, 'Ouvir')}
+    </div>`;
+  }
+  if (state.av2MoneyFeedback === 'duplicate-combination') {
+    const text = 'Essa combinação já foi usada. Tente formar o valor de outro jeito!';
+    return `<div class="feedback av2-composition-duplicate-feedback" role="status" aria-live="polite" aria-atomic="true">
+      <p class="feedback-title">${escapeHtml(text)}</p>
+      ${renderSpeechButton('feedback', text, 'Ouvir')}
+    </div>`;
+  }
+  if (state.av2Attempts === 0) return '';
+  const messages = {
+    'below-target': 'Você ainda não chegou ao valor pedido. Observe quanto falta.',
+    'above-target': 'Você passou do valor pedido. Tente retirar uma moeda ou cédula.',
+    'wrong-banknote-count': 'O valor está certo, mas confira a quantidade de cédulas.',
+    'unauthorized-denomination': 'Escolha somente o dinheiro disponível neste desafio.',
+    'wrong-money-kind': question.banknoteOnly ? 'Neste desafio, use somente cédulas.' : 'Neste desafio, use somente moedas.',
+    'inventory-limit': 'Você já usou todas as peças disponíveis desse valor.',
+    'not-enough-denominations': 'Use moedas de valores diferentes para formar essa quantia.',
+    'invalid-quantities': 'Confira os itens escolhidos e tente novamente.',
+    'invalid-challenge': 'Este desafio não pode ser conferido agora.',
+  };
+  const message = messages[state.av2MoneyFeedback] ?? 'Observe os valores e tente mais uma vez.';
+  return `<div class="feedback retry-feedback" role="alert" aria-live="polite" aria-atomic="true">
+    <p class="feedback-title">${escapeHtml(message)}</p>
+    ${renderSpeechButton('feedback', message, 'Ouvir')}
+    ${state.av2HintIndex < 0
+      ? '<button class="secondary-button" type="button" data-action="av2-hint">Quero uma dica</button>'
+      : `<p class="hint-box"><b>Dica:</b> ${escapeHtml(question.hint)}</p>${renderSpeechButton('hint', question.hint, 'Ouvir dica')}`}
+  </div>`;
+}
+
 function renderAv2Feedback(question) {
+  if (question.activityId === AV2_MONEY_COMPOSITION_ACTIVITY_ID && !state.av2Correct) {
+    return renderAv2MoneyCompositionFeedback(question);
+  }
   if (state.av2Correct) {
     const message = createPersonalizedMessage({
       childName: currentChildName(),
       visualTemplate: question.feedback.correct.replace(/^Muito bem!/, 'Muito bem, {name}!'),
       speechText: question.feedback.correct,
     });
+    const speechText = question.activityId === AV2_MONEY_COMPOSITION_ACTIVITY_ID ? question.feedback.correct : question.explanation;
+    const speechKind = question.activityId === AV2_MONEY_COMPOSITION_ACTIVITY_ID ? 'feedback' : 'explanation';
     return `<div class="feedback success-feedback" role="status" aria-live="polite">
       <p class="feedback-title">${escapeHtml(message.visualText)}</p>
       <div class="feedback-actions">
-        ${renderSpeechButton('explanation', question.explanation)}
+        ${renderSpeechButton(speechKind, speechText, question.activityId === AV2_MONEY_COMPOSITION_ACTIVITY_ID ? 'Ouvir' : null)}
         <button class="primary-button next-button" type="button" data-action="next-av2">${state.av2Index === state.av2Round.length - 1 ? 'Concluir' : 'Próxima'} <span aria-hidden="true">→</span></button>
       </div>
     </div>`;
@@ -932,6 +1057,7 @@ function renderAv2Feedback(question) {
 function renderAv2Game() {
   const question = state.av2Round[state.av2Index];
   const activityName = state.av2Block === 'block-05' ? 'Sequências e números por extenso'
+    : state.av2Block === 'block-06' ? 'Formar quantias'
     : state.av2Block === 'block-04' ? 'Subtração com reagrupamento'
     : state.av2Block === 'block-03' ? 'Adição com reagrupamento'
     : state.av2Block === 'block-02' ? 'Compras e troco'
@@ -1022,7 +1148,8 @@ function renderReward() {
   const av2Reward = state.activeRevision === AV2_REVISION_ID;
   const subtractionReward = av2Reward && state.av2Block === 'block-04';
   const additionReward = av2Reward && ['block-03', 'block-04'].includes(state.av2Block);
-  const starCount = additionReward || (av2Reward && state.av2Block === 'block-05') ? 12 : av2Reward ? 10 : 6;
+  const twelveChallengeReward = av2Reward && ['block-03', 'block-04', 'block-05', 'block-06'].includes(state.av2Block);
+  const starCount = twelveChallengeReward ? 12 : av2Reward ? 10 : 6;
   const starsLabel = `${starCount} estrelas conquistadas`;
   return `<div class="site-shell reward-screen">
     <main class="reward-main">
@@ -1030,7 +1157,7 @@ function renderReward() {
         <div class="reward-stars${av2Reward ? ' av2-reward-stars' : ''}${additionReward ? ' av2-addition-reward-stars' : ''}" aria-label="${starsLabel}">${Array.from({ length: starCount }, () => av2Reward ? '<span aria-hidden="true">★</span>' : '★').join(av2Reward ? '' : ' ')}</div>
         <p class="eyebrow">Missão cumprida!</p>
         <h1 id="reward-title">${escapeHtml(rewardMessage.visualText)}</h1>
-        <p class="reward-copy">${av2Reward && state.av2Block === 'block-05' ? 'Você concluiu as 12 questões de sequências e números. Agora é hora de colorir!' : subtractionReward ? 'Você concluiu as 12 questões de subtração. Agora é hora de colorir!' : additionReward ? 'Você concluiu as 12 questões de adição. Agora é hora de colorir!' : av2Reward ? 'Você concluiu as 10 questões sobre dinheiro. Agora é hora de colorir!' : 'Você passou por todas as atividades. Agora é hora de colorir!'}</p>
+        <p class="reward-copy">${av2Reward && state.av2Block === 'block-06' ? 'Você concluiu os 12 desafios de formar quantias. Agora é hora de colorir!' : av2Reward && state.av2Block === 'block-05' ? 'Você concluiu as 12 questões de sequências e números. Agora é hora de colorir!' : subtractionReward ? 'Você concluiu as 12 questões de subtração. Agora é hora de colorir!' : additionReward ? 'Você concluiu as 12 questões de adição. Agora é hora de colorir!' : av2Reward ? 'Você concluiu as 10 questões sobre dinheiro. Agora é hora de colorir!' : 'Você passou por todas as atividades. Agora é hora de colorir!'}</p>
         ${state.rewardFallback ? renderColoringPage(null) : renderColoringPage(rewardPage)}
         <div class="reward-actions">
           <button class="primary-button" type="button" data-action="print">🖨 Imprimir meu desenho</button>
@@ -1179,7 +1306,8 @@ function beginAv2Round(block = 'block-01') {
   state.activeRevision = AV2_REVISION_ID;
   state.av2Block = block;
   state.screen = 'av2-game';
-  state.av2Round = block === 'block-05' ? createAv2SequencesRound()
+  state.av2Round = block === 'block-06' ? createAv2MoneyCompositionRound()
+    : block === 'block-05' ? createAv2SequencesRound()
     : block === 'block-04' ? createAv2SubtractionRound()
     : block === 'block-03' ? createAv2AdditionRound()
     : block === 'block-02' ? createAv2ShoppingRound() : createAv2Round();
@@ -1192,6 +1320,10 @@ function beginAv2Round(block = 'block-01') {
   state.av2SequenceAnswer = {};
   state.av2AdditionInputError = false;
   state.av2ActiveAdditionField = null;
+  state.av2MoneySelection = [];
+  state.av2MoneyNextItemId = 0;
+  state.av2MoneySolutions = [];
+  state.av2MoneyFeedback = null;
   state.rewardPageId = null;
   state.rewardFallback = false;
   state.officialOpenFailure = null;
@@ -1222,7 +1354,8 @@ function nextAv2Question() {
   if (!state.av2Correct) return;
   cancelSpeech();
   if (state.av2Index >= state.av2Round.length - 1) {
-    const progressStore = state.av2Block === 'block-05' ? av2SequencesProgress
+    const progressStore = state.av2Block === 'block-06' ? av2MoneyCompositionProgress
+      : state.av2Block === 'block-05' ? av2SequencesProgress
       : state.av2Block === 'block-04' ? av2SubtractionProgress
       : state.av2Block === 'block-03' ? av2AdditionProgress
       : state.av2Block === 'block-02' ? av2ShoppingProgress : av2Progress;
@@ -1241,6 +1374,10 @@ function nextAv2Question() {
   state.av2SequenceAnswer = {};
   state.av2AdditionInputError = false;
   state.av2ActiveAdditionField = null;
+  state.av2MoneySelection = [];
+  state.av2MoneyNextItemId = 0;
+  state.av2MoneySolutions = [];
+  state.av2MoneyFeedback = null;
   render();
 }
 
@@ -1321,9 +1458,65 @@ function selectAv2Option(moneyId) {
   document.querySelector(`[data-av2-answer="${moneyId}"]`)?.focus();
 }
 
+function addAv2MoneySelection(moneyId) {
+  if (state.av2Correct) return;
+  const question = state.av2Round[state.av2Index];
+  if (question?.activityId !== AV2_MONEY_COMPOSITION_ACTIVITY_ID
+    || !question.allowedDenominationIds.includes(moneyId)) return;
+  const counts = countMoneyCompositionSelection(state.av2MoneySelection);
+  if (state.av2MoneySelection.length >= question.maxItems || (counts[moneyId] ?? 0) >= question.quantityLimits[moneyId]) return;
+  state.av2MoneySelection = [...state.av2MoneySelection, { key: state.av2MoneyNextItemId++, denominationId: moneyId }];
+  if (state.av2MoneyFeedback !== 'first-way') state.av2MoneyFeedback = null;
+  render();
+}
+
+function removeAv2MoneySelection(itemKey) {
+  if (state.av2Correct) return;
+  const numericKey = Number(itemKey);
+  const nextSelection = state.av2MoneySelection.filter(({ key }) => key !== numericKey);
+  if (nextSelection.length === state.av2MoneySelection.length) return;
+  state.av2MoneySelection = nextSelection;
+  if (state.av2MoneyFeedback !== 'first-way') state.av2MoneyFeedback = null;
+  render();
+}
+
+function clearAv2MoneySelection() {
+  if (state.av2Correct || state.av2MoneySelection.length === 0) return;
+  state.av2MoneySelection = [];
+  if (state.av2MoneyFeedback !== 'first-way') state.av2MoneyFeedback = null;
+  render();
+}
+
+function submitAv2MoneyCompositionAnswer(question) {
+  if (state.av2Correct) return;
+  const counts = countMoneyCompositionSelection(state.av2MoneySelection);
+  const result = validateAv2MoneyCompositionSelection(question, counts, state.av2MoneySolutions);
+  state.av2MoneyFeedback = result.reason;
+  if (result.correct) {
+    state.av2MoneySolutions = [...state.av2MoneySolutions, { ...counts }];
+    state.av2MoneySelection = [];
+    if (state.av2MoneySolutions.length >= question.requiredDistinctSolutions) {
+      state.av2Correct = true;
+      state.av2MoneyFeedback = null;
+    } else {
+      state.av2Attempts = 0;
+      state.av2HintIndex = -1;
+      state.av2MoneyFeedback = 'first-way';
+    }
+  } else if (result.reason !== 'duplicate-combination') {
+    state.av2Attempts += 1;
+  }
+  cancelSpeech();
+  render();
+}
+
 function submitAv2Answer() {
   if (state.av2Correct) return;
   const question = state.av2Round[state.av2Index];
+  if (question.activityId === AV2_MONEY_COMPOSITION_ACTIVITY_ID) {
+    submitAv2MoneyCompositionAnswer(question);
+    return;
+  }
   if (question.activityId === 'av2-sequences') {
     if(question.type === 'number-table') state.av2SequenceAnswer = Object.fromEntries([...document.querySelectorAll('[data-table-gap]')].map(input=>[input.dataset.tableGap,input.value]));
     else if(question.type === 'sequence' || question.category === 'NUM-03') state.av2SequenceAnswer={value:document.querySelector('[data-sequence-answer]')?.value ?? ''};
@@ -1412,6 +1605,13 @@ function submitAv2Answer() {
 function requestAv2Hint() {
   if (state.av2Correct) return;
   const question = state.av2Round[state.av2Index];
+  if (question?.activityId === AV2_MONEY_COMPOSITION_ACTIVITY_ID) {
+    if (state.av2HintIndex >= 0) return;
+    state.av2HintIndex = 0;
+    cancelSpeech();
+    render();
+    return;
+  }
   if (![AV2_ADDITION_ACTIVITY_ID, AV2_SUBTRACTION_ACTIVITY_ID].includes(question?.activityId) || !question.hints?.length) return;
   const maximumIndex = question.activityId === AV2_SUBTRACTION_ACTIVITY_ID ? question.hints.length - 1
     : state.av2Attempts === 0 ? 0 : question.hints.length - 1;
@@ -1461,6 +1661,7 @@ function bindEvents() {
       if (action === 'start-av2-addition') beginAv2Round('block-03');
       if (action === 'start-av2-subtraction') beginAv2Round('block-04');
       if (action === 'start-av2-sequences') beginAv2Round('block-05');
+      if (action === 'start-av2-money-composition') beginAv2Round('block-06');
       if (action === 'restart') {
         if (state.activeRevision === AV2_REVISION_ID) beginAv2Round(state.av2Block);
         else beginRound();
@@ -1490,6 +1691,7 @@ function bindEvents() {
       if (action === 'next-av2') nextAv2Question();
       if (action === 'submit-av2') submitAv2Answer();
       if (action === 'av2-hint') requestAv2Hint();
+      if (action === 'clear-av2-money') clearAv2MoneySelection();
       if (action === 'check-answer') checkAnswer();
       if (action === 'hint') {
         state.hintVisible = true;
@@ -1538,6 +1740,14 @@ function bindEvents() {
 
   document.querySelectorAll('[data-av2-answer]').forEach((button) => {
     button.addEventListener('click', () => selectAv2Option(button.dataset.av2Answer));
+  });
+
+  document.querySelectorAll('[data-add-money]').forEach((button) => {
+    button.addEventListener('click', () => addAv2MoneySelection(button.dataset.addMoney));
+  });
+
+  document.querySelectorAll('[data-remove-money-item]').forEach((button) => {
+    button.addEventListener('click', () => removeAv2MoneySelection(button.dataset.removeMoneyItem));
   });
 
   const visualOptions = [...document.querySelectorAll('[data-shape-option]')];

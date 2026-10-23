@@ -956,3 +956,47 @@ h1 span { color: var(--blue-deep); }
 .number-table-cell.is-gap { border-color:#8eb8fa; background:#eff6ff; }
 .number-table-cell input { width:100%; min-width:0; height:100%; border:0; outline:0; background:transparent; text-align:center; font-size:inherit; font-weight:inherit; color:#174ea6; }
 @media(max-width:520px){.number-table{gap:3px}.number-table-cell{border-radius:8px;min-height:48px}.av2-activity-grid{grid-template-columns:1fr}.av2-word-options{gap:9px}.av2-word-options .word-option{min-height:64px;padding:9px;font-size:1.15rem}}
+
+.av2-money-composition { width: min(100%, 860px); margin-inline: auto; }
+.av2-composition-reference { display: grid; justify-items: center; gap: 7px; margin: 0 auto 16px; color: #45435a; font-weight: 800; text-align: center; }
+.av2-composition-reference .money-coin { width: min(100%, 154px); }
+.av2-composition-reference .money-note { width: min(100%, 210px); }
+.av2-composition-section { min-width: 0; margin: 0 0 18px; }
+.av2-composition-section h2 { margin: 0 0 10px; color: #44365f; font-size: clamp(1rem, 2.8vw, 1.2rem); text-align: center; }
+.av2-composition-palette { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 135px), 1fr)); gap: 10px; width: 100%; }
+.av2-composition-option { min-width: 0; min-height: 137px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px; padding: 9px 7px; border: 3px solid #e6e1f2; border-radius: 16px; color: #45435a; background: #fff; font-family: inherit; cursor: pointer; transition: transform 150ms ease, border-color 150ms ease, background 150ms ease; }
+.av2-composition-option:hover:not(:disabled) { transform: translateY(-2px); border-color: #a99bd0; }
+.av2-composition-option:disabled { cursor: default; }
+.av2-composition-option .money-coin { width: min(100%, 142px); }
+.av2-composition-option .money-note { width: min(100%, 188px); }
+.av2-composition-option-label { font-size: 1rem; font-weight: 900; }
+.av2-composition-count { color: #5d4c83; font-size: 0.78rem; font-weight: 800; }
+.av2-composition-selected { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 112px), 1fr)); gap: 9px; }
+.av2-composition-selected-item { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 8px 6px; border: 2px solid #eee8fb; border-radius: 14px; background: #fff; color: #45435a; font-weight: 900; text-align: center; }
+.av2-composition-selected-item .money-coin { width: min(100%, 118px); }
+.av2-composition-selected-item .money-note { width: min(100%, 150px); }
+.av2-composition-remove { min-height: 40px; padding: 7px 10px; border: 2px solid #e6e1f2; border-radius: 11px; color: #44365f; background: #fff; font: inherit; font-size: 0.84rem; font-weight: 800; cursor: pointer; }
+.av2-composition-empty { margin: 0; color: var(--muted); text-align: center; }
+.av2-composition-total { margin: 14px 0; padding: 12px; border-radius: 14px; color: #3d315d; background: #f3edff; font-size: clamp(1.08rem, 3.4vw, 1.35rem); font-weight: 800; text-align: center; }
+.av2-composition-total strong { font-weight: 900; }
+.av2-composition-controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.av2-composition-controls button { min-height: 48px; }
+.av2-composition-first-way { margin: 12px 0; padding: 12px; border: 2px solid #e6e1f2; border-radius: 14px; background: #fffdf5; text-align: center; }
+.av2-composition-first-way > strong { display: block; margin-bottom: 8px; color: #44365f; }
+.av2-composition-summary { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.av2-composition-summary-item { min-width: 92px; display: grid; justify-items: center; gap: 4px; padding: 6px; border-radius: 10px; background: #fff; }
+.av2-composition-summary-item .money-coin { width: min(100%, 84px); }
+.av2-composition-summary-item .money-note { width: min(100%, 118px); }
+.av2-composition-summary-item b { font-size: 0.82rem; }
+.av2-composition-step-feedback > p:not(.feedback-title) { text-align: center; }
+
+@media (max-width: 460px) {
+  .av2-composition-palette { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .av2-composition-option { min-height: 125px; padding: 7px 5px; border-radius: 14px; }
+  .av2-composition-option .money-coin { width: min(100%, 128px); }
+  .av2-composition-option .money-note { width: min(100%, 160px); }
+  .av2-composition-selected { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+  .av2-composition-selected-item .money-coin { width: min(100%, 108px); }
+  .av2-composition-selected-item .money-note { width: min(100%, 136px); }
+  .av2-composition-controls { display: grid; grid-template-columns: 1fr; }
+}
