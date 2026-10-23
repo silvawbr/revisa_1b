@@ -1287,7 +1287,8 @@ function submitAv2Answer() {
   if (state.av2Correct) return;
   const question = state.av2Round[state.av2Index];
   if (question.activityId === AV2_SUBTRACTION_ACTIVITY_ID && question.type !== 'terms') {
-    const fields = [...document.querySelectorAll('[data-av2-add-field]')];
+    const allFields = [...document.querySelectorAll('[data-av2-add-field]')];
+    const fields = allFields.filter((field) => !field.dataset.av2AddField.startsWith('borrow'));
     const values = fields.map((field) => field.value);
     // Leading blank places are allowed; a missing units digit is never coerced to zero.
     const raw = values.join('').trim();
@@ -1298,7 +1299,14 @@ function submitAv2Answer() {
     const answer = Number(values.map((v) => v === '' ? '0' : v).join(''));
     state.av2AdditionInputError = false;
     state.av2Selected = answer;
-    state.av2Correct = validateAv2SubtractionAnswer(question, answer);
+    const invalidBorrow = allFields.find((field) => {
+      const name = field.dataset.av2AddField;
+      if (!name.startsWith('borrow') || field.value === '') return false;
+      const column = name.slice(6).toLowerCase();
+      return !/^\d{1,2}$/.test(field.value) || Number(field.value) !== question.data.trace.adjusted[column];
+    });
+    state.av2Correct = !invalidBorrow && validateAv2SubtractionAnswer(question, answer);
+    if (invalidBorrow) state.av2AdditionInputError = 'Confira as trocas: quando uma coluna recebe 10, o vizinho perde 1. Registre os valores depois de todas as trocas.';
     if (!state.av2Correct) {
       state.av2Attempts += 1;
       state.av2HintIndex = Math.min(state.av2HintIndex + 1, question.hints.length - 1);
@@ -1507,10 +1515,11 @@ function bindEvents() {
       state.av2ActiveAdditionField = input.dataset.av2AddField;
     });
     input.addEventListener('input', () => {
-      sanitizeDigitInput(input);
+      const borrowing = input.dataset.av2AddField.startsWith('borrow');
+      sanitizeDigitInput(input, borrowing ? 2 : 1);
       state.av2AdditionAnswer[input.dataset.av2AddField] = input.value;
       state.av2AdditionInputError = false;
-      focusNextInput(input, '[data-av2-add-field]');
+      if (!borrowing) focusNextInput(input, '[data-av2-add-field]');
     });
     input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') { event.preventDefault(); submitAv2Answer(); }
@@ -1563,11 +1572,13 @@ function bindEvents() {
     button.addEventListener('click', () => {
       const additionFields = [...document.querySelectorAll('[data-av2-add-field]')];
       const active = additionFields.find((input) => input.dataset.av2AddField === state.av2ActiveAdditionField);
-      const resultFields = additionFields.filter((input) => !input.dataset.av2AddField.startsWith('carry'));
+      const resultFields = additionFields.filter((input) => !input.dataset.av2AddField.startsWith('carry') && !input.dataset.av2AddField.startsWith('borrow'));
       const empty = resultFields.find((input) => !input.value);
       const target = active || empty || document.querySelector('[data-av2-add-field="units"]');
       if (!target) return;
-      target.value = button.dataset.av2AddDigit;
+      target.value = target.dataset.av2AddField.startsWith('borrow')
+        ? (target.value.length >= 2 ? '' : target.value) + button.dataset.av2AddDigit
+        : button.dataset.av2AddDigit;
       target.dispatchEvent(new Event('input', { bubbles: true }));
     });
   });

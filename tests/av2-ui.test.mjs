@@ -197,7 +197,7 @@ function answerCurrentShoppingQuestion(document, app) {
 function fillAdditionAnswer(document, value) {
   const digits = String(value).padStart(3, '0');
   const fields = document.querySelectorAll('[data-av2-add-field]')
-    .filter((field) => !field.dataset.av2AddField.startsWith('carry'));
+    .filter((field) => !field.dataset.av2AddField.startsWith('carry') && !field.dataset.av2AddField.startsWith('borrow'));
   assert.ok(fields.length === 2 || fields.length === 3, 'a conta tem campos de resposta C/D/U');
   for (const field of fields) {
     const digitIndex = field.dataset.av2AddField === 'hundreds' ? 0
@@ -557,7 +557,26 @@ test('Block 04 completes numeric input, progressive borrowing, terms, feedback, 
         field.focus();
         const key = document.querySelectorAll('[data-av2-add-digit]').find(k => k.dataset.av2AddDigit === String(q.data.result % 10));
         key.click(); assert.equal(field.value, String(q.data.result % 10));
-        fillAdditionAnswer(document, q.data.result); clickAction(document, 'submit-av2');
+        fillAdditionAnswer(document, q.data.result);
+        if (q.data.trace.pattern === 'both') {
+          const topFields = document.querySelectorAll('[data-av2-add-field]').filter(f => f.dataset.av2AddField.startsWith('borrow'));
+          const tens = topFields.find(f => f.dataset.av2AddField === 'borrowTens');
+          tens.value = '99'; tens.dispatchEvent(new Event('input', { bubbles: true }));
+          clickAction(document, 'submit-av2');
+          assert.match(app.innerHTML, /Confira as trocas/);
+          assert.doesNotMatch(app.innerHTML, /data-action="next-av2"/);
+          for (const column of ['hundreds', 'tens', 'units']) {
+            const name = `borrow${column[0].toUpperCase()}${column.slice(1)}`;
+            const field = document.querySelectorAll('[data-av2-add-field]').find(f => f.dataset.av2AddField === name);
+            field.value = ''; field.dispatchEvent(new Event('input', { bubbles: true })); field.focus();
+            for (const digit of String(q.data.trace.adjusted[column])) {
+              const key = document.querySelectorAll('[data-av2-add-digit]').find(k => k.dataset.av2AddDigit === digit);
+              key.click();
+            }
+            assert.equal(field.value, String(q.data.trace.adjusted[column]));
+          }
+        }
+        clickAction(document, 'submit-av2');
       }
       assert.match(app.innerHTML, /Muito bem, Ana!/);
       assert.match(app.innerHTML, /data-speech-button="explanation"/);

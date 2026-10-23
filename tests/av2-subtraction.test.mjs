@@ -118,3 +118,12 @@ test('local static handler serves subtraction modules and the existing product d
     await serveStatic({method:'HEAD',url},response);assert.equal(response.status,200,url);
   }
 });
+
+ test('editable borrowing fields accept two digits above the original minuend', () => {
+  const q=createSubtractionQuestion({a:539,b:162});
+  const html=renderSubtractionQuestion(q,{answer:{borrowHundreds:'4',borrowTens:'13'}});
+  assert.match(html,/maxlength="2"[^>]*data-av2-add-field="borrowTens"[^>]*value="13"/);
+  assert.match(html,/data-av2-add-field="borrowHundreds"[^>]*value="4"/);
+  assert.equal(q.data.trace.adjusted.hundreds,4);assert.equal(q.data.trace.adjusted.tens,13);
+  assert.equal(q.data.trace.result,377);
+});

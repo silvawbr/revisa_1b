@@ -45,3 +45,7 @@ Termos: minuendo, subtraendo, resto ou diferença, nome do resultado e número r
 - Confirmar persistência do nome, progresso independente, impressão/recompensa e atividades anteriores.
 
 O Preview implantado, o áudio real e leitor de tela físico não foram verificados nesta execução. O ambiente local não tem as variáveis do provedor TTS; os testes do cliente/provedor usam respostas controladas. Fotos externas de moedas/cédulas tiveram falhas de rede no ambiente local; o Bloco 04 não depende dessas imagens. Nenhum merge ou deploy direto em produção foi realizado.
+
+## Campos editáveis de troca
+
+As caixas acima do minuendo permitem registrar manualmente os valores após as trocas, com um ou dois algarismos e suporte ao teclado físico e numérico da tela. Em `539 − 162`, pode-se preencher C = 4 e D = 13, mantendo U = 9. Nas trocas sucessivas, a dezena pode ser atualizada novamente, por exemplo 6 → 5 → 15. As dicas continuam exibindo o histórico, sem substituir o que foi digitado. Os campos são opcionais; ao preenchê-los, a conferência exige os valores finais do trace. Uma troca incorreta impede a conclusão mesmo quando a diferença está correta. Os testes de interface cobrem erro, correção e entrada de dois algarismos pelo teclado da tela.

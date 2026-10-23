@@ -18,7 +18,12 @@ export function renderSubtractionQuestion(question, { hintIndex = -1, correct = 
     for (const event of trace.events.slice(0, eventCount)) {
       if (event.stateAfter[column] !== history[history.length - 1]) history.push(event.stateAfter[column]);
     }
-    if (history.length > 1) markers[column] = { value: history[history.length - 1], ariaLabel: `${column === 'hundreds' ? 'Centenas' : column === 'tens' ? 'Dezenas' : 'Unidades'}: ${history.join(' depois ')}`,
+    const fieldName = `borrow${column[0].toUpperCase()}${column.slice(1)}`;
+    if (!terms && !correct && (column !== 'hundreds' || a >= 100)) {
+      const label = column === 'hundreds' ? 'Centenas' : column === 'tens' ? 'Dezenas' : 'Unidades';
+      markers[column] = { ariaLabel: `${label} após a troca`, inputHtml: `<input class="av2-addition-digit subtraction-borrow-input" type="text" inputmode="numeric" maxlength="2" pattern="[0-9]{1,2}" data-av2-add-field="${fieldName}" aria-label="${label} após a troca" value="${escape(answer[fieldName] ?? '')}">` };
+      if (history.length > 1) markers[column].inputHtml += `<span class="subtraction-history" aria-label="${label}: ${history.join(' depois ')}">${history.join(' → ')}</span>`;
+    } else if (history.length > 1) markers[column] = { value: history[history.length - 1], ariaLabel: `${column === 'hundreds' ? 'Centenas' : column === 'tens' ? 'Dezenas' : 'Unidades'}: ${history.join(' depois ')}`,
       inputHtml: `<span class="subtraction-history">${history.map((n, i) => `<span${i < history.length - 1 ? ' class="subtraction-previous"' : ''}>${i ? '↓ ' : ''}${n}</span>`).join('')}</span>` };
   }
   // Input width follows the minuend, so the empty board never discloses result length.
@@ -33,7 +38,7 @@ export function renderSubtractionQuestion(question, { hintIndex = -1, correct = 
   const board = renderCduLayout({ firstOperand: a, secondOperand: b, operator: '−', firstRowLabel: 'minuendo', secondRowLabel: 'subtraendo', resultRowLabel: terms ? 'diferença' : 'resposta', markerRowLabel: 'trocas', markerMode: 'borrow', markers, resultCells,
     ariaLabel: `Subtração: ${a} menos ${b}${shown ? ` igual a ${trace.result}` : ''}. Colunas C, D e U.` });
   const options = terms ? `<div class="av2-answer-options label-options" role="group" aria-label="Alternativas de resposta">${question.options.map((option) => `<button class="av2-answer-label" type="button" data-av2-answer="${escape(option)}" aria-pressed="${selected === option}" ${correct ? 'disabled' : ''}>${escape(option)}</button>`).join('')}</div>` : '';
-  const input = !terms && !correct ? `<p>Digite a diferença nas casas C, D e U. Nas casas vazias à esquerda, você pode escrever zero.</p>
+  const input = !terms && !correct ? `<p>Use as caixas de cima para registrar as trocas: tire 1 do vizinho e acrescente 10 à coluna. Você pode deixá-las vazias se resolver sem esse apoio. Digite a diferença nas casas C, D e U. Nas casas vazias à esquerda, você pode escrever zero.</p>
     <div class="number-pad av2-addition-pad" role="group" aria-label="Teclado numérico">${[1,2,3,4,5,6,7,8,9,0].map((n) => `<button type="button" data-av2-add-digit="${n}">${n}</button>`).join('')}<button type="button" data-av2-add-clear>Limpar</button></div>
     <button class="primary-button" type="button" data-action="submit-av2">Conferir resposta</button>` : '';
   return `<div class="av2-exercise is-subtraction" data-av2-question-type="${question.type}">${renderCduLegend()}${board}${options}${input}
