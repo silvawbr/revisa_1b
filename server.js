@@ -27,6 +27,8 @@ const PUBLIC_FILES = new Set([
   'src/data/coloringPages.js',
   'src/data/officialColoringPages.js',
   'src/av2/money.js',
+  'src/av2/addition.js',
+  'src/av2/cdu-layout.js',
   'src/av2/progress.js',
   'public/currency/ATTRIBUTIONS.md',
   'public/coloring-pages/ATTRIBUTIONS.md',

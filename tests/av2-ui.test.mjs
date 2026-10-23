@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MONEY_DENOMINATIONS } from '../src/av2/money.js';
-import { AV2_PROGRESS_STORAGE_KEY, AV2_SHOPPING_PROGRESS_STORAGE_KEY } from '../src/av2/progress.js';
+import { createAv2AdditionRound } from '../src/av2/addition.js';
+import {
+  AV2_ADDITION_PROGRESS_STORAGE_KEY,
+  AV2_PROGRESS_STORAGE_KEY,
+  AV2_SHOPPING_PROGRESS_STORAGE_KEY,
+} from '../src/av2/progress.js';
 import { CHILD_NAME_STORAGE_KEY } from '../src/child-profile.js';
 
 const SHOPPING_PRODUCT_LABELS = [
@@ -13,6 +18,7 @@ class FakeElement {
   constructor(attributes) {
     this.dataset = {};
     this.listeners = new Map();
+    this.value = attributes.value ?? '';
     for (const [name, value] of Object.entries(attributes)) {
       if (name.startsWith('data-')) {
         const key = name.slice(5).replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase());
@@ -29,7 +35,22 @@ class FakeElement {
     this.listeners.get('click')?.({ preventDefault() {} });
   }
 
-  focus() {}
+  dispatchEvent(event) {
+    this.listeners.get(event.type)?.(event);
+    return true;
+  }
+
+  focus() {
+    this.listeners.get('focus')?.({});
+  }
+
+  setAttribute() {}
+
+  removeAttribute() {}
+
+  querySelector() {
+    return { textContent: '' };
+  }
 }
 
 class FakeApp {
@@ -56,6 +77,10 @@ class FakeApp {
     if (!this.elements.has(selector)) this.elements.set(selector, parseElements(this.markup, selector));
     return this.elements.get(selector);
   }
+
+  querySelector(selector) {
+    return this.querySelectorAll(selector)[0] ?? null;
+  }
 }
 
 function seededRandom(seed) {
@@ -67,11 +92,14 @@ function seededRandom(seed) {
 }
 
 function parseElements(markup, selector) {
-  const attribute = selector === '[data-action]' ? 'data-action' : selector === '[data-av2-answer]' ? 'data-av2-answer' : null;
-  if (!attribute) return [];
-  return [...markup.matchAll(/<(?:button|a)\b[^>]*>/g)].flatMap(([tag]) => {
+  const selectorMatch = selector.match(/^\[(data-[\w-]+)(?:="([^"]*)")?\]$/);
+  if (!selectorMatch) return [];
+  const [, attribute, expectedValue] = selectorMatch;
+  if (!['data-action', 'data-av2-answer', 'data-av2-add-field', 'data-av2-add-digit', 'data-av2-add-clear'].includes(attribute)) return [];
+  return [...markup.matchAll(/<(?:button|input|a)\b[^>]*>/g)].flatMap(([tag]) => {
     const attributes = Object.fromEntries([...tag.matchAll(/([\w:-]+)="([^"]*)"/g)].map((match) => [match[1], match[2]]));
-    return attributes[attribute] ? [new FakeElement(attributes)] : [];
+    return attributes[attribute] !== undefined && (expectedValue === undefined || attributes[attribute] === expectedValue)
+      ? [new FakeElement(attributes)] : [];
   });
 }
 
@@ -164,6 +192,30 @@ function answerCurrentShoppingQuestion(document, app) {
   option.click();
 }
 
+function fillAdditionAnswer(document, value) {
+  const digits = String(value).padStart(3, '0');
+  const fields = document.querySelectorAll('[data-av2-add-field]');
+  assert.ok(fields.length === 2 || fields.length === 3, 'a conta tem campos de resposta C/D/U');
+  for (const field of fields) {
+    const digitIndex = field.dataset.av2AddField === 'hundreds' ? 0
+      : field.dataset.av2AddField === 'tens' ? 1 : 2;
+    field.value = digits[digitIndex];
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+}
+
+function answerCurrentAdditionQuestion(document, question) {
+  if (question.type === 'terms') {
+    const answer = document.querySelectorAll('[data-av2-answer]')
+      .find((button) => button.dataset.av2Answer === String(question.correctAnswer));
+    assert.ok(answer, `alternativa ${question.correctAnswer} aparece na conta de termos`);
+    answer.click();
+    return;
+  }
+  fillAdditionAnswer(document, question.data.result);
+  clickAction(document, 'submit-av2');
+}
+
 test('a criança entra na AV2, termina dez questões, inicia outra rodada e retorna à revisão antiga', async () => {
   const previousDocument = globalThis.document;
   const previousWindow = globalThis.window;
@@ -177,7 +229,7 @@ test('a criança entra na AV2, termina dez questões, inicia outra rodada e reto
   const app = new FakeApp();
   const document = {
     title: '',
-    querySelector(selector) { return selector === '#app' ? app : null; },
+    querySelector(selector) { return selector === '#app' ? app : app.querySelector(selector); },
     querySelectorAll(selector) { return app.querySelectorAll(selector); },
   };
 
@@ -299,6 +351,112 @@ test('a criança entra na AV2, termina dez questões, inicia outra rodada e reto
     assert.match(app.innerHTML, /Atividade 1/);
     assert.match(app.innerHTML, /Progresso: atividade 1 de 6/);
     assert.doesNotMatch(app.innerHTML, /data-av2-answer=/);
+  } finally {
+    globalThis.document = previousDocument;
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+    if (previousStorage) Object.defineProperty(globalThis, 'localStorage', previousStorage);
+    else delete globalThis.localStorage;
+  }
+});
+
+test('Block 03 alinha C/D/U, revela o vai um por etapas, conclui 12 questões e volta às atividades AV2', async () => {
+  const previousDocument = globalThis.document;
+  const previousWindow = globalThis.window;
+  const previousStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const storageValues = new Map([[CHILD_NAME_STORAGE_KEY, 'Ana']]);
+  const storage = {
+    getItem(key) { return storageValues.get(key) ?? null; },
+    setItem(key, value) { storageValues.set(key, String(value)); },
+    removeItem(key) { storageValues.delete(key); },
+  };
+  const app = new FakeApp();
+  const document = {
+    title: '',
+    querySelector(selector) { return selector === '#app' ? app : app.querySelector(selector); },
+    querySelectorAll(selector) { return app.querySelectorAll(selector); },
+  };
+
+  globalThis.document = document;
+  globalThis.window = { addEventListener() {} };
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage });
+
+  try {
+    await import(`../app.js?av2-addition-ui-${Date.now()}`);
+    clickAction(document, 'av2-entry');
+    assert.match(app.innerHTML, /Adição com reagrupamento/);
+    assert.match(app.innerHTML, /data-addition-rounds-completed/);
+
+    const roundSeed = 30156;
+    const expectedRound = createAv2AdditionRound(seededRandom(roundSeed));
+    const doubleCarryIndex = expectedRound.findIndex(({ type, pedagogicalCategory }) => type === 'addition' && pedagogicalCategory === 'ADD-04');
+    assert.ok(doubleCarryIndex >= 0);
+    const originalRandom = Math.random;
+    try {
+      Math.random = seededRandom(roundSeed);
+      clickAction(document, 'start-av2-addition');
+    } finally {
+      Math.random = originalRandom;
+    }
+
+    assert.match(app.innerHTML, /Questão 1 de 12/);
+    assert.match(app.innerHTML, /data-speech-button="question"/);
+    assert.match(app.innerHTML, /data-av2-question-type="/);
+    assert.match(app.innerHTML, /role="columnheader">C<\/b>/);
+    assert.match(app.innerHTML, /role="columnheader">D<\/b>/);
+    assert.match(app.innerHTML, /role="columnheader">U<\/b>/);
+
+    for (let index = 0; index < expectedRound.length; index += 1) {
+      const question = expectedRound[index];
+      assert.match(app.innerHTML, new RegExp(`Questão ${index + 1} de 12`));
+      if (index === doubleCarryIndex) {
+        assert.doesNotMatch(app.innerHTML, /addition-carry-cell is-visible/);
+        assert.match(app.innerHTML, /data-av2-add-field="hundreds"/);
+        assert.match(app.innerHTML, /data-av2-add-digit="0"/);
+        clickAction(document, 'submit-av2');
+        assert.match(app.innerHTML, /Preencha as casas do resultado/);
+        assert.doesNotMatch(app.innerHTML, /addition-carry-cell is-visible/);
+
+        clickAction(document, 'av2-hint');
+        assert.match(app.innerHTML, /Comece somando as unidades/);
+        assert.doesNotMatch(app.innerHTML, /addition-carry-cell is-visible/);
+        fillAdditionAnswer(document, 0);
+        clickAction(document, 'submit-av2');
+        assert.match(app.innerHTML, /Tente novamente!/);
+        assert.match(app.innerHTML, /addition-carry-cell is-visible[^>]*data-cdu-marker="tens"/);
+        assert.doesNotMatch(app.innerHTML, /addition-carry-cell is-visible[^>]*data-cdu-marker="hundreds"/);
+
+        clickAction(document, 'av2-hint');
+        assert.match(app.innerHTML, /incluindo a dezena que foi levada/);
+        assert.match(app.innerHTML, /addition-carry-cell is-visible[^>]*data-cdu-marker="hundreds"/);
+        fillAdditionAnswer(document, question.data.result);
+        clickAction(document, 'submit-av2');
+      } else {
+        answerCurrentAdditionQuestion(document, question);
+      }
+
+      assert.match(app.innerHTML, /Muito bem, Ana!/);
+      assert.match(app.innerHTML, /data-action="next-av2"/);
+      clickAction(document, 'next-av2');
+    }
+
+    assert.match(app.innerHTML, /Você concluiu as 12 questões de adição/);
+    assert.match(app.innerHTML, /aria-label="12 estrelas conquistadas"/);
+    assert.match(app.innerHTML, /Imprimir meu desenho/);
+    assert.equal(JSON.parse(storage.getItem(AV2_ADDITION_PROGRESS_STORAGE_KEY)).roundsCompleted, 1);
+    assert.equal(storage.getItem(AV2_PROGRESS_STORAGE_KEY), null);
+    assert.equal(storage.getItem(AV2_SHOPPING_PROGRESS_STORAGE_KEY), null);
+    assert.equal(storage.getItem(CHILD_NAME_STORAGE_KEY), 'Ana');
+
+    clickAction(document, 'restart');
+    assert.match(app.innerHTML, /Questão 1 de 12/);
+    clickAction(document, 'av2-home');
+    assert.match(app.innerHTML, /Escolha uma atividade/);
+    assert.match(app.innerHTML, /Adição com reagrupamento/);
+
+    const styles = await (await import('node:fs/promises')).readFile(new URL('../styles.css', import.meta.url), 'utf8');
+    assert.match(styles, /\.av2-addition-row\s*\{[^}]*grid-template-columns:\s*minmax\(54px, 0\.95fr\) repeat\(3, minmax\(0, 1fr\)\)/s);
+    assert.match(styles, /@media \(max-width: 460px\)[\s\S]*?\.av2-addition-board/);
   } finally {
     globalThis.document = previousDocument;
     if (previousWindow === undefined) delete globalThis.window;

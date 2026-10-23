@@ -867,3 +867,60 @@ h1 span { color: var(--blue-deep); }
   .av2-product-card strong { font-size: 0.94rem; }
   .av2-product-card .av2-product-price { font-size: 1rem; }
 }
+
+.addition-activity-icon { display: block; margin-bottom: 8px; font-size: 2rem; }
+.addition-activity-sample { display: grid; place-items: center; min-height: 106px; margin: 14px 0; border-radius: 16px; color: #44346e; background: #f3edff; font-size: clamp(1.8rem, 5vw, 2.55rem); font-weight: 900; letter-spacing: 0.025em; }
+.av2-addition-reward-stars { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+.av2-exercise.is-addition { width: min(100%, 560px); margin: 0 auto; }
+.av2-addition-wrap { width: min(100%, 400px); margin: 0 auto 17px; }
+.av2-addition-legend { display: flex; justify-content: center; gap: clamp(11px, 4vw, 24px); margin: 0 auto 9px; color: #57516c; font-size: clamp(0.72rem, 2.7vw, 0.92rem); }
+.av2-addition-legend span { white-space: nowrap; }
+.av2-addition-legend b { color: #413269; }
+.av2-addition-board { width: 100%; padding: clamp(9px, 3vw, 17px); border: 3px dashed #e6ce79; border-radius: 22px; background: #fffaf0; }
+.av2-addition-row { display: grid; grid-template-columns: minmax(54px, 0.95fr) repeat(3, minmax(0, 1fr)); align-items: center; justify-items: center; min-height: clamp(48px, 12vw, 62px); font-size: clamp(1.65rem, 7vw, 2.55rem); font-weight: 900; line-height: 1; }
+.av2-addition-position { min-height: 35px; color: #564a78; font-size: clamp(0.92rem, 4vw, 1.28rem); }
+.av2-addition-row-label { justify-self: start; max-width: 100%; color: #5b5570; font-size: clamp(0.62rem, 2.6vw, 0.82rem); font-weight: 800; line-height: 1.1; white-space: nowrap; }
+.av2-addition-carry-row { min-height: 34px; color: #bc672f; font-size: clamp(1rem, 4.7vw, 1.55rem); }
+.addition-carry-cell { min-width: 100%; display: grid; min-height: 32px; place-items: center; }
+.addition-carry-cell.is-visible b { display: block; font-size: 0.9em; }
+.av2-addition-line { display: grid; grid-template-columns: minmax(54px, 0.95fr) repeat(3, minmax(0, 1fr)); min-height: 8px; }
+.av2-addition-line span:not(:first-child) { border-top: 3px solid #52496c; }
+.av2-addition-answer-row { min-height: 58px; color: #413269; }
+.av2-addition-digit { width: min(100%, 54px); height: clamp(43px, 13vw, 56px); padding: 0 2px; border: 2px solid #c9b8ec; border-radius: 12px; outline-color: #6a52a3; color: #382b62; background: #fff; font: inherit; text-align: center; caret-color: #382b62; }
+.av2-addition-digit:focus-visible { outline: 3px solid #795fc0; outline-offset: 2px; }
+.av2-addition-digit.is-incorrect { border-color: #df806c; background: #fff1ed; }
+.addition-empty-digit { min-width: min(100%, 54px); min-height: 43px; }
+.addition-static-digit { min-width: 1.5ch; text-align: center; }
+.av2-addition-entry-help { margin: 0 0 10px; color: var(--muted); font-weight: 700; text-align: center; }
+.av2-addition-input-error { margin: 0 0 8px; color: #a34039; font-weight: 800; text-align: center; }
+.av2-addition-pad { width: min(100%, 324px); grid-template-columns: repeat(5, minmax(38px, 1fr)); }
+.av2-addition-pad button { min-height: 48px; font-size: 1.1rem; }
+.av2-addition-pad button:disabled { opacity: 0.58; }
+.av2-addition-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; margin: 6px auto 0; }
+.av2-addition-actions button { min-height: 48px; }
+.av2-hint-button { padding-inline: 18px; }
+.av2-addition-hint { margin: 14px 0 0; text-align: left; }
+.is-terms > .av2-answer-options { margin-top: 15px; }
+.is-terms .av2-addition-actions { margin-top: 12px; }
+
+@media (min-width: 761px) {
+  .av2-activity-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .av2-addition-row,
+  .av2-addition-line { grid-template-columns: minmax(52px, 0.92fr) repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 460px) {
+  .av2-addition-board { padding: 8px 7px; border-radius: 17px; }
+  .av2-addition-row,
+  .av2-addition-line { grid-template-columns: minmax(47px, 0.9fr) repeat(3, minmax(0, 1fr)); }
+  .av2-addition-row { min-height: 47px; font-size: clamp(1.55rem, 8vw, 2rem); }
+  .av2-addition-row-label { font-size: 0.6rem; }
+  .av2-addition-digit { width: min(100%, 46px); height: 43px; border-radius: 10px; }
+  .av2-addition-pad { grid-template-columns: repeat(5, minmax(38px, 48px)); }
+  .av2-addition-pad button { min-height: 46px; }
+  .av2-addition-actions { gap: 8px; }
+  .av2-addition-actions button { min-height: 45px; padding-inline: 12px; }
+}
