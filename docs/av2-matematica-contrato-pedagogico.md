@@ -118,11 +118,9 @@ Não implementado nesta entrega. Deve apoiar subtrações de dois e três algari
 
 Referência oficial: **351 − 147 = 204**. Evidência adicional do caderno apoia reagrupamentos sucessivos, incluindo **862 − 695 = 167**; esse limite não deve ser atribuído somente ao exemplo oficial.
 
-## 8. Bloco 05 — Sequências e números por extenso (especificação futura)
+## 8. Bloco 05 — Sequências e números por extenso
 
-Não implementado nesta entrega. Deve apoiar sequências crescentes de uma unidade até 250, tabela numérica equivalente à grade 200–239 da revisão, antecessor e sucessor, e entrada por extenso para números como 208 (`duzentos e oito`) e 215 (`duzentos e quinze`).
-
-Os números 300 e 400 continuam autorizados somente na atividade de escrita por extenso que já os apoiava. Não estender sequências numéricas até 400. Preservar ortografia correta e entrada adequada para uma criança.
+A atividade pratica sequências crescentes e decrescentes de uma unidade até 250, a tabela 200–239, antecessor e sucessor, reconhecimento de números por extenso e escolha da grafia que corresponde a um número. Os números 300 e 400 são permitidos somente nas questões por extenso. Não estender sequências numéricas até 400; preservar as grafias corretas em português brasileiro e a apresentação adequada para crianças.
 
 ## 9. Bloco 06 — Composição de dinheiro (especificação futura)
 

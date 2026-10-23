@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 3021)
+Total output lines: 262
+
 # Revisão de Matemática | 1º ano Vita
 
 Aplicação web infantil, responsiva e em português do Brasil para revisar
@@ -138,9 +141,7 @@ ignorada pelo Git.
 - `tests/vercel.test.mjs`: testes do build estático, função Vercel, assets e
   ausência de segredos em `dist/`.
 
-Tudo funciona sem cadastro, sem armazenamento server-side e sem imagens externas
-para o catálogo local. O primeiro acesso solicita somente o primeiro nome ou
-apelido e o mantém exclusivamente no `localStorage` do navegador, na chave
+Tudo funciona sem cadastro, sem armazenamento server-side e sem imagens externas…21 tokens truncated…do e o mantém exclusivamente no `localStorage` do navegador, na chave
 versionada `revisao-matematica.childName.v1`. Em dispositivos compartilhados, a
 ação “Trocar criança” remove somente esse nome e volta à tela de identificação.
 Os Blocos 01 e 02 da AV2 guardam somente a quantidade de rodadas concluídas em
@@ -256,3 +257,7 @@ mocks e nunca consomem créditos da OpenRouter.
 ### AV2 — Bloco 04
 
 A atividade **Subtração com reagrupamento** oferece rodadas de 12 questões com contas de dois e três algarismos, trocas D → U e C → D, trocas sucessivas, termos e problemas de retirada. Veja [arquitetura, limites e verificação do Bloco 04](docs/av2-block-04-subtracao.md).
+
+### AV2 — Bloco 05
+
+A atividade **Sequências e números por extenso** pratica contagem de um em um até 250, tabela 200–239, antecessor e sucessor, reconhecimento de números por extenso e escolha da grafia correspondente. Centenas exatas 300 e 400 aparecem somente nas questões por extenso. Veja [arquitetura, limites e verificação do Bloco 05](docs/av2-block-05-sequencias.md).

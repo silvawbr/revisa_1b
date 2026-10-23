@@ -30,6 +30,7 @@ const PUBLIC_FILES = new Set([
   'src/av2/product-illustrations.js',
   'src/av2/addition.js',
   'src/av2/subtraction.js',
+  'src/av2/sequences.js',
   'src/av2/subtraction-layout.js',
   'src/av2/cdu-layout.js',
   'src/av2/progress.js',

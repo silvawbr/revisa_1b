@@ -943,3 +943,16 @@ h1 span { color: var(--blue-deep); }
 
 .is-subtraction .subtraction-borrow-input { font-size: clamp(20px, 5vw, 30px); width: min(100%, 64px); }
 .is-subtraction .subtraction-history { font-size: 14px; overflow-wrap: anywhere; }
+
+.av2-number-sequence-wrap { margin-bottom: 10px; }
+.av2-number-sequence { gap: clamp(6px, 2vw, 16px); padding-inline: clamp(8px, 2vw, 20px); font-size: clamp(1.25rem, 6.5vw, 3rem); }
+.av2-number-sequence .sequence-input { min-width: 1.7em; flex-basis: 1.7em; }
+.av2-number-to-word-choice .number-prompt { margin-bottom:18px; }
+.av2-word-options { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.av2-number-to-word-choice .word-option { min-height:88px; font-size:clamp(1.25rem,3.5vw,1.8rem); }
+.av2-number-word-recognition .word-prompt { width:min(100%,760px); }
+.number-table { display:grid; grid-template-columns:repeat(var(--table-columns,5),minmax(0,1fr)); gap:5px; width:min(100%,740px); margin:0 auto 18px; }
+.number-table-cell { display:flex; align-items:center; justify-content:center; min-width:0; min-height:clamp(48px,9vw,68px); border:2px solid #d8e5f5; border-radius:12px; background:#f8fbff; font-size:clamp(15px,3.7vw,22px); font-weight:800; color:#243b5a; }
+.number-table-cell.is-gap { border-color:#8eb8fa; background:#eff6ff; }
+.number-table-cell input { width:100%; min-width:0; height:100%; border:0; outline:0; background:transparent; text-align:center; font-size:inherit; font-weight:inherit; color:#174ea6; }
+@media(max-width:520px){.number-table{gap:3px}.number-table-cell{border-radius:8px;min-height:48px}.av2-activity-grid{grid-template-columns:1fr}.av2-word-options{gap:9px}.av2-word-options .word-option{min-height:64px;padding:9px;font-size:1.15rem}}
