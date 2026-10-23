@@ -87,6 +87,8 @@ test('a base visual C/D/U mantém duas e três casas alinhadas e aceita indicado
   assert.match(markup, /Mais 2ª parcela: 195/);
   assert.ok(markup.indexOf('data-cdu-marker="hundreds"') < markup.indexOf('data-cdu-marker="tens"'));
   assert.ok(markup.indexOf('data-cdu-marker="tens"') < markup.indexOf('data-cdu-marker="units"'));
+  assert.equal((markup.match(/class="addition-carry-house"/g) ?? []).length, 2, 'há uma casinha para cada coluna que recebe reserva');
+  assert.match(markup, /class="addition-carry-house" aria-hidden="true"><b>1<\/b>/);
 
   const twoDigits = renderCduLayout({
     firstOperand: 27,
@@ -97,7 +99,23 @@ test('a base visual C/D/U mantém duas e três casas alinhadas e aceita indicado
   });
   assert.match(twoDigits, /1ª parcela: 27/);
   assert.match(twoDigits, /Mais 2ª parcela: 15/);
+  assert.match(twoDigits, /aria-label="1ª parcela: 27"><span[^>]*>1ª parcela<\/span><span role="cell"><\/span><span role="cell">2<\/span><span role="cell">7<\/span>/,
+    '27 ocupa dezenas e unidades, sem zero à esquerda');
   assert.equal((twoDigits.match(/role="columnheader"/g) ?? []).length, 3);
+  assert.equal((twoDigits.match(/class="addition-carry-house"/g) ?? []).length, 2);
+  assert.doesNotMatch(twoDigits, /class="addition-carry-house"[^>]*><b>/, 'as casinhas começam vazias e não antecipam as reservas');
+
+  const internalZeros = renderCduLayout({
+    firstOperand: 250,
+    secondOperand: 205,
+    markers: {},
+    resultCells: ['', '', ''],
+    ariaLabel: 'Adição vertical de 250 mais 205.',
+  });
+  assert.match(internalZeros, /aria-label="1ª parcela: 250"><span[^>]*>1ª parcela<\/span><span role="cell">2<\/span><span role="cell">5<\/span><span role="cell">0<\/span>/,
+    'o zero final de 250 aparece na casa das unidades');
+  assert.match(internalZeros, /aria-label="Mais 2ª parcela: 205"><span[^>]*><b aria-label="mais">\+<\/b> 2ª parcela<\/span><span role="cell">2<\/span><span role="cell">0<\/span><span role="cell">5<\/span>/,
+    'o zero intermediário de 205 aparece na casa das dezenas');
   assert.throws(() => renderCduLayout({ firstOperand: 1000, secondOperand: 15, resultCells: ['', '', ''] }), RangeError);
 });
 

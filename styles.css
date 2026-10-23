@@ -882,6 +882,8 @@ h1 span { color: var(--blue-deep); }
 .av2-addition-row-label { justify-self: start; max-width: 100%; color: #5b5570; font-size: clamp(0.62rem, 2.6vw, 0.82rem); font-weight: 800; line-height: 1.1; white-space: nowrap; }
 .av2-addition-carry-row { min-height: 34px; color: #bc672f; font-size: clamp(1rem, 4.7vw, 1.55rem); }
 .addition-carry-cell { min-width: 100%; display: grid; min-height: 32px; place-items: center; }
+.addition-carry-house { display: grid; width: clamp(24px, 7vw, 34px); height: clamp(24px, 7vw, 34px); place-items: center; border: 2px solid #e1c77f; border-radius: 5px; color: #bc672f; background: #fff; }
+.addition-carry-cell.is-visible .addition-carry-house { border-color: #bc672f; background: #fff4df; }
 .addition-carry-cell.is-visible b { display: block; font-size: 0.9em; }
 .av2-addition-line { display: grid; grid-template-columns: minmax(54px, 0.95fr) repeat(3, minmax(0, 1fr)); min-height: 8px; }
 .av2-addition-line span:not(:first-child) { border-top: 3px solid #52496c; }
