@@ -194,7 +194,8 @@ function answerCurrentShoppingQuestion(document, app) {
 
 function fillAdditionAnswer(document, value) {
   const digits = String(value).padStart(3, '0');
-  const fields = document.querySelectorAll('[data-av2-add-field]');
+  const fields = document.querySelectorAll('[data-av2-add-field]')
+    .filter((field) => !field.dataset.av2AddField.startsWith('carry'));
   assert.ok(fields.length === 2 || fields.length === 3, 'a conta tem campos de resposta C/D/U');
   for (const field of fields) {
     const digitIndex = field.dataset.av2AddField === 'hundreds' ? 0
@@ -202,6 +203,23 @@ function fillAdditionAnswer(document, value) {
     field.value = digits[digitIndex];
     field.dispatchEvent(new Event('input', { bubbles: true }));
   }
+}
+
+function fillAdditionCarry(document, fieldName, value, { useKeypad = false } = {}) {
+  const field = document.querySelectorAll('[data-av2-add-field]')
+    .find((input) => input.dataset.av2AddField === fieldName);
+  assert.ok(field, `a casa da reserva ${fieldName} pode ser selecionada`);
+  field.focus();
+  if (useKeypad) {
+    const key = document.querySelectorAll('[data-av2-add-digit]')
+      .find((button) => button.dataset.av2AddDigit === String(value));
+    assert.ok(key, `o teclado tem a tecla ${value}`);
+    key.click();
+  } else {
+    field.value = String(value);
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  assert.equal(field.value, String(value), `a casa ${fieldName} recebe ${value}`);
 }
 
 function answerCurrentAdditionQuestion(document, question) {
@@ -405,30 +423,38 @@ test('Block 03 alinha C/D/U, revela o vai um por etapas, conclui 12 questões e 
     assert.match(app.innerHTML, /role="columnheader">C<\/b>/);
     assert.match(app.innerHTML, /role="columnheader">D<\/b>/);
     assert.match(app.innerHTML, /role="columnheader">U<\/b>/);
+    assert.match(app.innerHTML, /class="av2-addition-digit av2-addition-carry-digit[^"]*"[^>]*data-av2-add-field="carryHundreds"/,
+      'a reserva das centenas usa a mesma caixinha de entrada da soma');
+    assert.match(app.innerHTML, /class="av2-addition-digit av2-addition-carry-digit[^"]*"[^>]*data-av2-add-field="carryTens"/,
+      'a reserva das dezenas pode receber um algarismo');
 
     for (let index = 0; index < expectedRound.length; index += 1) {
       const question = expectedRound[index];
       assert.match(app.innerHTML, new RegExp(`Questão ${index + 1} de 12`));
       if (index === doubleCarryIndex) {
-        assert.doesNotMatch(app.innerHTML, /addition-carry-cell is-visible/);
+        assert.doesNotMatch(app.innerHTML, /addition-carry-cell is-revealed/);
         assert.match(app.innerHTML, /data-av2-add-field="hundreds"/);
         assert.match(app.innerHTML, /data-av2-add-digit="0"/);
         clickAction(document, 'submit-av2');
         assert.match(app.innerHTML, /Preencha as casas do resultado/);
-        assert.doesNotMatch(app.innerHTML, /addition-carry-cell is-visible/);
+        assert.doesNotMatch(app.innerHTML, /addition-carry-cell is-revealed/);
 
         clickAction(document, 'av2-hint');
         assert.match(app.innerHTML, /Comece somando as unidades/);
-        assert.doesNotMatch(app.innerHTML, /addition-carry-cell is-visible/);
+        assert.doesNotMatch(app.innerHTML, /addition-carry-cell is-revealed/);
         fillAdditionAnswer(document, 0);
+        fillAdditionCarry(document, 'carryTens', 0);
         clickAction(document, 'submit-av2');
+        assert.match(app.innerHTML, /Confira o número que você escreveu na casa da reserva/);
         assert.match(app.innerHTML, /Tente novamente!/);
-        assert.match(app.innerHTML, /addition-carry-cell is-visible[^>]*data-cdu-marker="tens"/);
-        assert.doesNotMatch(app.innerHTML, /addition-carry-cell is-visible[^>]*data-cdu-marker="hundreds"/);
+        assert.match(app.innerHTML, /addition-carry-cell is-revealed[^>]*data-cdu-marker="tens"/);
+        assert.doesNotMatch(app.innerHTML, /addition-carry-cell is-revealed[^>]*data-cdu-marker="hundreds"/);
 
         clickAction(document, 'av2-hint');
         assert.match(app.innerHTML, /incluindo a dezena que foi levada/);
-        assert.match(app.innerHTML, /addition-carry-cell is-visible[^>]*data-cdu-marker="hundreds"/);
+        assert.match(app.innerHTML, /addition-carry-cell is-revealed[^>]*data-cdu-marker="hundreds"/);
+        fillAdditionCarry(document, 'carryTens', 1, { useKeypad: true });
+        fillAdditionCarry(document, 'carryHundreds', 1);
         fillAdditionAnswer(document, question.data.result);
         clickAction(document, 'submit-av2');
       } else {

@@ -700,7 +700,20 @@ function renderAdditionBoard(question, { showResult = false } = {}) {
     tens: revealedCarries.includes('toTens') && trace.carries.toTens > 0
       ? { value: '1', ariaLabel: 'vai um para as dezenas' } : null,
   };
-  const answerDigit = (name, label) => `<span role="cell"><input class="av2-addition-digit ${state.av2Attempts > 0 && !state.av2Correct ? 'is-incorrect' : ''}" type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" data-av2-add-field="${name}" aria-label="${label} do resultado" value="${escapeAttribute(state.av2AdditionAnswer[name] ?? '')}" ${state.av2Correct ? 'disabled' : ''}></span>`;
+  const digitInput = (name, label, extraClass = '') => `<input class="av2-addition-digit ${extraClass} ${state.av2Attempts > 0 && !state.av2Correct ? 'is-incorrect' : ''}" type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" data-av2-add-field="${name}" aria-label="${label}" aria-describedby="av2-addition-entry-help" value="${escapeAttribute(state.av2AdditionAnswer[name] ?? '')}" ${state.av2Correct ? 'disabled' : ''}>`;
+  const answerDigit = (name, label) => `<span role="cell">${digitInput(name, `${label} do resultado`)}</span>`;
+  if (!showResult) {
+    markers.hundreds = {
+      inputHtml: digitInput('carryHundreds', 'Reserva para a centena', 'av2-addition-carry-digit'),
+      isRevealed: revealedCarries.includes('toHundreds') && trace.carries.toHundreds > 0,
+      ariaLabel: 'casa da reserva das centenas',
+    };
+    markers.tens = {
+      inputHtml: digitInput('carryTens', 'Reserva para a dezena', 'av2-addition-carry-digit'),
+      isRevealed: revealedCarries.includes('toTens') && trace.carries.toTens > 0,
+      ariaLabel: 'casa da reserva das dezenas',
+    };
+  }
   const resultDigits = String(trace.result).length;
   const resultCells = showResult
     ? [resultDigits === 3 ? Math.floor(trace.result / 100) : '', Math.floor(trace.result / 10) % 10, trace.result % 10]
@@ -748,8 +761,8 @@ function renderAv2AdditionQuestion(question) {
   const canShowAnotherHint = !state.av2Correct && hintIndex < hintLimit;
   return `<div class="av2-exercise is-addition" data-av2-question-type="${question.type}">
     ${renderAdditionBoard(question)}
-    <p class="av2-addition-entry-help" id="av2-addition-entry-help">Digite a soma nas casas C, D e U.</p>
-    ${state.av2AdditionInputError ? '<p class="av2-addition-input-error" role="alert">Preencha as casas do resultado antes de conferir.</p>' : ''}
+    <p class="av2-addition-entry-help" id="av2-addition-entry-help">Digite a soma nas casas C, D e U. Você também pode preencher as reservas.</p>
+    ${state.av2AdditionInputError ? `<p class="av2-addition-input-error" role="alert">${escapeHtml(state.av2AdditionInputError)}</p>` : ''}
     <div class="number-pad av2-addition-pad" role="group" aria-label="Teclado numérico">
       ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((digit) => `<button type="button" data-av2-add-digit="${digit}" ${state.av2Correct ? 'disabled' : ''}>${digit}</button>`).join('')}
       <button type="button" class="pad-clear" data-av2-add-clear ${state.av2Correct ? 'disabled' : ''}>Limpar</button>
@@ -1257,12 +1270,26 @@ function submitAv2Answer() {
     const values = Object.fromEntries(inputs.map((input) => [input.dataset.av2AddField, input.value]));
     const missingField = requiredFields.find((field) => !/^\d$/.test(values[field] ?? ''));
     if (missingField) {
-      state.av2AdditionInputError = true;
+      state.av2AdditionInputError = 'Preencha as casas do resultado antes de conferir.';
       render();
       document.querySelector(`[data-av2-add-field="${missingField}"]`)?.focus();
       return;
     }
     state.av2AdditionInputError = false;
+    const incorrectCarry = [
+      ['carryHundreds', question.data.trace.carries.toHundreds],
+      ['carryTens', question.data.trace.carries.toTens],
+    ].find(([field, expected]) => values[field] !== '' && Number(values[field]) !== expected);
+    if (incorrectCarry) {
+      const [field] = incorrectCarry;
+      state.av2AdditionInputError = 'Confira o número que você escreveu na casa da reserva.';
+      state.av2Attempts += 1;
+      state.av2HintIndex = Math.min(state.av2HintIndex + 1, question.hints.length - 1);
+      cancelSpeech();
+      render();
+      document.querySelector(`[data-av2-add-field="${field}"]`)?.focus();
+      return;
+    }
     const answer = Number(requiredFields.map((field) => values[field]).join(''));
     state.av2Selected = answer;
     if (validateAv2AdditionAnswer(question, answer)) {
@@ -1488,10 +1515,11 @@ function bindEvents() {
 
   document.querySelectorAll('[data-av2-add-digit]').forEach((button) => {
     button.addEventListener('click', () => {
-      const active = state.av2ActiveAdditionField
-        ? document.querySelector(`[data-av2-add-field="${state.av2ActiveAdditionField}"]`) : null;
-      const empty = [...document.querySelectorAll('[data-av2-add-field]')].find((input) => !input.value);
-      const target = active || empty || document.querySelector('[data-av2-add-field]');
+      const additionFields = [...document.querySelectorAll('[data-av2-add-field]')];
+      const active = additionFields.find((input) => input.dataset.av2AddField === state.av2ActiveAdditionField);
+      const resultFields = additionFields.filter((input) => !input.dataset.av2AddField.startsWith('carry'));
+      const empty = resultFields.find((input) => !input.value);
+      const target = active || empty || document.querySelector('[data-av2-add-field="units"]');
       if (!target) return;
       target.value = button.dataset.av2AddDigit;
       target.dispatchEvent(new Event('input', { bubbles: true }));
@@ -1503,7 +1531,7 @@ function bindEvents() {
     state.av2ActiveAdditionField = null;
     state.av2AdditionInputError = false;
     document.querySelectorAll('[data-av2-add-field]').forEach((input) => { input.value = ''; });
-    document.querySelector('[data-av2-add-field]')?.focus();
+    document.querySelector('[data-av2-add-field="units"]')?.focus();
   });
 }
 

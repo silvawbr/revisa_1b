@@ -46,11 +46,12 @@ export function renderCduLayout({
     const isCarryDestination = column !== 'units';
     const label = value
       ? marker.ariaLabel ?? `vai um na casa de ${names[column]}`
-      : isCarryDestination ? `casa da reserva das ${names[column]} vazia` : 'não há casa de reserva nas unidades';
+      : marker?.ariaLabel ?? (isCarryDestination ? `casa da reserva das ${names[column]} vazia` : 'não há casa de reserva nas unidades');
     const content = isCarryDestination
-      ? `<span class="addition-carry-house" aria-hidden="true">${value ? `<b>${escapeHtml(value)}</b>` : ''}</span>`
+      ? marker?.inputHtml ?? `<span class="av2-addition-digit addition-static-carry" aria-hidden="true">${value ? `<b>${escapeHtml(value)}</b>` : ''}</span>`
       : '';
-    return `<span class="addition-carry-cell ${value ? 'is-visible' : ''} cdu-marker-cell" role="cell" data-cdu-marker="${column}" aria-label="${escapeHtml(label)}">${content}</span>`;
+    const isRevealed = Boolean(value || marker?.isRevealed);
+    return `<span class="addition-carry-cell ${isRevealed ? 'is-revealed' : ''} cdu-marker-cell" role="cell" data-cdu-marker="${column}" aria-label="${escapeHtml(label)}">${content}</span>`;
   });
   const operandCells = (values) => values.map((value) => `<span role="cell">${value === '' ? '' : value}</span>`).join('');
 
