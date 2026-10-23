@@ -256,3 +256,7 @@ mocks e nunca consomem créditos da OpenRouter.
 ### AV2 — Bloco 04
 
 A atividade **Subtração com reagrupamento** oferece rodadas de 12 questões com contas de dois e três algarismos, trocas D → U e C → D, trocas sucessivas, termos e problemas de retirada. Veja [arquitetura, limites e verificação do Bloco 04](docs/av2-block-04-subtracao.md).
+
+### AV2 — Bloco 05
+
+A atividade **Sequências e números por extenso** pratica contagem de um em um até 250, tabela 200–239, antecessor e sucessor, leitura e escrita por extenso. Centenas exatas 300 e 400 aparecem somente nas atividades de leitura e escrita. Veja [arquitetura, limites e verificação do Bloco 05](docs/av2-block-05-sequencias.md).

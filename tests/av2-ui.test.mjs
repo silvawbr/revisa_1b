@@ -1,4 +1,5 @@
 import { createAv2SubtractionRound } from '../src/av2/subtraction.js';
+import { createAv2SequencesRound, AV2_SEQUENCES_PROGRESS_STORAGE_KEY, numberToWordsPtBr } from '../src/av2/sequences.js';
 import { AV2_SUBTRACTION_PROGRESS_STORAGE_KEY } from '../src/av2/progress.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -18,6 +19,7 @@ const SHOPPING_PRODUCT_LABELS = [
 
 class FakeElement {
   constructor(attributes) {
+    this.attributes = attributes;
     this.dataset = {};
     this.listeners = new Map();
     this.value = attributes.value ?? '';
@@ -76,7 +78,7 @@ class FakeApp {
   }
 
   querySelectorAll(selector) {
-    if (!this.elements.has(selector)) this.elements.set(selector, parseElements(this.markup, selector));
+    if (!this.elements.has(selector)) this.elements.set(selector, selector.includes(',') ? [...new Set(selector.split(',').flatMap(part=>parseElements(this.markup,part.trim())))] : parseElements(this.markup, selector));
     return this.elements.get(selector);
   }
 
@@ -97,7 +99,7 @@ function parseElements(markup, selector) {
   const selectorMatch = selector.match(/^\[(data-[\w-]+)(?:="([^"]*)")?\]$/);
   if (!selectorMatch) return [];
   const [, attribute, expectedValue] = selectorMatch;
-  if (!['data-action', 'data-av2-answer', 'data-av2-add-field', 'data-av2-add-digit', 'data-av2-add-clear'].includes(attribute)) return [];
+  if (!['data-action', 'data-av2-answer', 'data-av2-add-field', 'data-av2-add-digit', 'data-av2-add-clear', 'data-sequence-answer', 'data-word-answer', 'data-table-gap'].includes(attribute)) return [];
   return [...markup.matchAll(/<(?:button|input|a)\b[^>]*>/g)].flatMap(([tag]) => {
     const attributes = Object.fromEntries([...tag.matchAll(/([\w:-]+)="([^"]*)"/g)].map((match) => [match[1], match[2]]));
     return attributes[attribute] !== undefined && (expectedValue === undefined || attributes[attribute] === expectedValue)
@@ -601,4 +603,43 @@ test('Block 04 completes numeric input, progressive borrowing, terms, feedback, 
     if (previousStorage) Object.defineProperty(globalThis, 'localStorage', previousStorage);
     else delete globalThis.localStorage;
   }
+});
+
+
+test('Block 05 completes mixed questions, preserves writing input, rewards progress and returns to AV2', async () => {
+  const previousDocument=globalThis.document, previousWindow=globalThis.window, previousStorage=Object.getOwnPropertyDescriptor(globalThis,'localStorage');
+  const values=new Map([[CHILD_NAME_STORAGE_KEY,'Ana']]);const storage={getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,String(v)),removeItem:k=>values.delete(k)};
+  const app=new FakeApp();const document={title:'',querySelector:s=>s==='#app'?app:app.querySelector(s),querySelectorAll:s=>app.querySelectorAll(s)};
+  globalThis.document=document;globalThis.window={innerWidth:390,addEventListener(){}};Object.defineProperty(globalThis,'localStorage',{configurable:true,value:storage});
+  try {
+    await import(`../app.js?av2-sequences-ui-${Date.now()}`);clickAction(document,'av2-entry');assert.match(app.innerHTML,/Sequências e números por extenso/);
+    const seed=90512, original=Math.random;
+    try{Math.random=seededRandom(seed);clickAction(document,'start-av2-sequences');}finally{Math.random=original;}
+    assert.match(app.innerHTML,/Questão 1 de 12/);
+    let preserved=false;
+    for(let i=0;i<12;i++){
+      assert.match(app.innerHTML,/data-speech-button="question"/);
+      const wordInput=document.querySelector('[data-word-answer]');
+      const sequenceInput=document.querySelector('[data-sequence-answer]');
+      const tableInputs=document.querySelectorAll('[data-table-gap]');
+      if(wordInput){
+        assert.match(app.innerHTML,/inputmode="text"/);const value=Number(app.innerHTML.match(/Escreva por extenso o número (\d+)/)?.[1]);
+        if(!preserved){wordInput.value='duzentos errado';wordInput.dispatchEvent(new Event('input',{bubbles:true}));clickAction(document,'submit-av2');assert.match(app.innerHTML,/value="duzentos errado"/);preserved=true;}
+        const current=document.querySelector('[data-word-answer]');current.value=numberToWordsPtBr(value).toUpperCase();current.dispatchEvent(new Event('input',{bubbles:true}));clickAction(document,'submit-av2');
+      } else if(sequenceInput){
+        const row=app.innerHTML.match(/<div class="sequence-practice-values">([\s\S]*?)<\/div>/)?.[1]??'';
+        const tokens=[...row.matchAll(/<span>(\d+)<\/span>|<input[^>]*data-sequence-answer/g)];const blank=tokens.findIndex(t=>t[0].includes('data-sequence-answer'));const direction=app.innerHTML.includes('diminuem de um em um')?-1:1;const visible=tokens.findIndex(t=>t[1]!==undefined);const first=Number(tokens[visible][1]);const start=first-visible*direction;sequenceInput.value=String(start+blank*direction);sequenceInput.dispatchEvent(new Event('input',{bubbles:true}));clickAction(document,'submit-av2');
+      } else if(tableInputs.length){
+        for(const input of tableInputs){const m=input.attributes['aria-label'].match(/entre (\d+) e (\d+)/);input.value=String(Number(m[1])+1);input.dispatchEvent(new Event('input',{bubbles:true}));}clickAction(document,'submit-av2');
+      } else {
+        let answer;const word=app.innerHTML.match(/<div class="number-word-prompt"><strong>([^<]+)<\/strong>/)?.[1];
+        if(word){answer=[...Array(251).keys(),300,400].find(n=>numberToWordsPtBr(n)===word);}else{const m=app.innerHTML.match(/Qual é o (antecessor|sucessor) de (\d+)\?/);answer=Number(m[2])+(m[1]==='antecessor'?-1:1);}
+        const option=document.querySelectorAll('[data-av2-answer]').find(b=>b.dataset.av2Answer===String(answer));assert.ok(option);option.click();
+      }
+      assert.match(app.innerHTML,/Muito bem, Ana!/);clickAction(document,'next-av2');
+    }
+    assert.equal(preserved,true);
+    assert.match(app.innerHTML,/Você concluiu as 12 questões de sequências/);assert.match(app.innerHTML,/aria-label="12 estrelas conquistadas"/);
+    assert.equal(JSON.parse(storage.getItem(AV2_SEQUENCES_PROGRESS_STORAGE_KEY)).roundsCompleted,1);clickAction(document,'restart');assert.match(app.innerHTML,/Questão 1 de 12/);clickAction(document,'av2-home');assert.match(app.innerHTML,/Escolha uma atividade/);
+  } finally {globalThis.document=previousDocument;if(previousWindow===undefined)delete globalThis.window;else globalThis.window=previousWindow;if(previousStorage)Object.defineProperty(globalThis,'localStorage',previousStorage);else delete globalThis.localStorage;}
 });

@@ -538,7 +538,7 @@ test('a interface oferece as revisões e atividades AV2 sem alterar o gerador an
   assert.match(app, /data-action="next-av2"/);
   assert.match(app, /data-av2-answer=/);
   assert.match(app, /state\.round = createRound\(\)/);
-  assert.match(app, /state\.av2Round = block === 'block-04' \? createAv2SubtractionRound\(\)\s*: block === 'block-03' \? createAv2AdditionRound\(\)\s*: block === 'block-02' \? createAv2ShoppingRound\(\) : createAv2Round\(\)/);
+  assert.match(app, /state\.av2Round = block === 'block-05' \? createAv2SequencesRound\(\)\s*: block === 'block-04' \? createAv2SubtractionRound\(\)\s*: block === 'block-03' \? createAv2AdditionRound\(\)\s*: block === 'block-02' \? createAv2ShoppingRound\(\) : createAv2Round\(\)/);
   assert.match(app, /data-action="submit-av2"/);
   assert.match(app, /AV2_PROGRESS_STORAGE_KEY|createAv2ProgressStore/);
   assert.match(app, /createChildProfileStore\(\)/);

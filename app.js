@@ -1,4 +1,5 @@
 import { AV2_SUBTRACTION_ACTIVITY_ID, createAv2SubtractionRound, validateAv2SubtractionAnswer } from './src/av2/subtraction.js';
+import { AV2_SEQUENCES_PROGRESS_STORAGE_KEY, createAv2SequencesRound, validateAv2SequencesAnswer } from './src/av2/sequences.js';
 import { renderSubtractionQuestion } from './src/av2/subtraction-layout.js';
 import {
   ACTIVITY_NAMES,
@@ -74,6 +75,7 @@ const av2Progress = createAv2ProgressStore();
 const av2ShoppingProgress = createAv2ProgressStore({ key: AV2_SHOPPING_PROGRESS_STORAGE_KEY });
 const av2AdditionProgress = createAv2ProgressStore({ key: AV2_ADDITION_PROGRESS_STORAGE_KEY });
 const av2SubtractionProgress = createAv2ProgressStore({ key: AV2_SUBTRACTION_PROGRESS_STORAGE_KEY });
+const av2SequencesProgress = createAv2ProgressStore({ key: AV2_SEQUENCES_PROGRESS_STORAGE_KEY });
 const moneyById = new Map(MONEY_DENOMINATIONS.map((money) => [money.id, money]));
 let visualSelectionInteraction = null;
 
@@ -105,6 +107,7 @@ const state = {
   av2Attempts: 0,
   av2Selected: null,
   av2Block: 'block-01',
+  av2SequenceAnswer: {},
   av2HintIndex: -1,
   av2AdditionAnswer: {},
   av2AdditionInputError: false,
@@ -633,6 +636,7 @@ function renderAv2Home() {
   const roundsCompleted = av2Progress.get().roundsCompleted;
   const shoppingRoundsCompleted = av2ShoppingProgress.get().roundsCompleted;
   const additionRoundsCompleted = av2AdditionProgress.get().roundsCompleted;
+  const sequenceRoundsCompleted = av2SequencesProgress.get().roundsCompleted;
   return `<div class="site-shell home-screen av2-home-screen">
     <main class="home-main">
       <section class="home-card av2-home-card" aria-labelledby="av2-home-title">
@@ -665,6 +669,14 @@ function renderAv2Home() {
             <p class="av2-progress-summary" data-addition-rounds-completed>Rodadas concluídas: <strong>${additionRoundsCompleted}</strong></p>
             <button class="primary-button start-button" type="button" data-action="start-av2-addition">Começar <span aria-hidden="true">→</span></button>
           </article>
+          <article class="av2-activity-card sequences-activity-card">
+            <span class="addition-activity-icon" aria-hidden="true">🔢</span>
+            <h2>Sequências e números por extenso</h2>
+            <p>Complete sequências e tabelas, descubra vizinhos e escreva números.</p>
+            <div class="addition-activity-sample" aria-label="Exemplo: 208 por extenso">208 → duzentos e oito</div>
+            <p class="av2-progress-summary">Rodadas concluídas: <strong>${sequenceRoundsCompleted}</strong></p>
+            <button class="primary-button start-button" type="button" data-action="start-av2-sequences">Começar <span aria-hidden="true">→</span></button>
+          </article>
           <article class="av2-activity-card subtraction-activity-card">
             <span class="addition-activity-icon" aria-hidden="true">➖</span>
             <h2>Subtração com reagrupamento</h2>
@@ -694,7 +706,7 @@ function renderAv2Header() {
     ${renderAv2Progress()}
     <div class="header-actions">
       <button class="change-child-button" type="button" data-action="change-child" aria-label="Trocar criança">Trocar criança</button>
-      ${['block-03', 'block-04'].includes(state.av2Block)
+      ${['block-03', 'block-04', 'block-05'].includes(state.av2Block)
     ? '<button class="secondary-button av2-exit-button" type="button" data-action="av2-home" aria-label="Voltar às atividades AV2">Atividades</button>'
     : '<button class="secondary-button av2-exit-button" type="button" data-action="home" aria-label="Voltar às revisões">Revisões</button>'}
     </div>
@@ -787,7 +799,18 @@ function renderAv2AdditionQuestion(question) {
   </div>`;
 }
 
+function renderAv2SequencesQuestion(question) {
+  if (question.type === 'sequence') return `<div class="sequence-practice" aria-label="${escapeAttribute(question.prompt)}"><div class="sequence-practice-values">${question.values.map((value, index) => index === question.blank
+    ? `<input class="sequence-input" type="text" inputmode="numeric" maxlength="3" data-sequence-answer="" aria-label="Número que falta" value="${escapeAttribute(state.av2SequenceAnswer.value ?? '')}" ${state.av2Correct ? 'disabled' : ''}>`
+    : `<span>${value}</span>`).join('')}</div><button class="primary-button" type="button" data-action="submit-av2" ${state.av2Correct ? 'disabled' : ''}>Conferir resposta</button></div>`;
+  if (question.type === 'number-table') return `<div class="number-table" style="--table-columns:${Math.min(question.columns, window.innerWidth < 520 ? 5 : question.columns)}" role="group" aria-label="Tabela numérica de ${question.values[0]} até ${question.values.at(-1)}">${question.values.map((value,index)=>question.gaps.includes(index)?`<label class="number-table-cell is-gap"><span class="sr-only">Falta o número na posição ${index+1}</span><input type="text" inputmode="numeric" maxlength="3" data-table-gap="${index}" aria-label="Número que falta entre ${value-1} e ${value+1}" value="${escapeAttribute(state.av2SequenceAnswer[index] ?? '')}" ${state.av2Correct?'disabled':''}></label>`:`<span class="number-table-cell">${value}</span>`).join('')}</div><button class="primary-button" type="button" data-action="submit-av2" ${state.av2Correct?'disabled':''}>Conferir tabela</button>`;
+  if (question.type === 'word-input') return `<div class="number-word-write"><label for="number-word-answer">Sua resposta:</label><input id="number-word-answer" class="number-word-input" type="text" inputmode="text" autocomplete="off" autocapitalize="sentences" data-word-answer="" aria-label="Escreva o número por extenso" value="${escapeAttribute(state.av2SequenceAnswer.value ?? '')}" ${state.av2Correct?'disabled':''}><button class="primary-button" type="button" data-action="submit-av2" ${state.av2Correct?'disabled':''}>Conferir resposta</button></div>`;
+  const wordPrompt=question.displayWord?`<div class="number-word-prompt"><strong>${escapeHtml(question.displayWord)}</strong></div>`:'';
+  return `${wordPrompt}<div class="av2-answer-options label-options" role="group" aria-label="Alternativas de resposta">${question.options.map((value,index)=>`<button class="av2-answer-label ${state.av2Selected===value?'is-selected':''}" type="button" data-av2-answer="${value}" aria-label="Alternativa ${index+1}: ${value}" ${state.av2Correct?'disabled':''}>${value}</button>`).join('')}</div>`;
+}
+
 function renderAv2Question(question) {
+  if (question.activityId === 'av2-sequences') return renderAv2SequencesQuestion(question);
   if (question.activityId === AV2_SUBTRACTION_ACTIVITY_ID) return renderSubtractionQuestion(question, {
     hintIndex: state.av2HintIndex, correct: state.av2Correct, selected: state.av2Selected,
     answer: state.av2AdditionAnswer, error: state.av2AdditionInputError,
@@ -903,7 +926,8 @@ function renderAv2Feedback(question) {
 
 function renderAv2Game() {
   const question = state.av2Round[state.av2Index];
-  const activityName = state.av2Block === 'block-04' ? 'Subtração com reagrupamento'
+  const activityName = state.av2Block === 'block-05' ? 'Sequências e números por extenso'
+    : state.av2Block === 'block-04' ? 'Subtração com reagrupamento'
     : state.av2Block === 'block-03' ? 'Adição com reagrupamento'
     : state.av2Block === 'block-02' ? 'Compras e troco'
     : question.type === 'identification' || question.type === 'equivalence' || question.type === 'composition'
@@ -993,7 +1017,7 @@ function renderReward() {
   const av2Reward = state.activeRevision === AV2_REVISION_ID;
   const subtractionReward = av2Reward && state.av2Block === 'block-04';
   const additionReward = av2Reward && ['block-03', 'block-04'].includes(state.av2Block);
-  const starCount = additionReward ? AV2_ADDITION_ROUND_LENGTH : av2Reward ? 10 : 6;
+  const starCount = additionReward || (av2Reward && state.av2Block === 'block-05') ? 12 : av2Reward ? 10 : 6;
   const starsLabel = `${starCount} estrelas conquistadas`;
   return `<div class="site-shell reward-screen">
     <main class="reward-main">
@@ -1001,7 +1025,7 @@ function renderReward() {
         <div class="reward-stars${av2Reward ? ' av2-reward-stars' : ''}${additionReward ? ' av2-addition-reward-stars' : ''}" aria-label="${starsLabel}">${Array.from({ length: starCount }, () => av2Reward ? '<span aria-hidden="true">★</span>' : '★').join(av2Reward ? '' : ' ')}</div>
         <p class="eyebrow">Missão cumprida!</p>
         <h1 id="reward-title">${escapeHtml(rewardMessage.visualText)}</h1>
-        <p class="reward-copy">${subtractionReward ? 'Você concluiu as 12 questões de subtração. Agora é hora de colorir!' : additionReward ? 'Você concluiu as 12 questões de adição. Agora é hora de colorir!' : av2Reward ? 'Você concluiu as 10 questões sobre dinheiro. Agora é hora de colorir!' : 'Você passou por todas as atividades. Agora é hora de colorir!'}</p>
+        <p class="reward-copy">${av2Reward && state.av2Block === 'block-05' ? 'Você concluiu as 12 questões de sequências e números. Agora é hora de colorir!' : subtractionReward ? 'Você concluiu as 12 questões de subtração. Agora é hora de colorir!' : additionReward ? 'Você concluiu as 12 questões de adição. Agora é hora de colorir!' : av2Reward ? 'Você concluiu as 10 questões sobre dinheiro. Agora é hora de colorir!' : 'Você passou por todas as atividades. Agora é hora de colorir!'}</p>
         ${state.rewardFallback ? renderColoringPage(null) : renderColoringPage(rewardPage)}
         <div class="reward-actions">
           <button class="primary-button" type="button" data-action="print">🖨 Imprimir meu desenho</button>
@@ -1150,7 +1174,8 @@ function beginAv2Round(block = 'block-01') {
   state.activeRevision = AV2_REVISION_ID;
   state.av2Block = block;
   state.screen = 'av2-game';
-  state.av2Round = block === 'block-04' ? createAv2SubtractionRound()
+  state.av2Round = block === 'block-05' ? createAv2SequencesRound()
+    : block === 'block-04' ? createAv2SubtractionRound()
     : block === 'block-03' ? createAv2AdditionRound()
     : block === 'block-02' ? createAv2ShoppingRound() : createAv2Round();
   state.av2Index = 0;
@@ -1159,6 +1184,7 @@ function beginAv2Round(block = 'block-01') {
   state.av2Selected = null;
   state.av2HintIndex = -1;
   state.av2AdditionAnswer = {};
+  state.av2SequenceAnswer = {};
   state.av2AdditionInputError = false;
   state.av2ActiveAdditionField = null;
   state.rewardPageId = null;
@@ -1191,7 +1217,8 @@ function nextAv2Question() {
   if (!state.av2Correct) return;
   cancelSpeech();
   if (state.av2Index >= state.av2Round.length - 1) {
-    const progressStore = state.av2Block === 'block-04' ? av2SubtractionProgress
+    const progressStore = state.av2Block === 'block-05' ? av2SequencesProgress
+      : state.av2Block === 'block-04' ? av2SubtractionProgress
       : state.av2Block === 'block-03' ? av2AdditionProgress
       : state.av2Block === 'block-02' ? av2ShoppingProgress : av2Progress;
     progressStore.completeRound();
@@ -1206,6 +1233,7 @@ function nextAv2Question() {
   state.av2Selected = null;
   state.av2HintIndex = -1;
   state.av2AdditionAnswer = {};
+  state.av2SequenceAnswer = {};
   state.av2AdditionInputError = false;
   state.av2ActiveAdditionField = null;
   render();
@@ -1263,7 +1291,8 @@ function selectAv2Option(moneyId) {
     : question?.options.includes(Number(moneyId)) ? Number(moneyId) : null;
   if (answer === null) return;
   state.av2Selected = answer;
-  const isCorrect = question.activityId === AV2_SUBTRACTION_ACTIVITY_ID
+  const isCorrect = question.activityId === 'av2-sequences' ? validateAv2SequencesAnswer(question, answer)
+    : question.activityId === AV2_SUBTRACTION_ACTIVITY_ID
     ? validateAv2SubtractionAnswer(question, answer)
     : question.activityId === AV2_ADDITION_ACTIVITY_ID
     ? validateAv2AdditionAnswer(question, answer)
@@ -1286,6 +1315,14 @@ function selectAv2Option(moneyId) {
 function submitAv2Answer() {
   if (state.av2Correct) return;
   const question = state.av2Round[state.av2Index];
+  if (question.activityId === 'av2-sequences') {
+    if(question.type === 'number-table') state.av2SequenceAnswer = Object.fromEntries([...document.querySelectorAll('[data-table-gap]')].map(input=>[input.dataset.tableGap,input.value]));
+    else if(question.type === 'word-input') state.av2SequenceAnswer={value:document.querySelector('[data-word-answer]')?.value ?? ''};
+    else if(question.type === 'sequence') state.av2SequenceAnswer={value:document.querySelector('[data-sequence-answer]')?.value ?? ''};
+    const answer=question.type==='number-table'?state.av2SequenceAnswer:question.type==='word-input'?state.av2SequenceAnswer.value:state.av2SequenceAnswer.value;
+    if((question.type==='word-input'||question.type==='sequence')&&!String(answer).trim()){state.av2Attempts++;render();return;}
+    state.av2Selected=answer;state.av2Correct=validateAv2SequencesAnswer(question,answer);if(!state.av2Correct)state.av2Attempts++;cancelSpeech();render();return;
+  }
   if (question.activityId === AV2_SUBTRACTION_ACTIVITY_ID && question.type !== 'terms') {
     const allFields = [...document.querySelectorAll('[data-av2-add-field]')];
     const fields = allFields.filter((field) => !field.dataset.av2AddField.startsWith('borrow'));
@@ -1414,6 +1451,7 @@ function bindEvents() {
       if (action === 'start-av2-shopping') beginAv2Round('block-02');
       if (action === 'start-av2-addition') beginAv2Round('block-03');
       if (action === 'start-av2-subtraction') beginAv2Round('block-04');
+      if (action === 'start-av2-sequences') beginAv2Round('block-05');
       if (action === 'restart') {
         if (state.activeRevision === AV2_REVISION_ID) beginAv2Round(state.av2Block);
         else beginRound();
@@ -1528,6 +1566,11 @@ function bindEvents() {
     input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') { event.preventDefault(); submitAv2Answer(); }
     });
+  });
+
+  document.querySelectorAll('[data-sequence-answer], [data-word-answer], [data-table-gap]').forEach(input => {
+    input.addEventListener('input',()=>{state.av2SequenceAnswer[input.dataset.tableGap ?? 'value']=input.value;});
+    input.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();submitAv2Answer();}});
   });
 
   document.querySelectorAll('[data-neighbor-field]').forEach((input) => {
