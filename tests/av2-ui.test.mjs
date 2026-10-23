@@ -1,3 +1,5 @@
+import { createAv2SubtractionRound } from '../src/av2/subtraction.js';
+import { AV2_SUBTRACTION_PROGRESS_STORAGE_KEY } from '../src/av2/progress.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MONEY_DENOMINATIONS } from '../src/av2/money.js';
@@ -483,6 +485,96 @@ test('Block 03 alinha C/D/U, revela o vai um por etapas, conclui 12 questões e 
     const styles = await (await import('node:fs/promises')).readFile(new URL('../styles.css', import.meta.url), 'utf8');
     assert.match(styles, /\.av2-addition-row\s*\{[^}]*grid-template-columns:\s*minmax\(54px, 0\.95fr\) repeat\(3, minmax\(0, 1fr\)\)/s);
     assert.match(styles, /@media \(max-width: 460px\)[\s\S]*?\.av2-addition-board/);
+  } finally {
+    globalThis.document = previousDocument;
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+    if (previousStorage) Object.defineProperty(globalThis, 'localStorage', previousStorage);
+    else delete globalThis.localStorage;
+  }
+});
+
+test('Block 04 completes numeric input, progressive borrowing, terms, feedback, reward and restart', async () => {
+  const previousDocument = globalThis.document;
+  const previousWindow = globalThis.window;
+  const previousStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const storageValues = new Map([[CHILD_NAME_STORAGE_KEY, 'Ana']]);
+  const storage = {
+    getItem(key) { return storageValues.get(key) ?? null; },
+    setItem(key, value) { storageValues.set(key, String(value)); },
+    removeItem(key) { storageValues.delete(key); },
+  };
+  const app = new FakeApp();
+  const document = {
+    title: '',
+    querySelector(selector) { return selector === '#app' ? app : app.querySelector(selector); },
+    querySelectorAll(selector) { return app.querySelectorAll(selector); },
+  };
+
+  globalThis.document = document;
+  globalThis.window = { addEventListener() {} };
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage });
+
+  try {
+    await import(`../app.js?av2-subtraction-ui-${Date.now()}`);
+    clickAction(document, 'av2-entry');
+    assert.match(app.innerHTML, /Subtração com reagrupamento/);
+    const seed = 862695;
+    const round = createAv2SubtractionRound(seededRandom(seed));
+    const originalRandom = Math.random;
+    try { Math.random = seededRandom(seed); clickAction(document, 'start-av2-subtraction'); }
+    finally { Math.random = originalRandom; }
+    let checkedBorrow = false;
+    for (let i = 0; i < 12; i++) {
+      const q = round[i];
+      assert.match(app.innerHTML, new RegExp(`Questão ${i+1} de 12`));
+      assert.match(app.innerHTML, /data-speech-button="question"/);
+      assert.doesNotMatch(app.innerHTML, /subtraction-history/);
+      if (q.type === 'terms') {
+        const button = document.querySelectorAll('[data-av2-answer]').find(b => b.dataset.av2Answer === String(q.correctAnswer));
+        assert.ok(button); button.click();
+      } else {
+        clickAction(document, 'submit-av2');
+        assert.match(app.innerHTML, /Digite a diferença antes de conferir/);
+        if (!checkedBorrow && q.data.trace.pattern === 'both') {
+          checkedBorrow = true;
+          clickAction(document, 'av2-hint');
+          assert.match(app.innerHTML, /Comece pelas unidades/);
+          assert.doesNotMatch(app.innerHTML, /subtraction-history/);
+          clickAction(document, 'av2-hint');
+          assert.match(app.innerHTML, /subtraction-history/);
+          assert.doesNotMatch(app.innerHTML, /Centenas: .* depois /);
+          clickAction(document, 'av2-hint');
+          clickAction(document, 'av2-hint');
+          const e = q.data.trace.events[1];
+          assert.ok(app.innerHTML.includes(`Centenas: ${e.stateBefore.hundreds} depois ${e.stateAfter.hundreds}`));
+          fillAdditionAnswer(document, 0); clickAction(document, 'submit-av2');
+          assert.match(app.innerHTML, /Tente novamente!/);
+          assert.doesNotMatch(app.innerHTML, /data-action="next-av2"/);
+        }
+        // Exercise the shared touch keypad on one digit before entering the complete result.
+        const field = document.querySelectorAll('[data-av2-add-field]').find(f => f.dataset.av2AddField === 'units');
+        field.focus();
+        const key = document.querySelectorAll('[data-av2-add-digit]').find(k => k.dataset.av2AddDigit === String(q.data.result % 10));
+        key.click(); assert.equal(field.value, String(q.data.result % 10));
+        fillAdditionAnswer(document, q.data.result); clickAction(document, 'submit-av2');
+      }
+      assert.match(app.innerHTML, /Muito bem, Ana!/);
+      assert.match(app.innerHTML, /data-speech-button="explanation"/);
+      clickAction(document, 'next-av2');
+    }
+    assert.equal(checkedBorrow,true);
+    assert.match(app.innerHTML, /Você concluiu as 12 questões de subtração/);
+    assert.match(app.innerHTML, /aria-label="12 estrelas conquistadas"/);
+    assert.match(app.innerHTML, /Imprimir meu desenho/);
+    assert.equal(JSON.parse(storage.getItem(AV2_SUBTRACTION_PROGRESS_STORAGE_KEY)).roundsCompleted,1);
+    assert.equal(storage.getItem(AV2_ADDITION_PROGRESS_STORAGE_KEY),null);
+    assert.equal(storage.getItem(AV2_PROGRESS_STORAGE_KEY),null);
+    assert.equal(storage.getItem(AV2_SHOPPING_PROGRESS_STORAGE_KEY),null);
+    assert.equal(storage.getItem(CHILD_NAME_STORAGE_KEY),'Ana');
+    clickAction(document,'restart'); assert.match(app.innerHTML,/Questão 1 de 12/);
+    clickAction(document,'av2-home'); assert.match(app.innerHTML,/Escolha uma atividade/);
+    assert.match(app.innerHTML,/Rodadas concluídas: <strong>1/);
   } finally {
     globalThis.document = previousDocument;
     if (previousWindow === undefined) delete globalThis.window;

@@ -27,7 +27,10 @@ const PUBLIC_FILES = new Set([
   'src/data/coloringPages.js',
   'src/data/officialColoringPages.js',
   'src/av2/money.js',
+  'src/av2/product-illustrations.js',
   'src/av2/addition.js',
+  'src/av2/subtraction.js',
+  'src/av2/subtraction-layout.js',
   'src/av2/cdu-layout.js',
   'src/av2/progress.js',
   'public/currency/ATTRIBUTIONS.md',
@@ -40,6 +43,7 @@ const PUBLIC_FILES = new Set([
 
 function isPublicFile(relativePath) {
   return PUBLIC_FILES.has(relativePath)
+    || /^public\/av2-products\/[^/]+\.svg$/.test(relativePath)
     || /^public\/coloring-pages\/[^/]+\.svg$/.test(relativePath);
 }
 
