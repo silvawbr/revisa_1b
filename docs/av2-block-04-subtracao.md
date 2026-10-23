@@ -46,6 +46,8 @@ Termos: minuendo, subtraendo, resto ou diferença, nome do resultado e número r
 
 O Preview implantado, o áudio real e leitor de tela físico não foram verificados nesta execução. O ambiente local não tem as variáveis do provedor TTS; os testes do cliente/provedor usam respostas controladas. Fotos externas de moedas/cédulas tiveram falhas de rede no ambiente local; o Bloco 04 não depende dessas imagens. Nenhum merge ou deploy direto em produção foi realizado.
 
-## Campos editáveis de troca
+## Minuendo editável e zeros no resultado
 
-As caixas acima do minuendo permitem registrar manualmente os valores após as trocas, com um ou dois algarismos e suporte ao teclado físico e numérico da tela. Em `539 − 162`, pode-se preencher C = 4 e D = 13, mantendo U = 9. Nas trocas sucessivas, a dezena pode ser atualizada novamente, por exemplo 6 → 5 → 15. As dicas continuam exibindo o histórico, sem substituir o que foi digitado. Os campos são opcionais; ao preenchê-los, a conferência exige os valores finais do trace. Uma troca incorreta impede a conclusão mesmo quando a diferença está correta. Os testes de interface cobrem erro, correção e entrada de dois algarismos pelo teclado da tela.
+Cada algarismo do próprio minuendo é um campo editável, inicialmente preenchido com o valor original. A linha separada de trocas foi removida. Em `42 − 38`, a criança pode substituir 4 por 3 e 2 por 12 diretamente na conta. Teclado físico e teclado da tela aceitam até dois algarismos por coluna; o botão Limpar restaura o minuendo original. Se houver alteração no minuendo, a conferência valida todos os valores finais com o trace. Resolver sem alterar o minuendo continua permitido. As dicas preservam o histórico das mudanças junto à coluna.
+
+Resultados completos mantêm zeros à esquerda nas colunas usadas: `365 − 331` aparece como `034` e `42 − 38` como `04`. Os testes cobrem os valores iniciais, ausência da linha de trocas, edição, conferência, teclado e zeros visíveis.

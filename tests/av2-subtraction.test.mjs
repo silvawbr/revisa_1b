@@ -119,11 +119,22 @@ test('local static handler serves subtraction modules and the existing product d
   }
 });
 
- test('editable borrowing fields accept two digits above the original minuend', () => {
+ test('editable minuend fields accept two digits', () => {
   const q=createSubtractionQuestion({a:539,b:162});
   const html=renderSubtractionQuestion(q,{answer:{borrowHundreds:'4',borrowTens:'13'}});
   assert.match(html,/maxlength="2"[^>]*data-av2-add-field="borrowTens"[^>]*value="13"/);
   assert.match(html,/data-av2-add-field="borrowHundreds"[^>]*value="4"/);
   assert.equal(q.data.trace.adjusted.hundreds,4);assert.equal(q.data.trace.adjusted.tens,13);
   assert.equal(q.data.trace.result,377);
+});
+
+test('minuend itself is editable, no separate marker row, and leading result zeros are visible', () => {
+  const q=createSubtractionQuestion({a:365,b:331,type:'terms',term:'difference'});
+  const html=renderSubtractionQuestion(q);
+  assert.match(html,/role="cell">0<\/span>/);
+  assert.doesNotMatch(html,/av2-addition-carry-row|>trocas</);
+  const editable=renderSubtractionQuestion(createSubtractionQuestion({a:42,b:38}));
+  assert.match(editable,/data-av2-add-field="borrowTens"[^>]*value="4"/);
+  assert.match(editable,/data-av2-add-field="borrowUnits"[^>]*value="2"/);
+  assert.doesNotMatch(editable,/data-av2-add-field="borrowHundreds"/);
 });

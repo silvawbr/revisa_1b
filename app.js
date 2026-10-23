@@ -1299,9 +1299,11 @@ function submitAv2Answer() {
     const answer = Number(values.map((v) => v === '' ? '0' : v).join(''));
     state.av2AdditionInputError = false;
     state.av2Selected = answer;
-    const invalidBorrow = allFields.find((field) => {
+    const editedMinuend = allFields.some((field) => field.dataset.av2AddField.startsWith('borrow')
+      && field.value !== String(question.data.trace.original[field.dataset.av2AddField.slice(6).toLowerCase()]));
+    const invalidBorrow = editedMinuend && allFields.find((field) => {
       const name = field.dataset.av2AddField;
-      if (!name.startsWith('borrow') || field.value === '') return false;
+      if (!name.startsWith('borrow')) return false;
       const column = name.slice(6).toLowerCase();
       return !/^\d{1,2}$/.test(field.value) || Number(field.value) !== question.data.trace.adjusted[column];
     });
@@ -1513,9 +1515,11 @@ function bindEvents() {
   document.querySelectorAll('[data-av2-add-field]').forEach((input) => {
     input.addEventListener('focus', () => {
       state.av2ActiveAdditionField = input.dataset.av2AddField;
+      if (input.dataset.av2AddField.startsWith('borrow')) input.select?.();
     });
     input.addEventListener('input', () => {
       const borrowing = input.dataset.av2AddField.startsWith('borrow');
+      if (borrowing) input.dataset.borrowEdited = 'true';
       sanitizeDigitInput(input, borrowing ? 2 : 1);
       state.av2AdditionAnswer[input.dataset.av2AddField] = input.value;
       state.av2AdditionInputError = false;
@@ -1577,7 +1581,7 @@ function bindEvents() {
       const target = active || empty || document.querySelector('[data-av2-add-field="units"]');
       if (!target) return;
       target.value = target.dataset.av2AddField.startsWith('borrow')
-        ? (target.value.length >= 2 ? '' : target.value) + button.dataset.av2AddDigit
+        ? (target.dataset.borrowEdited !== 'true' || target.value.length >= 2 ? '' : target.value) + button.dataset.av2AddDigit
         : button.dataset.av2AddDigit;
       target.dispatchEvent(new Event('input', { bubbles: true }));
     });
@@ -1587,7 +1591,12 @@ function bindEvents() {
     state.av2AdditionAnswer = {};
     state.av2ActiveAdditionField = null;
     state.av2AdditionInputError = false;
-    document.querySelectorAll('[data-av2-add-field]').forEach((input) => { input.value = ''; });
+    document.querySelectorAll('[data-av2-add-field]').forEach((input) => {
+      const name = input.dataset.av2AddField;
+      const trace = state.av2Round[state.av2Index]?.data.trace;
+      input.value = name.startsWith('borrow') ? String(trace.original[name.slice(6).toLowerCase()]) : '';
+      input.dataset.borrowEdited = '';
+    });
     document.querySelector('[data-av2-add-field="units"]')?.focus();
   });
 }
