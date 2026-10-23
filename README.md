@@ -11,6 +11,9 @@ seus valores e formar equivalências. O Bloco 02 pratica compras, dinheiro
 disponível, soma de preços e troco em rodadas próprias de dez questões. O
 Bloco 03 pratica adições de dois e três algarismos, reagrupamento em C/D/U,
 termos da adição e problemas curtos em rodadas próprias de doze questões.
+O Bloco 06 oferece desafios interativos para formar quantias, comparar
+equivalências e criar duas combinações diferentes em uma rodada de doze
+desafios.
 
 As regras de conteúdo e geração para a avaliação estão documentadas no
 [Contrato Pedagógico da AV2 Matemática](docs/av2-matematica-contrato-pedagogico.md).
@@ -101,11 +104,13 @@ ignorada pelo Git.
 - `src/game.js`: geração, validação e conversão de números para português.
 - `src/av2/money.js`: catálogo de moedas e cédulas em centavos inteiros,
   geradores e validadores pedagógicos dos Blocos 01 e 02 da AV2.
+- `src/av2/money-composition.js`: desafios, busca limitada de soluções e
+  validação de combinações para o Bloco 06; reutiliza o catálogo de dinheiro.
 - `src/av2/addition.js`: trilha C/D/U, geradores e validação pedagógica do
   Bloco 03, com regras próprias para cada padrão de reagrupamento.
 - `src/av2/cdu-layout.js`: estrutura visual alinhada de centena, dezena e
   unidade para reutilização por atividades futuras.
-- `src/av2/progress.js`: progresso separado dos Blocos 01, 02 e 03 da AV2.
+- `src/av2/progress.js`: progresso separado dos Blocos 01 a 06 da AV2.
 - `src/figures.js`: renderização das figuras espaciais em SVG.
 - `src/data/coloringPages.js`: catálogo local, seleção aleatória e metadados de
   licença dos desenhos da recompensa.
@@ -148,6 +153,8 @@ Os Blocos 01 e 02 da AV2 guardam somente a quantidade de rodadas concluídas em
 chaves versionadas próprias (`av2-matematica.block-01.dinheiro.progress.v1` e
 `av2-matematica.block-02.compras.progress.v1`); esses dados não incluem o nome
 da criança nem alteram o progresso ou os históricos da revisão original.
+O Bloco 06 usa a chave independente
+`av2-matematica.block-06.formar-quantias.progress.v1`.
 Os desenhos locais da recompensa são instalados junto com o projeto; não há
 hotlink nem download durante o uso. A seleção mantém apenas os IDs recentes dos
 desenhos locais e dos destinos oficiais em chaves separadas do `localStorage`,
@@ -261,3 +268,7 @@ A atividade **Subtração com reagrupamento** oferece rodadas de 12 questões co
 ### AV2 — Bloco 05
 
 A atividade **Sequências e números por extenso** pratica contagem de um em um até 250, tabela 200–239, antecessor e sucessor, reconhecimento de números por extenso e escolha da grafia correspondente. Centenas exatas 300 e 400 aparecem somente nas questões por extenso. Veja [arquitetura, limites e verificação do Bloco 05](docs/av2-block-05-sequencias.md).
+
+### AV2 — Bloco 06
+
+A atividade **Formar quantias** usa moedas e cédulas para formar valores em reais e centavos, reconhecer equivalências, encontrar duas combinações distintas e respeitar uma quantidade exata de cédulas. A busca limitada confirma a viabilidade dos desafios antes de apresentá-los. Cada seleção pode ser ajustada item por item, e o total é calculado em centavos inteiros.
