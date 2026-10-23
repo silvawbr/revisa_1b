@@ -99,7 +99,7 @@ function parseElements(markup, selector) {
   const selectorMatch = selector.match(/^\[(data-[\w-]+)(?:="([^"]*)")?\]$/);
   if (!selectorMatch) return [];
   const [, attribute, expectedValue] = selectorMatch;
-  if (!['data-action', 'data-av2-answer', 'data-av2-add-field', 'data-av2-add-digit', 'data-av2-add-clear', 'data-sequence-answer', 'data-word-answer', 'data-table-gap'].includes(attribute)) return [];
+  if (!['data-action', 'data-av2-answer', 'data-av2-add-field', 'data-av2-add-digit', 'data-av2-add-clear', 'data-sequence-answer', 'data-table-gap'].includes(attribute)) return [];
   return [...markup.matchAll(/<(?:button|input|a)\b[^>]*>/g)].flatMap(([tag]) => {
     const attributes = Object.fromEntries([...tag.matchAll(/([\w:-]+)="([^"]*)"/g)].map((match) => [match[1], match[2]]));
     return attributes[attribute] !== undefined && (expectedValue === undefined || attributes[attribute] === expectedValue)
@@ -606,7 +606,7 @@ test('Block 04 completes numeric input, progressive borrowing, terms, feedback, 
 });
 
 
-test('Block 05 completes mixed questions, preserves writing input, rewards progress and returns to AV2', async () => {
+test('Block 05 completes mixed questions, selects cursive number-word options, rewards progress and returns to AV2', async () => {
   const previousDocument=globalThis.document, previousWindow=globalThis.window, previousStorage=Object.getOwnPropertyDescriptor(globalThis,'localStorage');
   const values=new Map([[CHILD_NAME_STORAGE_KEY,'Ana']]);const storage={getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,String(v)),removeItem:k=>values.delete(k)};
   const app=new FakeApp();const document={title:'',querySelector:s=>s==='#app'?app:app.querySelector(s),querySelectorAll:s=>app.querySelectorAll(s)};
@@ -616,17 +616,12 @@ test('Block 05 completes mixed questions, preserves writing input, rewards progr
     const seed=90512, original=Math.random;
     try{Math.random=seededRandom(seed);clickAction(document,'start-av2-sequences');}finally{Math.random=original;}
     assert.match(app.innerHTML,/Questão 1 de 12/);
-    let preserved=false;
+    let checkedWrongWordOption=false;
     for(let i=0;i<12;i++){
       assert.match(app.innerHTML,/data-speech-button="question"/);
-      const wordInput=document.querySelector('[data-word-answer]');
       const sequenceInput=document.querySelector('[data-sequence-answer]');
       const tableInputs=document.querySelectorAll('[data-table-gap]');
-      if(wordInput){
-        assert.match(app.innerHTML,/class="number-prompt"/);assert.match(app.innerHTML,/class="number-word-input cursive-text"/);assert.match(app.innerHTML,/inputmode="text"/);const value=Number(app.innerHTML.match(/Escreva por extenso o número (\d+)/)?.[1]);
-        if(!preserved){wordInput.value='duzentos errado';wordInput.dispatchEvent(new Event('input',{bubbles:true}));clickAction(document,'submit-av2');assert.match(app.innerHTML,/value="duzentos errado"/);preserved=true;}
-        const current=document.querySelector('[data-word-answer]');current.value=numberToWordsPtBr(value).toUpperCase();current.dispatchEvent(new Event('input',{bubbles:true}));clickAction(document,'submit-av2');
-      } else if(sequenceInput){
+      if(sequenceInput){
         assert.match(app.innerHTML,/class="number-sequence/);const neighbor=app.innerHTML.match(/Qual é o (antecessor|sucessor) de (\d+)\?/);
         let answer;
         if(neighbor) answer=Number(neighbor[2])+(neighbor[1]==='antecessor'?-1:1);
@@ -635,13 +630,17 @@ test('Block 05 completes mixed questions, preserves writing input, rewards progr
       } else if(tableInputs.length){
         for(const input of tableInputs){const m=input.attributes['aria-label'].match(/entre (\d+) e (\d+)/);input.value=String(Number(m[1])+1);input.dispatchEvent(new Event('input',{bubbles:true}));}clickAction(document,'submit-av2');
       } else {
-        let answer;const word=app.innerHTML.match(/<div class="word-prompt cursive-text">([^<]+)<\/div>/)?.[1];
-        if(word){assert.match(app.innerHTML,/class="word-wrap av2-number-word-recognition"/);answer=[...Array(251).keys(),300,400].find(n=>numberToWordsPtBr(n)===word);}else{const m=app.innerHTML.match(/Qual é o (antecessor|sucessor) de (\d+)\?/);answer=Number(m[2])+(m[1]==='antecessor'?-1:1);}
-        const option=document.querySelectorAll('[data-av2-answer]').find(b=>b.dataset.av2Answer===String(answer));assert.ok(option);option.click();if(word){assert.doesNotMatch(app.innerHTML,/Muito bem, Ana!/);clickAction(document,'submit-av2');}
+        let answer;const word=app.innerHTML.match(/<div class="word-prompt cursive-text">([^<]+)<\/div>/)?.[1];const shownNumber=app.innerHTML.match(/<div class="number-prompt"><span>Número<\/span><strong>(\d+)<\/strong><\/div>/)?.[1];
+        if(word){assert.match(app.innerHTML,/class="word-wrap av2-number-word-recognition"/);answer=[...Array(251).keys(),300,400].find(n=>numberToWordsPtBr(n)===word);}
+        else if(shownNumber){assert.match(app.innerHTML,/class="word-wrap av2-number-to-word-choice"/);assert.match(app.innerHTML,/class="word-option cursive-text/);assert.doesNotMatch(app.innerHTML,/data-word-answer/);assert.doesNotMatch(app.innerHTML,/inputmode="text"/);answer=Number(shownNumber);}
+        else {const m=app.innerHTML.match(/Qual é o (antecessor|sucessor) de (\d+)\?/);answer=Number(m[2])+(m[1]==='antecessor'?-1:1);}
+        const options=document.querySelectorAll('[data-av2-answer]');const option=options.find(b=>b.dataset.av2Answer===String(answer));assert.ok(option);
+        if(shownNumber&&!checkedWrongWordOption){options.find(b=>b!==option).click();clickAction(document,'submit-av2');assert.doesNotMatch(app.innerHTML,/Muito bem, Ana!/);assert.match(app.innerHTML,/Leia as palavras com calma/);checkedWrongWordOption=true;}
+        const selected=document.querySelectorAll('[data-av2-answer]').find(b=>b.dataset.av2Answer===String(answer));selected.click();assert.doesNotMatch(app.innerHTML,/Muito bem, Ana!/);clickAction(document,'submit-av2');
       }
       assert.match(app.innerHTML,/Muito bem, Ana!/);clickAction(document,'next-av2');
     }
-    assert.equal(preserved,true);
+    assert.equal(checkedWrongWordOption,true);
     assert.match(app.innerHTML,/Você concluiu as 12 questões de sequências/);assert.match(app.innerHTML,/aria-label="12 estrelas conquistadas"/);
     assert.equal(JSON.parse(storage.getItem(AV2_SEQUENCES_PROGRESS_STORAGE_KEY)).roundsCompleted,1);clickAction(document,'restart');assert.match(app.innerHTML,/Questão 1 de 12/);clickAction(document,'av2-home');assert.match(app.innerHTML,/Escolha uma atividade/);
   } finally {globalThis.document=previousDocument;if(previousWindow===undefined)delete globalThis.window;else globalThis.window=previousWindow;if(previousStorage)Object.defineProperty(globalThis,'localStorage',previousStorage);else delete globalThis.localStorage;}

@@ -672,7 +672,7 @@ function renderAv2Home() {
           <article class="av2-activity-card sequences-activity-card">
             <span class="addition-activity-icon" aria-hidden="true">🔢</span>
             <h2>Sequências e números por extenso</h2>
-            <p>Complete sequências e tabelas, descubra vizinhos e escreva números.</p>
+            <p>Complete sequências e tabelas, descubra vizinhos e escolha a escrita correta dos números.</p>
             <div class="addition-activity-sample" aria-label="Exemplo: 208 por extenso">208 → duzentos e oito</div>
             <p class="av2-progress-summary">Rodadas concluídas: <strong>${sequenceRoundsCompleted}</strong></p>
             <button class="primary-button start-button" type="button" data-action="start-av2-sequences">Começar <span aria-hidden="true">→</span></button>
@@ -809,7 +809,7 @@ function renderAv2SequencesQuestion(question) {
     return `<div class="neighbor-wrap"><div class="number-sequence" aria-label="${escapeAttribute(question.prompt)}">${before}<span>${question.target}</span>${after}</div><p class="sequence-help">Conte de um em um para descobrir o vizinho.</p><button class="primary-button check-button" type="button" data-action="submit-av2" ${state.av2Correct ? 'disabled' : ''}>Conferir resposta <span aria-hidden="true">→</span></button></div>`;
   }
   if (question.type === 'number-table') return `<div class="number-table" style="--table-columns:${Math.min(question.columns, window.innerWidth < 520 ? 5 : question.columns)}" role="group" aria-label="Tabela numérica de ${question.values[0]} até ${question.values.at(-1)}">${question.values.map((value,index)=>question.gaps.includes(index)?`<label class="number-table-cell is-gap"><span class="sr-only">Falta o número na posição ${index+1}</span><input type="text" inputmode="numeric" maxlength="3" data-table-gap="${index}" aria-label="Número que falta entre ${value-1} e ${value+1}" value="${escapeAttribute(state.av2SequenceAnswer[index] ?? '')}" ${state.av2Correct?'disabled':''}></label>`:`<span class="number-table-cell">${value}</span>`).join('')}</div><button class="primary-button" type="button" data-action="submit-av2" ${state.av2Correct?'disabled':''}>Conferir tabela</button>`;
-  if (question.type === 'word-input') return `<div class="word-wrap av2-number-word-write"><div class="number-prompt"><span>Número</span><strong>${question.value}</strong></div><label for="number-word-answer">Escreva por extenso:</label><input id="number-word-answer" class="number-word-input cursive-text" type="text" inputmode="text" autocomplete="off" autocapitalize="sentences" autocorrect="off" spellcheck="false" data-word-answer="" aria-label="Escreva o número por extenso" value="${escapeAttribute(state.av2SequenceAnswer.value ?? '')}" ${state.av2Correct?'disabled':''}><button class="primary-button check-button" type="button" data-action="submit-av2" ${state.av2Correct?'disabled':''}>Conferir resposta <span aria-hidden="true">→</span></button></div>`;
+  if (question.category === 'NUM-06') return `<div class="word-wrap av2-number-to-word-choice"><div class="number-prompt"><span>Número</span><strong>${question.value}</strong></div><div class="word-options av2-word-options" role="radiogroup" aria-label="Escolha como o número é escrito por extenso">${question.options.map((value,index)=>`<button class="word-option cursive-text ${state.av2Selected===value?'is-selected':''}" type="button" role="radio" aria-checked="${state.av2Selected===value}" data-av2-answer="${value}" aria-label="Alternativa ${index+1}: ${escapeAttribute(question.optionLabels[index])}" ${state.av2Correct?'disabled':''}>${escapeHtml(question.optionLabels[index])}</button>`).join('')}</div><button class="primary-button check-button" type="button" data-action="submit-av2" ${state.av2Selected===null||state.av2Selected===undefined||state.av2Correct?'disabled':''}>Conferir resposta <span aria-hidden="true">→</span></button></div>`;
   const selected = state.av2Selected;
   return `<div class="word-wrap av2-number-word-recognition"><div class="word-prompt cursive-text">${escapeHtml(question.displayWord)}</div><div class="word-options av2-word-options" role="radiogroup" aria-label="Escolha o número correspondente">${question.options.map((value,index)=>`<button class="word-option ${selected===value?'is-selected':''}" type="button" role="radio" aria-checked="${selected===value}" data-av2-answer="${value}" aria-label="Alternativa ${index+1}: ${value}" ${state.av2Correct?'disabled':''}>${value}</button>`).join('')}</div><button class="primary-button check-button" type="button" data-action="submit-av2" ${selected===null||selected===undefined||state.av2Correct?'disabled':''}>Conferir resposta <span aria-hidden="true">→</span></button></div>`;
 }
@@ -1296,7 +1296,7 @@ function selectAv2Option(moneyId) {
     : question?.options.includes(Number(moneyId)) ? Number(moneyId) : null;
   if (answer === null) return;
   state.av2Selected = answer;
-  if (question.activityId === 'av2-sequences' && question.category === 'NUM-05') {
+  if (question.activityId === 'av2-sequences' && ['NUM-05','NUM-06'].includes(question.category)) {
     render();
     return;
   }
@@ -1326,11 +1326,10 @@ function submitAv2Answer() {
   const question = state.av2Round[state.av2Index];
   if (question.activityId === 'av2-sequences') {
     if(question.type === 'number-table') state.av2SequenceAnswer = Object.fromEntries([...document.querySelectorAll('[data-table-gap]')].map(input=>[input.dataset.tableGap,input.value]));
-    else if(question.type === 'word-input') state.av2SequenceAnswer={value:document.querySelector('[data-word-answer]')?.value ?? ''};
     else if(question.type === 'sequence' || question.category === 'NUM-03') state.av2SequenceAnswer={value:document.querySelector('[data-sequence-answer]')?.value ?? ''};
-    const answer=question.type==='number-table'?state.av2SequenceAnswer:question.type==='word-input'||question.type==='sequence'||question.category==='NUM-03'?state.av2SequenceAnswer.value:state.av2Selected;
-    if((question.type==='word-input'||question.type==='sequence'||question.category==='NUM-03')&&!String(answer).trim()){state.av2Attempts++;render();return;}
-    if(question.category==='NUM-05'&&(answer===null||answer===undefined)){state.av2Attempts++;render();return;}
+    const answer=question.type==='number-table'?state.av2SequenceAnswer:question.type==='sequence'||question.category==='NUM-03'?state.av2SequenceAnswer.value:state.av2Selected;
+    if((question.type==='sequence'||question.category==='NUM-03')&&!String(answer).trim()){state.av2Attempts++;render();return;}
+    if(['NUM-05','NUM-06'].includes(question.category)&&(answer===null||answer===undefined)){state.av2Attempts++;render();return;}
     state.av2Selected=answer;state.av2Correct=validateAv2SequencesAnswer(question,answer);if(!state.av2Correct)state.av2Attempts++;cancelSpeech();render();return;
   }
   if (question.activityId === AV2_SUBTRACTION_ACTIVITY_ID && question.type !== 'terms') {
@@ -1578,7 +1577,7 @@ function bindEvents() {
     });
   });
 
-  document.querySelectorAll('[data-sequence-answer], [data-word-answer], [data-table-gap]').forEach(input => {
+  document.querySelectorAll('[data-sequence-answer], [data-table-gap]').forEach(input => {
     input.addEventListener('input',()=>{state.av2SequenceAnswer[input.dataset.tableGap ?? 'value']=input.value;});
     input.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();submitAv2Answer();}});
   });
