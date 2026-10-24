@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -13,7 +12,7 @@ import {
   LOCAL_COLORING_PAGE_HISTORY_LIMIT,
   REWARD_MESSAGE,
   createRecentIdStore,
-  isLocalColoringPage,
+  isDisplayableColoringPage,
   pickColoringPage,
 } from '../src/data/coloringPages.js';
 import {
@@ -56,19 +55,15 @@ async function requestStatic(url, method = 'GET') {
   return response;
 }
 
-test('o catálogo local tem pelo menos 50 desenhos aprovados e IDs únicos', async () => {
-  assert.ok(COLORING_PAGES.length >= 50);
+test('o catálogo ativo tem páginas de colorir em imagem raster e IDs únicos', () => {
+  assert.ok(COLORING_PAGES.length >= 8);
   assert.equal(new Set(COLORING_PAGES.map((page) => page.id)).size, COLORING_PAGES.length);
   assert.equal(new Set(COLORING_PAGES.map((page) => page.src)).size, COLORING_PAGES.length);
-  const assetHashes = new Set();
   for (const page of COLORING_PAGES) {
-    assert.equal(isLocalColoringPage(page), true);
-    assert.equal(/^https?:\/\//i.test(page.src), false);
-    const assetPath = path.join(root, page.src.replace(/^\//, ''));
-    await assert.doesNotReject(fs.access(assetPath));
-    const digest = createHash('sha256').update(await fs.readFile(assetPath)).digest('hex');
-    assert.equal(assetHashes.has(digest), false, `${page.id} duplica outro asset local`);
-    assetHashes.add(digest);
+    assert.equal(isDisplayableColoringPage(page), true);
+    const imageUrl = new URL(page.src);
+    assert.ok(['upload.wikimedia.org', 'thumb.wikimedia.org'].includes(imageUrl.hostname));
+    assert.match(imageUrl.pathname, /\.(?:png|jpe?g|webp)$/i);
   }
 });
 
@@ -81,28 +76,22 @@ test('cada desenho tem origem, licença e registro correspondente', () => {
     assert.match(page.sourceFileUrl, /^https?:\/\//);
     assert.ok(page.license);
     assert.match(page.licenseUrl, /^https?:\/\//);
-    assert.match(attributions, new RegExp(`## ${page.src.split('/').pop().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
-    if (page.origin === 'original') {
-      assert.match(attributions, /criação vetorial original para o catálogo local/);
-      assert.equal(page.attributionRequired, false);
-    }
+    const fileName = new URL(page.sourceFileUrl).pathname.split('/').pop();
+    assert.match(attributions, new RegExp(`## ${fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
     if (page.attributionRequired) {
       assert.match(attributions, new RegExp(`${page.author}`));
       assert.match(attributions, new RegExp(`${page.license.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
     }
-    if (page.sourceUrl.includes('openclipart.org')) assert.match(page.license, /^CC0 1\.0/);
   }
 });
 
-test('o servidor entrega o catálogo e todos os SVGs localmente', async () => {
+test('o servidor entrega os módulos do catálogo; as imagens vêm do Wikimedia Commons', async () => {
   for (const page of COLORING_PAGES) {
-    const response = await requestStatic(page.src);
-    assert.equal(response.status, 200, page.src);
-    assert.equal(response.headers['Content-Type'], 'image/svg+xml');
-    assert.match(response.body.toString('utf8'), /<svg\b/);
+    assert.equal(isDisplayableColoringPage(page), true);
   }
   for (const sourcePath of [
     '/src/data/coloringPages.js',
+    '/src/data/searchColoringPages.js',
     '/src/data/officialColoringPages.js',
     '/src/child-profile.js',
     '/src/av2/money.js',
@@ -199,29 +188,26 @@ test('a seleção pula assets indisponíveis e usa outro item válido', () => {
   assert.notEqual(next.id, second.id);
 });
 
-test('a recompensa expõe mensagem, outro desenho, fallback e impressão sem internet', () => {
+test('a recompensa expõe imagem externa, outro desenho, fallback e impressão', () => {
   assert.equal(REWARD_MESSAGE, 'Você terminou a revisão! Parabéns, {name}! Escolha suas cores e divirta-se! 🎉');
   assert.match(appSource, /<h1 id="reward-title">\$\{escapeHtml\(rewardMessage\.visualText\)\}<\/h1>/);
   assert.match(appSource, /data-action="another-coloring-page"/);
   assert.match(appSource, /data-coloring-image/);
   assert.match(appSource, /handleColoringAssetError/);
-  assert.match(appSource, /renderOriginalColoringSheet/);
+  assert.doesNotMatch(appSource, /renderOriginalColoringSheet|coloring-svg/);
+  assert.match(appSource, /Não foi possível carregar o desenho/);
+  assert.match(appSource, /referrerpolicy="no-referrer"/);
   assert.doesNotMatch(appSource, /images\.google|google\.com\/images/i);
   assert.match(cssSource, /body \* \{ visibility: hidden !important; \}/);
   assert.match(cssSource, /\.print-sheet,\s*\.print-sheet \* \{ visibility: visible !important; \}/);
   assert.match(cssSource, /\.reward-card > \*:not\(.print-sheet\) \{ display: none !important; \}/);
 });
 
-test('os assets são SVGs autossuficientes e adequados a uma página A4', async () => {
+test('as imagens raster têm orientação de impressão A4', () => {
   for (const page of COLORING_PAGES) {
     assert.match(page.orientation, /^(portrait|landscape)$/);
-    const source = await fs.readFile(path.join(root, page.src.replace(/^\//, '')), 'utf8');
-    const viewBox = source.match(/viewBox=["']\s*([\d.e+-]+)[ ,]+([\d.e+-]+)[ ,]+([\d.e+-]+)[ ,]+([\d.e+-]+)\s*["']/i);
-    assert.ok(viewBox, `${page.id} precisa de viewBox`);
-    assert.equal(page.orientation, Number(viewBox[3]) <= Number(viewBox[4]) ? 'portrait' : 'landscape');
-    assert.doesNotMatch(source, /<image\b|<text\b|foreignObject|pinterest|watermark|disney|pixar|bluey|lego|pbs|mickey/i);
-    assert.doesNotMatch(source, /(?:href|xlink:href)=["'](?:https?:|[A-Za-z]:)/i);
-    assert.doesNotMatch(source, /url\(\s*https?:/i);
+    assert.equal(isDisplayableColoringPage(page), true);
+    assert.ok(page.sourceUrl.startsWith('https://commons.wikimedia.org/wiki/File:'));
   }
   assert.match(cssSource, /@page \{ size: A4 portrait; margin: 10mm; \}/);
   assert.match(cssSource, /@page coloring-landscape \{ size: A4 landscape; margin: 10mm; \}/);

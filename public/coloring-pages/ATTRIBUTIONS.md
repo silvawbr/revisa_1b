@@ -1,8 +1,115 @@
-# Desenhos para colorir
+# Imagens para colorir do catálogo ativo
 
-Os SVGs foram baixados pelo botão oficial “Download SVG” da página original e
-permanecem locais no projeto. A aplicação não faz hotlink, scraping ou download
-em tempo de execução. Data de acesso dos novos candidatos: 2026-08-17.
+O catálogo usa páginas de colorir reais encontradas por busca de imagens e
+hospedadas no Wikimedia Commons. Os arquivos são carregados do Commons durante
+a exibição e a impressão; não são cópias locais. A página do arquivo, o autor e
+a licença aparecem junto ao desenho e na folha impressa. Consulta das fontes em
+24 de outubro de 2026.
+
+## Fox_coloring_page.jpg
+
+- Título: Fox coloring page
+- Autor: ColoringKidsOnline
+- Página: https://commons.wikimedia.org/wiki/File:Fox_coloring_page.jpg
+- Imagem: https://upload.wikimedia.org/wikipedia/commons/b/bd/Fox_coloring_page.jpg
+- Licença: CC BY-SA 4.0 Internacional
+- Licença: https://creativecommons.org/licenses/by-sa/4.0/
+- Alterações: nenhuma
+- Atribuição exigida: sim
+
+## Elephant_coloring_page.jpg
+
+- Título: Elephant coloring page
+- Autor: ColoringKidsOnline
+- Página: https://commons.wikimedia.org/wiki/File:Elephant_coloring_page.jpg
+- Imagem: https://upload.wikimedia.org/wikipedia/commons/0/02/Elephant_coloring_page.jpg
+- Licença: CC BY-SA 4.0 Internacional
+- Licença: https://creativecommons.org/licenses/by-sa/4.0/
+- Alterações: nenhuma
+- Atribuição exigida: sim
+
+## Deer_coloring_page.jpg
+
+- Título: Deer coloring page
+- Autor: ColoringKidsOnline
+- Página: https://commons.wikimedia.org/wiki/File:Deer_coloring_page.jpg
+- Imagem: https://upload.wikimedia.org/wikipedia/commons/5/5b/Deer_coloring_page.jpg
+- Licença: CC BY-SA 4.0 Internacional
+- Licença: https://creativecommons.org/licenses/by-sa/4.0/
+- Alterações: nenhuma
+- Atribuição exigida: sim
+
+## Chameleon_Coloring_page.jpg
+
+- Título: Chameleon Coloring page
+- Autor: Coloringpagest
+- Página: https://commons.wikimedia.org/wiki/File:Chameleon_Coloring_page.jpg
+- Imagem: https://upload.wikimedia.org/wikipedia/commons/2/2a/Chameleon_Coloring_page.jpg
+- Licença: CC BY-SA 4.0 Internacional
+- Licença: https://creativecommons.org/licenses/by-sa/4.0/
+- Alterações: nenhuma
+- Atribuição exigida: sim
+
+## Coloring_pages.webp
+
+- Título: Apple coloring page
+- Autor: Ttpmfernando
+- Página: https://commons.wikimedia.org/wiki/File:Coloring_pages.webp
+- Imagem: https://upload.wikimedia.org/wikipedia/commons/0/0c/Coloring_pages.webp
+- Licença: CC0 1.0 / domínio público
+- Licença: https://creativecommons.org/publicdomain/zero/1.0/
+- Alterações: nenhuma
+- Atribuição exigida: não; crédito exibido por cortesia
+
+## Brown-bear-coloring-page.png
+
+- Título: Brown-bear-coloring-page
+- Autor: Sumbrella45
+- Página: https://commons.wikimedia.org/wiki/File:Brown-bear-coloring-page.png
+- Imagem: https://upload.wikimedia.org/wikipedia/commons/5/5b/Brown-bear-coloring-page.png
+- Licença: CC0 1.0 / domínio público
+- Licença: https://creativecommons.org/publicdomain/zero/1.0/
+- Alterações: nenhuma
+- Atribuição exigida: não; crédito exibido por cortesia
+
+## Bear_coloring_page.jpg
+
+- Título: Bear coloring page
+- Autor: ColoringKidsOnline
+- Página: https://commons.wikimedia.org/wiki/File:Bear_coloring_page.jpg
+- Imagem: https://upload.wikimedia.org/wikipedia/commons/e/eb/Bear_coloring_page.jpg
+- Licença: CC BY-SA 4.0 Internacional
+- Licença: https://creativecommons.org/licenses/by-sa/4.0/
+- Alterações: nenhuma
+- Atribuição exigida: sim
+
+## Coloring_Page_of_a_Cute_and_Hairy_Puppy.jpg
+
+- Título: Coloring Page of a Cute and Hairy Puppy
+- Autor: Pupla
+- Página: https://commons.wikimedia.org/wiki/File:Coloring_Page_of_a_Cute_and_Hairy_Puppy.jpg
+- Imagem: https://upload.wikimedia.org/wikipedia/commons/2/2b/Coloring_Page_of_a_Cute_and_Hairy_Puppy.jpg
+- Licença: CC BY-SA 4.0 Internacional
+- Licença: https://creativecommons.org/licenses/by-sa/4.0/
+- Alterações: nenhuma
+- Atribuição exigida: sim
+
+## Bird_Coloring_Image.jpg
+
+- Título: Bird Coloring Image
+- Autor: Harrison Weir (1824–1906)
+- Página: https://commons.wikimedia.org/wiki/File:Bird_Coloring_Image.jpg
+- Imagem: https://upload.wikimedia.org/wikipedia/commons/e/e3/Bird_Coloring_Image.jpg
+- Licença: domínio público; Public Domain Mark 1.0
+- Licença: https://creativecommons.org/publicdomain/mark/1.0/
+- Alterações: nenhuma
+- Atribuição exigida: não; crédito exibido por cortesia
+
+## Acervo vetorial legado (fora do catálogo ativo)
+
+Os registros abaixo são preservados para documentar os SVGs antigos que ainda
+permanecem no diretório público, mas não são selecionados nem exibidos pela
+recompensa atual.
 
 ## student-writing-02.svg
 

@@ -95,7 +95,7 @@ test('npm run build gera uma árvore estática publicável', async () => {
   assert.doesNotMatch(publicSources.join('\n'), /Marina|João|Ana/);
 });
 
-test('dist preserva todos os imports relativos do frontend e os assets do catálogo', async () => {
+test('dist preserva imports relativos e referências às imagens do catálogo', async () => {
   const files = await listFiles(dist);
   const javascriptFiles = files.filter((file) => file.endsWith('.js'));
   const importPattern = /(?:from\s+|import\(\s*)['"](\.[^'"]+)['"]/g;
@@ -110,8 +110,9 @@ test('dist preserva todos os imports relativos do frontend e os assets do catál
 
   const catalog = await import(path.join(dist, 'src/data/coloringPages.js'));
   for (const page of catalog.COLORING_PAGES) {
-    const assetPath = path.join(dist, page.src.replace(/^\//, ''));
-    await assert.doesNotReject(fs.access(assetPath), `${page.id} está ausente em dist/`);
+    const imageUrl = new URL(page.src);
+    assert.ok(['upload.wikimedia.org', 'thumb.wikimedia.org'].includes(imageUrl.hostname));
+    assert.match(imageUrl.pathname, /\.(?:png|jpe?g|webp)$/i);
   }
   const officialCatalog = await import(path.join(dist, 'src/data/officialColoringPages.js'));
   assert.ok(officialCatalog.OFFICIAL_COLORING_PAGES.length >= 7);

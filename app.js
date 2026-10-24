@@ -27,7 +27,7 @@ import {
   LOCAL_COLORING_PAGE_HISTORY_LIMIT,
   createRecentIdStore,
   getColoringPageById,
-  isLocalColoringPage,
+  isDisplayableColoringPage,
   pickColoringPage,
 } from './src/data/coloringPages.js';
 import {
@@ -519,39 +519,12 @@ function renderUnknownQuestion(question) {
   </div>`;
 }
 
-function renderOriginalColoringSheet(variant = 0) {
-  const second = variant === 1 ? `<path d="M555 655 q50 -55 105 0 v220 q-50 40 -105 0z"/><circle cx="610" cy="690" r="10"/><circle cx="650" cy="690" r="10"/><path d="M600 735 q30 28 60 0"/>` : `<path d="M535 675 q60 -55 120 0 v205 q-60 35 -120 0z"/><circle cx="590" cy="710" r="10"/><circle cx="635" cy="710" r="10"/><path d="M585 755 q28 24 55 0"/>`;
-  return `<svg class="coloring-svg" viewBox="0 0 794 1123" role="img" aria-label="Desenho em preto e branco de animais simpáticos estudando matemática, com estrelas e formas geométricas para colorir">
-    <rect x="20" y="20" width="754" height="1083" rx="30" fill="white" stroke="#171925" stroke-width="10"/>
-    <path d="M80 920 q80 -75 160 0 q90 -65 175 0 q90 -75 190 0 q70 -55 115 0" fill="none" stroke="#171925" stroke-width="10" stroke-linecap="round"/>
-    <path d="M110 230 q-12 -95 58 -130 l45 70 l60 -65 q75 35 52 125z" fill="white" stroke="#171925" stroke-width="10" stroke-linejoin="round"/>
-    <circle cx="200" cy="270" r="120" fill="white" stroke="#171925" stroke-width="10"/>
-    <circle cx="165" cy="260" r="12" fill="#171925"/><circle cx="235" cy="260" r="12" fill="#171925"/>
-    <path d="M190 295 q18 18 36 0 M200 278 l-16 10 M216 278 l16 10" fill="none" stroke="#171925" stroke-width="8" stroke-linecap="round"/>
-    <path d="M85 305 l-60 -16 M85 335 l-65 5 M315 305 l60 -16 M315 335 l65 5" fill="none" stroke="#171925" stroke-width="7" stroke-linecap="round"/>
-    <path d="M130 410 h145 v160 h-145z M155 440 h95 M155 475 h95 M155 510 h70" fill="white" stroke="#171925" stroke-width="10" stroke-linejoin="round"/>
-    <path d="M162 560 q35 45 78 0" fill="none" stroke="#171925" stroke-width="9"/>
-    <path d="M535 555 l30 -70 l30 70 M555 475 l10 -44 l10 44" fill="white" stroke="#171925" stroke-width="10" stroke-linejoin="round"/>
-    <path d="M525 555 q45 -55 100 0 v220 q-50 45 -100 0z" fill="white" stroke="#171925" stroke-width="10"/>
-    <circle cx="565" cy="595" r="10" fill="#171925"/><circle cx="610" cy="595" r="10" fill="#171925"/><path d="M560 640 q28 25 55 0" fill="none" stroke="#171925" stroke-width="8" stroke-linecap="round"/>
-    <path d="M380 365 l42 90 l-98 0z" fill="white" stroke="#171925" stroke-width="10" stroke-linejoin="round"/>
-    <path d="M322 360 l20 -30 M350 350 l8 -35 M380 350 l2 -35 M410 360 l15 -30" fill="none" stroke="#171925" stroke-width="8" stroke-linecap="round"/>
-    <circle cx="120" cy="735" r="58" fill="white" stroke="#171925" stroke-width="10"/><path d="M120 690 v90 M75 735 h90" fill="none" stroke="#171925" stroke-width="8"/>
-    <path d="M270 700 l55 35 l-55 35 l-55 -35z" fill="white" stroke="#171925" stroke-width="10"/>
-    <path d="M410 700 h105 v105 h-105z" fill="white" stroke="#171925" stroke-width="10"/>
-    <path d="M435 725 h55 M435 755 h55" fill="none" stroke="#171925" stroke-width="7"/>
-    <path d="M665 700 l22 45 l50 7 l-36 33 l9 49 l-45 -24 l-45 24 l9 -49 l-36 -33 l50 -7z" fill="white" stroke="#171925" stroke-width="10" stroke-linejoin="round"/>
-    <text x="397" y="165" text-anchor="middle" font-size="58" font-family="Trebuchet MS, sans-serif" fill="white" stroke="#171925" stroke-width="2">MATEMÁTICA!</text>
-    <text x="397" y="1015" text-anchor="middle" font-size="35" font-family="Trebuchet MS, sans-serif" fill="white" stroke="#171925" stroke-width="1.5">1 + 2 = 3</text>
-  </svg>`;
-}
-
 function renderColoringAttribution(page) {
-  if (!page?.attributionRequired) return '';
+  if (!page?.sourceUrl || !page?.licenseUrl) return '';
   return `<p class="coloring-attribution" data-print-attribution>
-    Ilustração de <a href="${escapeAttribute(page.sourceUrl)}" target="_blank" rel="noreferrer">${page.author}</a>
-    — <a href="${escapeAttribute(page.licenseUrl)}" target="_blank" rel="noreferrer">${page.license}</a>
-    — <a href="${escapeAttribute(page.sourceUrl)}" target="_blank" rel="noreferrer">Fonte</a>
+    Desenho: <a href="${escapeAttribute(page.sourceUrl)}" target="_blank" rel="noreferrer">${escapeHtml(page.title)}</a>
+    — por ${escapeHtml(page.author)}
+    — <a href="${escapeAttribute(page.licenseUrl)}" target="_blank" rel="noreferrer">${escapeHtml(page.license)}</a>
   </p>`;
 }
 
@@ -562,11 +535,13 @@ function renderColoringPage(page) {
       <p class="coloring-attribution">Desenho criado sob demanda com OpenRouter.</p>
     </div>`;
   }
-  if (!page || !isLocalColoringPage(page)) {
-    return `<div class="print-sheet print-fallback" data-orientation="portrait">${renderOriginalColoringSheet()}</div>`;
+  if (!page || !isDisplayableColoringPage(page)) {
+    return `<div class="print-sheet print-fallback" data-orientation="portrait" role="status">
+      <p>Não foi possível carregar o desenho. Confira a conexão e toque em “Ver outro desenho”.</p>
+    </div>`;
   }
   return `<div class="print-sheet" data-coloring-page-id="${page.id}" data-orientation="${page.orientation}">
-    <img class="coloring-image" data-coloring-image="${page.id}" src="${escapeAttribute(page.src)}" alt="${escapeAttribute(page.alt)}" decoding="async">
+    <img class="coloring-image" data-coloring-image="${page.id}" src="${escapeAttribute(page.src)}" alt="${escapeAttribute(page.alt)}" decoding="async" referrerpolicy="no-referrer">
     ${renderColoringAttribution(page)}
   </div>`;
 }
