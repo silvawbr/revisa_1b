@@ -664,18 +664,33 @@ function renderNameScreen() {
 }
 
 function renderHome() {
+  const av2RoundsCompleted = av2SimuladoProgress.get().roundsCompleted;
   return `<div class="site-shell home-screen">
     <main class="home-main">
       <div class="home-decor decor-one" aria-hidden="true">2</div><div class="home-decor decor-two" aria-hidden="true">★</div><div class="home-decor decor-three" aria-hidden="true">5</div>
-      <section class="home-card" aria-labelledby="home-title">
+      <section class="home-card home-dashboard-card" aria-labelledby="home-title">
         <div class="home-art" aria-hidden="true"><span class="home-circle">6</span><span class="home-triangle"></span><span class="home-square">＋</span><span class="home-star">★</span></div>
         <p class="eyebrow">1º ano Vita · Uma aventura de aprender</p>
         <h1 id="home-title">Revisão de Matemática<br><span>de ${escapeHtml(currentChildName())}</span></h1>
-        <p class="home-subtitle">Escolha sua revisão para aprender, brincar e conquistar estrelas.</p>
-        <div class="revision-choices" aria-label="Escolha uma revisão de Matemática">
-          <button class="primary-button revision-choice" type="button" data-action="start"><span class="revision-choice-title">Revisão de Matemática</span><span class="revision-choice-copy">Formas, números e desafios</span><span class="revision-choice-arrow" aria-hidden="true">→</span></button>
-          <button class="secondary-button revision-choice av2-choice" type="button" data-action="av2-entry"><span class="revision-choice-title">AV2 Matemática</span><span class="revision-choice-copy">Vamos aprender sobre dinheiro</span><span class="revision-choice-arrow" aria-hidden="true">→</span></button>
-        </div>
+        <p class="home-subtitle">Comece pelo simulado ou escolha uma revisão para praticar.</p>
+        <section class="simulation-feature" aria-labelledby="simulation-title">
+          <div class="simulation-feature-art" aria-hidden="true">✏️</div>
+          <div class="simulation-feature-content">
+            <p class="simulation-kicker">Preparação para a prova</p>
+            <h2 id="simulation-title">Simulado AV2</h2>
+            <p>Revise todos os assuntos da AV2 ou escolha quais quer praticar.</p>
+            <p class="simulation-progress">Simulados concluídos: <strong>${av2RoundsCompleted}</strong></p>
+            <button class="primary-button simulation-start-button" type="button" data-action="open-av2-simulado-setup">Preparar simulado <span aria-hidden="true">→</span></button>
+          </div>
+        </section>
+        <section class="home-review-section" aria-labelledby="home-reviews-title">
+          <h2 id="home-reviews-title">Revisões por assunto</h2>
+          <p>Escolha uma área para praticar no seu ritmo.</p>
+          <div class="revision-choices" aria-label="Outras revisões de Matemática">
+            <button class="primary-button revision-choice" type="button" data-action="start"><span class="revision-choice-title">1ª revisão</span><span class="revision-choice-copy">Formas, números e desafios</span><span class="revision-choice-arrow" aria-hidden="true">→</span></button>
+            <button class="secondary-button revision-choice av2-choice" type="button" data-action="av2-entry"><span class="revision-choice-title">Reforço AV2 por assunto</span><span class="revision-choice-copy">Dinheiro, operações, sequências e compras</span><span class="revision-choice-arrow" aria-hidden="true">→</span></button>
+          </div>
+        </section>
         ${renderGuide('Estou aqui para torcer por você!')}
         <button class="change-child-home" type="button" data-action="change-child">Trocar criança</button>
         <p class="privacy-note">Sem cadastro. Só brincadeira e aprendizado.</p>
@@ -698,13 +713,12 @@ function renderAv2Home() {
   const roundsCompleted = av2Progress.get().roundsCompleted;
   const shoppingRoundsCompleted = av2ShoppingProgress.get().roundsCompleted;
   const additionRoundsCompleted = av2AdditionProgress.get().roundsCompleted;
-  const simuladoRoundsCompleted = av2SimuladoProgress.get().roundsCompleted;
   const sequenceRoundsCompleted = av2SequencesProgress.get().roundsCompleted;
   const compositionRoundsCompleted = av2MoneyCompositionProgress.get().roundsCompleted;
   return `<div class="site-shell home-screen av2-home-screen">
     <main class="home-main">
       <section class="home-card av2-home-card" aria-labelledby="av2-home-title">
-        <p class="eyebrow">Revisão para 27 de outubro</p>
+        <p class="eyebrow">Reforço AV2 por assunto · Revisão para 27 de outubro</p>
         <h1 id="av2-home-title">AV2 Matemática<br><span>Escolha uma atividade</span></h1>
         <div class="av2-activity-grid" aria-label="Atividades da AV2 de Matemática">
           <article class="av2-activity-card">
@@ -757,14 +771,6 @@ function renderAv2Home() {
             <p class="av2-progress-summary" data-subtraction-rounds-completed>Rodadas concluídas: <strong>${av2SubtractionProgress.get().roundsCompleted}</strong></p>
             <button class="primary-button start-button" type="button" data-action="start-av2-subtraction">Começar <span aria-hidden="true">→</span></button>
           </article>
-          <article class="av2-activity-card simulado-activity-card">
-            <span class="addition-activity-icon" aria-hidden="true">📝</span>
-            <h2>Simulado AV2</h2>
-            <p>Revise os assuntos da prova em uma rodada sorteada e veja como foi em cada um.</p>
-            <div class="addition-activity-sample" aria-label="Simulado com dinheiro, operações, sequências e números por extenso">Uma revisão completa ✨</div>
-            <p class="av2-progress-summary" data-simulado-rounds-completed>Rodadas concluídas: <strong>${simuladoRoundsCompleted}</strong></p>
-            <button class="primary-button start-button" type="button" data-action="open-av2-simulado-setup">Preparar simulado <span aria-hidden="true">→</span></button>
-          </article>
         </div>
         <button class="secondary-button av2-back-button" type="button" data-action="home">Voltar às revisões</button>
         ${renderGuide('Moedas e cédulas têm valores diferentes. Vamos descobrir!')}
@@ -787,7 +793,7 @@ function renderAv2SimuladoSetup() {
   return `<div class="site-shell home-screen av2-home-screen">
     <main class="home-main">
       <section class="home-card av2-home-card simulado-setup-card" aria-labelledby="simulado-setup-title">
-        <p class="eyebrow">Block 07 · Simulado AV2</p>
+        <p class="eyebrow">Simulado AV2</p>
         <h1 id="simulado-setup-title">Prepare a revisão<br><span>de ${escapeHtml(currentChildName())}</span></h1>
         <p class="home-subtitle">Escolha os assuntos e quantas questões quer fazer em cada um.</p>
         <fieldset class="simulado-topic-list">
@@ -796,7 +802,7 @@ function renderAv2SimuladoSetup() {
         </fieldset>
         <p class="simulado-setup-note">${selectedCount ? `${selectedCount} assunto${selectedCount === 1 ? '' : 's'} selecionado${selectedCount === 1 ? '' : 's'}. Cada assunto mantém a quantidade escolhida.` : 'Selecione pelo menos um assunto para começar.'}</p>
         <button class="primary-button start-button" type="button" data-action="start-av2-simulado" ${selectedCount ? '' : 'disabled'}>Começar simulado <span aria-hidden="true">→</span></button>
-        <button class="secondary-button av2-back-button" type="button" data-action="av2-home">Voltar às atividades AV2</button>
+        <button class="secondary-button av2-back-button" type="button" data-action="home">Voltar às revisões</button>
         ${renderGuide('Vamos revisar vários assuntos. Você consegue!')}
       </section>
     </main>
@@ -830,7 +836,7 @@ function renderAv2SimuladoResults() {
   return `<div class="site-shell home-screen av2-home-screen">
     <main class="home-main">
       <section class="home-card av2-home-card simulado-results-card" aria-labelledby="simulado-results-title">
-        <p class="eyebrow">Block 07 · Simulado AV2</p>
+        <p class="eyebrow">Simulado AV2</p>
         <h1 id="simulado-results-title">${title}<br><span>Resultado por assunto</span></h1>
         ${inFocusRound && simulation.initialReport ? renderSimuladoMetrics(simulation.initialReport, 'Rodada inicial') : ''}
         ${renderSimuladoMetrics(currentMetrics, inFocusRound ? 'Nesta rodada de reforço' : 'Desempenho por assunto')}
@@ -1358,7 +1364,7 @@ function renderReward() {
   return `<div class="site-shell reward-screen">
     <main class="reward-main">
       <section class="reward-card" aria-labelledby="reward-title">
-        <div class="reward-stars${av2Reward ? ' av2-reward-stars' : ''}${additionReward ? ' av2-addition-reward-stars' : ''}" aria-label="${starsLabel}">${Array.from({ length: starCount }, () => av2Reward ? '<span aria-hidden="true">★</span>' : '★').join(av2Reward ? '' : ' ')}</div>
+        <div class="reward-stars${av2Reward ? ' av2-reward-stars' : ''}${twelveChallengeReward ? ' av2-addition-reward-stars' : ''}" aria-label="${starsLabel}">${Array.from({ length: starCount }, () => av2Reward ? '<span aria-hidden="true">★</span>' : '★').join(av2Reward ? '' : ' ')}</div>
         <p class="eyebrow">Missão cumprida!</p>
         <h1 id="reward-title">${escapeHtml(rewardMessage.visualText)}</h1>
         <p class="reward-copy">${simuladoReward ? 'Você concluiu o Simulado AV2. Agora é hora de colorir!' : av2Reward && state.av2Block === 'block-06' ? 'Você concluiu os 12 desafios de formar quantias. Agora é hora de colorir!' : av2Reward && state.av2Block === 'block-05' ? 'Você concluiu as 12 questões de sequências e números. Agora é hora de colorir!' : subtractionReward ? 'Você concluiu as 12 questões de subtração. Agora é hora de colorir!' : additionReward ? 'Você concluiu as 12 questões de adição. Agora é hora de colorir!' : av2Reward ? 'Você concluiu as 10 questões sobre dinheiro. Agora é hora de colorir!' : 'Você passou por todas as atividades. Agora é hora de colorir!'}</p>
