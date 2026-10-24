@@ -23,6 +23,7 @@ Os cartões de associação, seleção múltipla, tabela e problema da bibliotec
 - Quando os dois assuntos de operação estão habilitados, o problema da biblioteca pode ocupar uma vaga de adição e uma de subtração, mantendo uma única questão visual encadeada.
 - Escrita por extenso, reconhecimento e associação continuam disponíveis como formatos distintos. O modo personalizado não troca toda escrita por escolha múltipla.
 - Tabelas e sequências permanecem no intervalo de 0 a 250. 300 e 400 só podem aparecer em exercícios de números por extenso.
+- Ao concluir, a criança vai direto ao desenho, sem relatório por assunto. A recompensa mantém como opção praticar os erros em uma nova rodada.
 - Progressão por assunto, erros, tentativas e histórico ficam no dispositivo. O desenho local continua disponível; a recompensa também mantém a geração opcional sob demanda via `/api/coloring`, que não envia o nome da criança. Não há analytics remoto. O foco nos erros preserva o tipo de exercício quando existe um equivalente apropriado.
 
 ## Verificação
