@@ -61,6 +61,16 @@ import {
   createAv2ProgressStore,
 } from './src/av2/progress.js';
 import {
+  AV2_SIMULADO_ACTIVITY_ID,
+  AV2_SIMULADO_DEFAULT_QUESTIONS_PER_SUBJECT,
+  AV2_SIMULADO_PROGRESS_STORAGE_KEY,
+  AV2_SIMULADO_SUBJECTS,
+  createAv2SimuladoFocusRound,
+  createAv2SimuladoRound,
+  normalizeAv2SimuladoCounts,
+  validateAv2SimuladoAnswer,
+} from './src/av2/simulado.js';
+import {
   createChildProfileStore,
   createPersonalizedMessage,
   formatChildText,
@@ -84,6 +94,7 @@ const av2Progress = createAv2ProgressStore();
 const av2ShoppingProgress = createAv2ProgressStore({ key: AV2_SHOPPING_PROGRESS_STORAGE_KEY });
 const av2AdditionProgress = createAv2ProgressStore({ key: AV2_ADDITION_PROGRESS_STORAGE_KEY });
 const av2SubtractionProgress = createAv2ProgressStore({ key: AV2_SUBTRACTION_PROGRESS_STORAGE_KEY });
+const av2SimuladoProgress = createAv2ProgressStore({ key: AV2_SIMULADO_PROGRESS_STORAGE_KEY });
 const av2SequencesProgress = createAv2ProgressStore({ key: AV2_SEQUENCES_PROGRESS_STORAGE_KEY });
 const av2MoneyCompositionProgress = createAv2ProgressStore({ key: AV2_MONEY_COMPOSITION_PROGRESS_STORAGE_KEY });
 const moneyById = new Map(MONEY_DENOMINATIONS.map((money) => [money.id, money]));
@@ -122,11 +133,48 @@ const state = {
   av2AdditionAnswer: {},
   av2AdditionInputError: false,
   av2ActiveAdditionField: null,
+  av2SimuladoSetup: Object.fromEntries(AV2_SIMULADO_SUBJECTS.map(({ id }) => [id, AV2_SIMULADO_DEFAULT_QUESTIONS_PER_SUBJECT])),
+  av2Simulation: null,
+  av2CompositeStage: 1,
+  av2CompositeIntermediate: null,
+  av2SimuladoInputError: '',
   av2MoneySelection: [],
   av2MoneyNextItemId: 0,
   av2MoneySolutions: [],
   av2MoneyFeedback: null,
 };
+
+function createSimuladoMetrics(counts) {
+  return Object.fromEntries(AV2_SIMULADO_SUBJECTS
+    .filter(({ id }) => counts[id] > 0)
+    .map(({ id }) => [id, { questions: counts[id], firstTryCorrect: 0, solved: 0, attempts: 0 }]));
+}
+
+function copySimuladoMetrics(metrics = {}) {
+  return Object.fromEntries(Object.entries(metrics).map(([subjectId, values]) => [subjectId, { ...values }]));
+}
+
+function recordSimuladoAttempt(question, isCorrect, subjectId = null) {
+  if (state.av2Block !== 'block-07' || !state.av2Simulation || !question?.simulado) return;
+  const subject = subjectId ?? question.simulado.subjectId;
+  const metric = state.av2Simulation.metrics[subject];
+  if (!metric) return;
+  metric.attempts += 1;
+  if (isCorrect) {
+    metric.solved += 1;
+    if (state.av2Attempts === 0) metric.firstTryCorrect += 1;
+    return;
+  }
+  const key = `${question.simulado.questionId}:${subject}`;
+  if (!state.av2Simulation.errors.some((target) => target.key === key)) {
+    state.av2Simulation.errors.push({
+      key,
+      subjectId: subject,
+      sourceQuestionId: question.simulado.questionId,
+      contextual: question.simulado.contextual === true || question.simulado.composite === true,
+    });
+  }
+}
 
 const positiveMessageTemplates = [
   ['Você acertou! Parabéns! 🌟', 'Você acertou! Parabéns! Vamos continuar?'],
@@ -650,6 +698,7 @@ function renderAv2Home() {
   const roundsCompleted = av2Progress.get().roundsCompleted;
   const shoppingRoundsCompleted = av2ShoppingProgress.get().roundsCompleted;
   const additionRoundsCompleted = av2AdditionProgress.get().roundsCompleted;
+  const simuladoRoundsCompleted = av2SimuladoProgress.get().roundsCompleted;
   const sequenceRoundsCompleted = av2SequencesProgress.get().roundsCompleted;
   const compositionRoundsCompleted = av2MoneyCompositionProgress.get().roundsCompleted;
   return `<div class="site-shell home-screen av2-home-screen">
@@ -708,9 +757,91 @@ function renderAv2Home() {
             <p class="av2-progress-summary" data-subtraction-rounds-completed>Rodadas concluídas: <strong>${av2SubtractionProgress.get().roundsCompleted}</strong></p>
             <button class="primary-button start-button" type="button" data-action="start-av2-subtraction">Começar <span aria-hidden="true">→</span></button>
           </article>
+          <article class="av2-activity-card simulado-activity-card">
+            <span class="addition-activity-icon" aria-hidden="true">📝</span>
+            <h2>Simulado AV2</h2>
+            <p>Revise os assuntos da prova em uma rodada sorteada e veja como foi em cada um.</p>
+            <div class="addition-activity-sample" aria-label="Simulado com dinheiro, operações, sequências e números por extenso">Uma revisão completa ✨</div>
+            <p class="av2-progress-summary" data-simulado-rounds-completed>Rodadas concluídas: <strong>${simuladoRoundsCompleted}</strong></p>
+            <button class="primary-button start-button" type="button" data-action="open-av2-simulado-setup">Preparar simulado <span aria-hidden="true">→</span></button>
+          </article>
         </div>
         <button class="secondary-button av2-back-button" type="button" data-action="home">Voltar às revisões</button>
         ${renderGuide('Moedas e cédulas têm valores diferentes. Vamos descobrir!')}
+      </section>
+    </main>
+  </div>`;
+}
+
+function renderAv2SimuladoSetup() {
+  const selectedCount = Object.keys(state.av2SimuladoSetup).filter((id) => state.av2SimuladoSetup[id] > 0).length;
+  const topics = AV2_SIMULADO_SUBJECTS.map(({ id, label, description }) => {
+    const enabled = state.av2SimuladoSetup[id] > 0;
+    const count = enabled ? state.av2SimuladoSetup[id] : AV2_SIMULADO_DEFAULT_QUESTIONS_PER_SUBJECT;
+    return `<div class="simulado-topic-option">
+      <input id="simulado-subject-${id}" type="checkbox" data-simulado-subject="${id}" ${enabled ? 'checked' : ''}>
+      <label class="simulado-topic-copy" for="simulado-subject-${id}"><strong>${escapeHtml(label)}</strong><small>${escapeHtml(description)}</small></label>
+      <span class="simulado-count-control"><span>Questões</span><select data-simulado-count="${id}" aria-label="Quantidade de questões de ${escapeAttribute(label)}" ${enabled ? '' : 'disabled'}>${[1, 2, 3, 4, 5].map((value) => `<option value="${value}" ${value === count ? 'selected' : ''}>${value}</option>`).join('')}</select></span>
+    </div>`;
+  }).join('');
+  return `<div class="site-shell home-screen av2-home-screen">
+    <main class="home-main">
+      <section class="home-card av2-home-card simulado-setup-card" aria-labelledby="simulado-setup-title">
+        <p class="eyebrow">Block 07 · Simulado AV2</p>
+        <h1 id="simulado-setup-title">Prepare a revisão<br><span>de ${escapeHtml(currentChildName())}</span></h1>
+        <p class="home-subtitle">Escolha os assuntos e quantas questões quer fazer em cada um.</p>
+        <fieldset class="simulado-topic-list">
+          <legend>Assuntos do simulado</legend>
+          ${topics}
+        </fieldset>
+        <p class="simulado-setup-note">${selectedCount ? `${selectedCount} assunto${selectedCount === 1 ? '' : 's'} selecionado${selectedCount === 1 ? '' : 's'}. Cada assunto mantém a quantidade escolhida.` : 'Selecione pelo menos um assunto para começar.'}</p>
+        <button class="primary-button start-button" type="button" data-action="start-av2-simulado" ${selectedCount ? '' : 'disabled'}>Começar simulado <span aria-hidden="true">→</span></button>
+        <button class="secondary-button av2-back-button" type="button" data-action="av2-home">Voltar às atividades AV2</button>
+        ${renderGuide('Vamos revisar vários assuntos. Você consegue!')}
+      </section>
+    </main>
+  </div>`;
+}
+
+function readAv2SimuladoSetup() {
+  const counts = {};
+  for (const { id } of AV2_SIMULADO_SUBJECTS) {
+    const enabled = document.querySelector(`[data-simulado-subject="${id}"]`)?.checked;
+    const count = Number(document.querySelector(`[data-simulado-count="${id}"]`)?.value);
+    if (enabled && Number.isInteger(count) && count >= 1 && count <= 5) counts[id] = count;
+  }
+  return counts;
+}
+
+function renderSimuladoMetrics(metrics, heading) {
+  const rows = AV2_SIMULADO_SUBJECTS.filter(({ id }) => metrics?.[id]).map(({ id, label }) => {
+    const value = metrics[id];
+    return `<tr><th scope="row">${escapeHtml(label)}</th><td>${value.firstTryCorrect} de ${value.questions}</td><td>${value.solved} de ${value.questions}</td><td>${value.attempts}</td></tr>`;
+  }).join('');
+  return `<section class="simulado-results-section"><h2>${escapeHtml(heading)}</h2><div class="simulado-results-scroll"><table class="simulado-results-table"><thead><tr><th scope="col">Assunto</th><th scope="col">Acertos na 1ª tentativa</th><th scope="col">Questões resolvidas</th><th scope="col">Tentativas</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+}
+
+function renderAv2SimuladoResults() {
+  const simulation = state.av2Simulation;
+  const inFocusRound = simulation?.mode === 'focus';
+  const currentMetrics = inFocusRound ? simulation.focusReport : simulation.initialReport;
+  const title = inFocusRound ? 'Rodada focada nos erros' : 'Resultado do simulado';
+  const errorCount = simulation?.errors.length ?? 0;
+  return `<div class="site-shell home-screen av2-home-screen">
+    <main class="home-main">
+      <section class="home-card av2-home-card simulado-results-card" aria-labelledby="simulado-results-title">
+        <p class="eyebrow">Block 07 · Simulado AV2</p>
+        <h1 id="simulado-results-title">${title}<br><span>Resultado por assunto</span></h1>
+        ${inFocusRound && simulation.initialReport ? renderSimuladoMetrics(simulation.initialReport, 'Rodada inicial') : ''}
+        ${renderSimuladoMetrics(currentMetrics, inFocusRound ? 'Nesta rodada de reforço' : 'Desempenho por assunto')}
+        <p class="simulado-results-note">“Acertos na 1ª tentativa” considera a primeira resposta de cada questão. Tentativas inclui todas as respostas enviadas.</p>
+        <div class="simulado-result-actions">
+          <button class="primary-button" type="button" data-action="show-simulado-reward">Concluir e ver recompensa <span aria-hidden="true">→</span></button>
+          ${errorCount ? `<button class="secondary-button" type="button" data-action="review-av2-simulado-errors">Revisar os erros com novas questões (${errorCount})</button>` : ''}
+          <button class="secondary-button" type="button" data-action="open-av2-simulado-setup">Preparar outro simulado</button>
+          <button class="secondary-button" type="button" data-action="av2-home">Voltar às atividades AV2</button>
+        </div>
+        ${renderGuide(errorCount ? 'Os assuntos que pedem mais prática já estão separados.' : 'Você concluiu a revisão com muito cuidado!')}
       </section>
     </main>
   </div>`;
@@ -729,7 +860,7 @@ function renderAv2Header() {
     ${renderAv2Progress()}
     <div class="header-actions">
       <button class="change-child-button" type="button" data-action="change-child" aria-label="Trocar criança">Trocar criança</button>
-      ${['block-03', 'block-04', 'block-05', 'block-06'].includes(state.av2Block)
+      ${['block-03', 'block-04', 'block-05', 'block-06', 'block-07'].includes(state.av2Block)
     ? '<button class="secondary-button av2-exit-button" type="button" data-action="av2-home" aria-label="Voltar às atividades AV2">Atividades</button>'
     : '<button class="secondary-button av2-exit-button" type="button" data-action="home" aria-label="Voltar às revisões">Revisões</button>'}
     </div>
@@ -822,6 +953,74 @@ function renderAv2AdditionQuestion(question) {
   </div>`;
 }
 
+function renderSimuladoChoiceOptions(options, { wordLabels = false, selected = state.av2Selected, label = 'Alternativas de resposta' } = {}) {
+  return `<div class="av2-answer-options label-options simulado-choice-options" role="group" aria-label="${escapeAttribute(label)}">
+    ${options.map((option, index) => {
+      const value = typeof option === 'object' ? option.value : option;
+      const text = typeof option === 'object' ? option.label : wordLabels ? numberToPortuguese(option) : String(option);
+      const isSelected = Number(selected) === Number(value);
+      const isIncorrect = isSelected && state.av2Attempts > 0 && !state.av2Correct;
+      return `<button class="av2-answer-label ${isSelected ? 'is-selected' : ''} ${isIncorrect ? 'is-incorrect' : ''}" type="button" data-av2-answer="${escapeAttribute(value)}" aria-label="Alternativa ${index + 1}: ${escapeAttribute(text)}" aria-pressed="${isSelected}" ${state.av2Correct ? 'disabled' : ''}>${escapeHtml(text)}</button>`;
+    }).join('')}
+  </div>`;
+}
+
+function renderSimuladoTwoStepQuestion(question) {
+  const { steps, intermediate: expectedIntermediate } = question.data;
+  const intermediate = state.av2CompositeIntermediate ?? expectedIntermediate;
+  const stage = state.av2CompositeStage;
+  const step = steps[stage - 1];
+  const options = step.options.map((value) => {
+    const selected = Number(state.av2Selected) === value;
+    const incorrect = selected && state.av2Attempts > 0;
+    return `<button class="av2-answer-label ${selected ? 'is-selected' : ''} ${incorrect ? 'is-incorrect' : ''}" type="button" data-av2-answer="${value}" aria-pressed="${selected}" ${state.av2Correct ? 'disabled' : ''}>${value}</button>`;
+  }).join('');
+  const equation = stage === 1 ? `${step.a} + ${step.b} = ?` : `${step.a} − ${step.b} = ?`;
+  const stepPrompt = stage === 1 ? 'Descubra quantos livros havia após a doação.' : 'Use o resultado anterior para descobrir quantos livros restaram.';
+  const hint = stage === 1
+    ? 'Some os livros que havia aos livros recebidos.'
+    : `A primeira etapa deu ${intermediate}. Agora retire 147 livros desse total.`;
+  return `<div class="av2-exercise is-simulado is-two-step" data-av2-question-type="simulado-two-step">
+    <div class="simulado-step-heading"><span>Etapa ${stage} de 2</span><strong>${escapeHtml(stepPrompt)}</strong></div>
+    ${stage === 2 ? `<p class="simulado-intermediate-result" role="status">Etapa 1 concluída: 156 + 195 = <strong>${intermediate}</strong> livros.</p>` : ''}
+    <p class="simulado-two-step-equation" aria-label="${stage === 1 ? '156 mais 195' : '351 menos 147'}">${equation}</p>
+    <div class="av2-answer-options label-options simulado-choice-options" role="group" aria-label="Alternativas para a etapa ${stage}">${options}</div>
+    ${state.av2Attempts >= 1 && !state.av2Correct ? `<p class="hint-box simulado-step-hint"><b>Dica:</b> ${escapeHtml(hint)}</p>` : ''}
+    <button class="primary-button simulado-submit-button" type="button" data-action="submit-av2" ${state.av2Selected === null || state.av2Correct ? 'disabled' : ''}>Conferir etapa <span aria-hidden="true">→</span></button>
+  </div>`;
+}
+
+function renderAv2SimuladoQuestion(question) {
+  if (question.type === 'simulado-two-step') return renderSimuladoTwoStepQuestion(question);
+  if (question.type === 'simulado-association') {
+    const { pairs, options } = question.data;
+    return `<div class="av2-exercise is-simulado is-association" data-av2-question-type="simulado-association">
+      <div class="simulado-association-list" role="group" aria-label="Associação de números e escritas por extenso">
+        ${pairs.map(({ value }) => `<label class="simulado-association-row"><strong>${value}</strong><span aria-hidden="true">↔</span><select data-av2-association-answer="${value}" aria-label="Escrita por extenso do número ${value}" ${state.av2Correct ? 'disabled' : ''}><option value="">Escolha a escrita</option>${options.map((word) => `<option value="${escapeAttribute(word)}" ${state.av2Selected?.[String(value)] === word ? 'selected' : ''}>${escapeHtml(word)}</option>`).join('')}</select></label>`).join('')}
+      </div>
+      ${state.av2SimuladoInputError ? `<p class="av2-addition-input-error" role="alert">${escapeHtml(state.av2SimuladoInputError)}</p>` : ''}
+      <button class="primary-button simulado-submit-button" type="button" data-action="submit-av2" ${state.av2Correct ? 'disabled' : ''}>Conferir associações <span aria-hidden="true">→</span></button>
+    </div>`;
+  }
+  if (question.type === 'simulado-sequence') {
+    return `<div class="av2-exercise is-simulado is-sequence" data-av2-question-type="simulado-sequence">
+      <div class="simulado-sequence-display" aria-label="Sequência numérica">${question.data.sequence.map((value) => `<span class="${value === null ? 'is-missing' : ''}">${value ?? '?'}</span>`).join('')}</div>
+      ${renderSimuladoChoiceOptions(question.options)}
+      <button class="primary-button simulado-submit-button" type="button" data-action="submit-av2" ${state.av2Selected === null || state.av2Correct ? 'disabled' : ''}>Conferir resposta <span aria-hidden="true">→</span></button>
+    </div>`;
+  }
+  if (question.type === 'simulado-word') {
+    const lead = question.data.mode === 'number-to-word'
+      ? `<div class="simulado-word-prompt"><span>Número</span><strong>${question.data.value}</strong></div>`
+      : `<div class="simulado-word-prompt cursive-text"><strong>${escapeHtml(numberToPortuguese(question.data.value))}</strong></div>`;
+    return `<div class="av2-exercise is-simulado is-word" data-av2-question-type="simulado-word">${lead}
+      ${renderSimuladoChoiceOptions(question.options)}
+      <button class="primary-button simulado-submit-button" type="button" data-action="submit-av2" ${state.av2Selected === null || state.av2Correct ? 'disabled' : ''}>Conferir resposta <span aria-hidden="true">→</span></button>
+    </div>`;
+  }
+  return '';
+}
+
 function renderAv2SequencesQuestion(question) {
   if (question.type === 'sequence') return `<div class="neighbor-wrap av2-number-sequence-wrap"><div class="number-sequence av2-number-sequence" aria-label="${escapeAttribute(question.prompt)}">${question.values.map((value, index) => index === question.blank
     ? `<input class="sequence-input" type="text" inputmode="numeric" maxlength="3" data-sequence-answer="" aria-label="Número que falta" value="${escapeAttribute(state.av2SequenceAnswer.value ?? '')}" ${state.av2Correct ? 'disabled' : ''}>`
@@ -896,6 +1095,7 @@ function renderAv2MoneyCompositionQuestion(question) {
 }
 
 function renderAv2Question(question) {
+  if (question.activityId === AV2_SIMULADO_ACTIVITY_ID) return renderAv2SimuladoQuestion(question);
   if (question.activityId === AV2_MONEY_COMPOSITION_ACTIVITY_ID) return renderAv2MoneyCompositionQuestion(question);
   if (question.activityId === 'av2-sequences') return renderAv2SequencesQuestion(question);
   if (question.activityId === AV2_SUBTRACTION_ACTIVITY_ID) return renderSubtractionQuestion(question, {
@@ -1056,7 +1256,10 @@ function renderAv2Feedback(question) {
 
 function renderAv2Game() {
   const question = state.av2Round[state.av2Index];
-  const activityName = state.av2Block === 'block-05' ? 'Sequências e números por extenso'
+  const activityName = state.av2Block === 'block-07'
+    ? question.type === 'simulado-two-step' ? 'Problema em duas etapas'
+      : AV2_SIMULADO_SUBJECTS.find(({ id }) => id === question.simulado?.subjectId)?.label ?? 'Simulado AV2'
+    : state.av2Block === 'block-05' ? 'Sequências e números por extenso'
     : state.av2Block === 'block-06' ? 'Formar quantias'
     : state.av2Block === 'block-04' ? 'Subtração com reagrupamento'
     : state.av2Block === 'block-03' ? 'Adição com reagrupamento'
@@ -1147,9 +1350,10 @@ function renderReward() {
   const rewardMessage = createRewardMessage();
   const av2Reward = state.activeRevision === AV2_REVISION_ID;
   const subtractionReward = av2Reward && state.av2Block === 'block-04';
+  const simuladoReward = av2Reward && state.av2Block === 'block-07';
   const additionReward = av2Reward && ['block-03', 'block-04'].includes(state.av2Block);
   const twelveChallengeReward = av2Reward && ['block-03', 'block-04', 'block-05', 'block-06'].includes(state.av2Block);
-  const starCount = twelveChallengeReward ? 12 : av2Reward ? 10 : 6;
+  const starCount = simuladoReward ? state.av2Round.length : twelveChallengeReward ? 12 : av2Reward ? 10 : 6;
   const starsLabel = `${starCount} estrelas conquistadas`;
   return `<div class="site-shell reward-screen">
     <main class="reward-main">
@@ -1157,13 +1361,13 @@ function renderReward() {
         <div class="reward-stars${av2Reward ? ' av2-reward-stars' : ''}${additionReward ? ' av2-addition-reward-stars' : ''}" aria-label="${starsLabel}">${Array.from({ length: starCount }, () => av2Reward ? '<span aria-hidden="true">★</span>' : '★').join(av2Reward ? '' : ' ')}</div>
         <p class="eyebrow">Missão cumprida!</p>
         <h1 id="reward-title">${escapeHtml(rewardMessage.visualText)}</h1>
-        <p class="reward-copy">${av2Reward && state.av2Block === 'block-06' ? 'Você concluiu os 12 desafios de formar quantias. Agora é hora de colorir!' : av2Reward && state.av2Block === 'block-05' ? 'Você concluiu as 12 questões de sequências e números. Agora é hora de colorir!' : subtractionReward ? 'Você concluiu as 12 questões de subtração. Agora é hora de colorir!' : additionReward ? 'Você concluiu as 12 questões de adição. Agora é hora de colorir!' : av2Reward ? 'Você concluiu as 10 questões sobre dinheiro. Agora é hora de colorir!' : 'Você passou por todas as atividades. Agora é hora de colorir!'}</p>
+        <p class="reward-copy">${simuladoReward ? 'Você concluiu o Simulado AV2. Agora é hora de colorir!' : av2Reward && state.av2Block === 'block-06' ? 'Você concluiu os 12 desafios de formar quantias. Agora é hora de colorir!' : av2Reward && state.av2Block === 'block-05' ? 'Você concluiu as 12 questões de sequências e números. Agora é hora de colorir!' : subtractionReward ? 'Você concluiu as 12 questões de subtração. Agora é hora de colorir!' : additionReward ? 'Você concluiu as 12 questões de adição. Agora é hora de colorir!' : av2Reward ? 'Você concluiu as 10 questões sobre dinheiro. Agora é hora de colorir!' : 'Você passou por todas as atividades. Agora é hora de colorir!'}</p>
         ${state.rewardFallback ? renderColoringPage(null) : renderColoringPage(rewardPage)}
         <div class="reward-actions">
           <button class="primary-button" type="button" data-action="print">🖨 Imprimir meu desenho</button>
           <button class="secondary-button" type="button" data-action="another-coloring-page">🎨 Ver outro desenho</button>
           <button class="secondary-button" type="button" data-action="restart">↻ ${av2Reward ? 'Outra rodada AV2' : 'Jogar novamente'}</button>
-          ${additionReward ? '<button class="secondary-button" type="button" data-action="av2-home">Voltar às atividades AV2</button>' : ''}
+          ${additionReward || simuladoReward ? '<button class="secondary-button" type="button" data-action="av2-home">Voltar às atividades AV2</button>' : ''}
           ${av2Reward ? '<button class="secondary-button" type="button" data-action="home">Voltar às revisões</button>' : ''}
           <button class="change-child-home" type="button" data-action="change-child">Trocar criança</button>
         </div>
@@ -1209,6 +1413,8 @@ function render() {
   if (state.screen === 'name') app.innerHTML = renderNameScreen();
   else if (state.screen === 'home') app.innerHTML = renderHome();
   else if (state.screen === 'av2-home') app.innerHTML = renderAv2Home();
+  else if (state.screen === 'av2-simulado-setup') app.innerHTML = renderAv2SimuladoSetup();
+  else if (state.screen === 'av2-simulado-results') app.innerHTML = renderAv2SimuladoResults();
   else if (state.screen === 'av2-game') app.innerHTML = renderAv2Game();
   else if (state.screen === 'reward') app.innerHTML = renderReward();
   else app.innerHTML = renderGame();
@@ -1240,6 +1446,10 @@ function resetRoundState() {
   state.av2Attempts = 0;
   state.av2Selected = null;
   state.av2Block = 'block-01';
+  state.av2Simulation = null;
+  state.av2CompositeStage = 1;
+  state.av2CompositeIntermediate = null;
+  state.av2SimuladoInputError = '';
 }
 
 function requestChangeChild() {
@@ -1302,9 +1512,14 @@ function beginRound() {
 }
 
 function beginAv2Round(block = 'block-01') {
+  if (block === 'block-07') {
+    beginAv2SimuladoRound(state.av2SimuladoSetup);
+    return;
+  }
   cancelSpeech();
   state.activeRevision = AV2_REVISION_ID;
   state.av2Block = block;
+  state.av2Simulation = null;
   state.screen = 'av2-game';
   state.av2Round = block === 'block-06' ? createAv2MoneyCompositionRound()
     : block === 'block-05' ? createAv2SequencesRound()
@@ -1320,6 +1535,51 @@ function beginAv2Round(block = 'block-01') {
   state.av2SequenceAnswer = {};
   state.av2AdditionInputError = false;
   state.av2ActiveAdditionField = null;
+  state.av2MoneySelection = [];
+  state.av2MoneyNextItemId = 0;
+  state.av2MoneySolutions = [];
+  state.av2MoneyFeedback = null;
+  state.rewardPageId = null;
+  state.rewardFallback = false;
+  state.officialOpenFailure = null;
+  render();
+}
+
+function beginAv2SimuladoRound(counts, { mode = 'full', targets = [], initialReport = null } = {}) {
+  cancelSpeech();
+  const normalizedCounts = mode === 'focus'
+    ? Object.fromEntries(AV2_SIMULADO_SUBJECTS.map(({ id }) => [id, targets.filter(({ subjectId }) => subjectId === id).length]).filter(([, count]) => count > 0))
+    : normalizeAv2SimuladoCounts(counts);
+  state.activeRevision = AV2_REVISION_ID;
+  state.av2Block = 'block-07';
+  state.av2Round = mode === 'focus' ? createAv2SimuladoFocusRound(targets) : createAv2SimuladoRound(normalizedCounts);
+  const previousSimulation = state.av2Simulation;
+  state.av2Simulation = {
+    counts: normalizedCounts,
+    mode,
+    metrics: createSimuladoMetrics(normalizedCounts),
+    errors: [],
+    initialReport: initialReport
+      ? copySimuladoMetrics(initialReport)
+      : mode === 'focus' && previousSimulation?.mode === 'full'
+        ? copySimuladoMetrics(previousSimulation.metrics)
+        : previousSimulation?.initialReport ?? null,
+    focusReport: null,
+    focusTargets: targets.map((target) => ({ ...target })),
+  };
+  state.screen = 'av2-game';
+  state.av2Index = 0;
+  state.av2Correct = false;
+  state.av2Attempts = 0;
+  state.av2Selected = null;
+  state.av2HintIndex = -1;
+  state.av2AdditionAnswer = {};
+  state.av2SequenceAnswer = {};
+  state.av2AdditionInputError = false;
+  state.av2ActiveAdditionField = null;
+  state.av2CompositeStage = 1;
+  state.av2CompositeIntermediate = null;
+  state.av2SimuladoInputError = '';
   state.av2MoneySelection = [];
   state.av2MoneyNextItemId = 0;
   state.av2MoneySolutions = [];
@@ -1354,6 +1614,14 @@ function nextAv2Question() {
   if (!state.av2Correct) return;
   cancelSpeech();
   if (state.av2Index >= state.av2Round.length - 1) {
+    if (state.av2Block === 'block-07') {
+      av2SimuladoProgress.completeRound();
+      if (state.av2Simulation.mode === 'focus') state.av2Simulation.focusReport = copySimuladoMetrics(state.av2Simulation.metrics);
+      else state.av2Simulation.initialReport = copySimuladoMetrics(state.av2Simulation.metrics);
+      state.screen = 'av2-simulado-results';
+      render();
+      return;
+    }
     const progressStore = state.av2Block === 'block-06' ? av2MoneyCompositionProgress
       : state.av2Block === 'block-05' ? av2SequencesProgress
       : state.av2Block === 'block-04' ? av2SubtractionProgress
@@ -1374,6 +1642,9 @@ function nextAv2Question() {
   state.av2SequenceAnswer = {};
   state.av2AdditionInputError = false;
   state.av2ActiveAdditionField = null;
+  state.av2CompositeStage = 1;
+  state.av2CompositeIntermediate = null;
+  state.av2SimuladoInputError = '';
   state.av2MoneySelection = [];
   state.av2MoneyNextItemId = 0;
   state.av2MoneySolutions = [];
@@ -1420,6 +1691,14 @@ function selectVisualOption(shapeKey) {
 function selectAv2Option(moneyId) {
   if (state.av2Correct) return;
   const question = state.av2Round[state.av2Index];
+  if (state.av2Block === 'block-07' && question.activityId === AV2_SIMULADO_ACTIVITY_ID) {
+    const options = question.type === 'simulado-two-step'
+      ? question.data.steps[state.av2CompositeStage - 1].options : question.options;
+    if (!options.some((option) => String(typeof option === 'object' ? option.value : option) === String(moneyId))) return;
+    state.av2Selected = /^\d+$/.test(String(moneyId)) ? Number(moneyId) : moneyId;
+    render();
+    return;
+  }
   if (question?.type === 'shopping-affordability') {
     if (!question.options.includes(moneyId)) return;
     const selected = Array.isArray(state.av2Selected) ? state.av2Selected : [];
@@ -1444,11 +1723,13 @@ function selectAv2Option(moneyId) {
     ? validateAv2AdditionAnswer(question, answer)
     : validateAv2Answer(question, answer);
   if (isCorrect) {
+    recordSimuladoAttempt(question, true);
     state.av2Correct = true;
     cancelSpeech();
     render();
     return;
   }
+  recordSimuladoAttempt(question, false);
   state.av2Attempts += 1;
   if ([AV2_ADDITION_ACTIVITY_ID, AV2_SUBTRACTION_ACTIVITY_ID].includes(question.activityId)) {
     state.av2HintIndex = Math.min(state.av2HintIndex + 1, question.hints.length - 1);
@@ -1492,6 +1773,9 @@ function submitAv2MoneyCompositionAnswer(question) {
   const counts = countMoneyCompositionSelection(state.av2MoneySelection);
   const result = validateAv2MoneyCompositionSelection(question, counts, state.av2MoneySolutions);
   state.av2MoneyFeedback = result.reason;
+  if (state.av2Block === 'block-07' && question.simulado) {
+    recordSimuladoAttempt(question, result.correct);
+  }
   if (result.correct) {
     state.av2MoneySolutions = [...state.av2MoneySolutions, { ...counts }];
     state.av2MoneySelection = [];
@@ -1513,6 +1797,53 @@ function submitAv2MoneyCompositionAnswer(question) {
 function submitAv2Answer() {
   if (state.av2Correct) return;
   const question = state.av2Round[state.av2Index];
+  if (state.av2Block === 'block-07' && question.type === 'simulado-two-step') {
+    if (state.av2Selected === null) return;
+    const stage = state.av2CompositeStage;
+    const step = question.data.steps[stage - 1];
+    const intermediateIsPreserved = stage !== 2 || state.av2CompositeIntermediate === step.a;
+    const isCorrect = intermediateIsPreserved && validateAv2SimuladoAnswer(question, state.av2Selected, stage);
+    recordSimuladoAttempt(question, isCorrect, step.subjectId);
+    if (isCorrect && stage === 1) {
+      state.av2CompositeIntermediate = step.result;
+      state.av2CompositeStage = 2;
+      state.av2Selected = null;
+      state.av2Attempts = 0;
+      state.av2HintIndex = -1;
+      state.av2SimuladoInputError = '';
+    } else if (isCorrect) {
+      state.av2Correct = true;
+    } else {
+      state.av2Attempts += 1;
+      state.av2HintIndex = Math.min(state.av2HintIndex + 1, question.hints.length - 1);
+    }
+    cancelSpeech();
+    render();
+    return;
+  }
+  if (state.av2Block === 'block-07' && ['simulado-sequence', 'simulado-word', 'simulado-association'].includes(question.type)) {
+    if (question.type === 'simulado-association') {
+      state.av2Selected = Object.fromEntries([...document.querySelectorAll('[data-av2-association-answer]')]
+        .map((select) => [select.dataset.av2AssociationAnswer, select.value]));
+      const complete = Object.values(state.av2Selected).every(Boolean);
+      if (!complete) {
+        state.av2SimuladoInputError = 'Associe os três números antes de conferir.';
+        render();
+        return;
+      }
+    }
+    state.av2SimuladoInputError = '';
+    const isCorrect = validateAv2SimuladoAnswer(question, state.av2Selected);
+    recordSimuladoAttempt(question, isCorrect);
+    state.av2Correct = isCorrect;
+    if (!isCorrect) {
+      state.av2Attempts += 1;
+      state.av2HintIndex = Math.min(state.av2HintIndex + 1, 1);
+    }
+    cancelSpeech();
+    render();
+    return;
+  }
   if (question.activityId === AV2_MONEY_COMPOSITION_ACTIVITY_ID) {
     submitAv2MoneyCompositionAnswer(question);
     return;
@@ -1546,7 +1877,9 @@ function submitAv2Answer() {
       const column = name.slice(6).toLowerCase();
       return !/^\d{1,2}$/.test(field.value) || Number(field.value) !== question.data.trace.adjusted[column];
     });
-    state.av2Correct = !invalidBorrow && validateAv2SubtractionAnswer(question, answer);
+    const isCorrect = !invalidBorrow && validateAv2SubtractionAnswer(question, answer);
+    recordSimuladoAttempt(question, isCorrect);
+    state.av2Correct = isCorrect;
     if (invalidBorrow) state.av2AdditionInputError = 'Confira as trocas: quando uma coluna recebe 10, o vizinho perde 1. Registre os valores depois de todas as trocas.';
     if (!state.av2Correct) {
       state.av2Attempts += 1;
@@ -1573,6 +1906,7 @@ function submitAv2Answer() {
     if (incorrectCarry) {
       const [field] = incorrectCarry;
       state.av2AdditionInputError = 'Confira o número que você escreveu na casa da reserva.';
+      recordSimuladoAttempt(question, false);
       state.av2Attempts += 1;
       state.av2HintIndex = Math.min(state.av2HintIndex + 1, question.hints.length - 1);
       cancelSpeech();
@@ -1582,7 +1916,9 @@ function submitAv2Answer() {
     }
     const answer = Number(requiredFields.map((field) => values[field]).join(''));
     state.av2Selected = answer;
-    if (validateAv2AdditionAnswer(question, answer)) {
+    const isCorrect = validateAv2AdditionAnswer(question, answer);
+    recordSimuladoAttempt(question, isCorrect);
+    if (isCorrect) {
       state.av2Correct = true;
     } else {
       state.av2Attempts += 1;
@@ -1593,7 +1929,9 @@ function submitAv2Answer() {
     return;
   }
   const answer = Array.isArray(state.av2Selected) ? state.av2Selected : [];
-  if (validateAv2Answer(question, answer)) {
+  const isCorrect = validateAv2Answer(question, answer);
+  recordSimuladoAttempt(question, isCorrect);
+  if (isCorrect) {
     state.av2Correct = true;
   } else {
     state.av2Attempts += 1;
@@ -1660,6 +1998,30 @@ function bindEvents() {
       if (action === 'start-av2-shopping') beginAv2Round('block-02');
       if (action === 'start-av2-addition') beginAv2Round('block-03');
       if (action === 'start-av2-subtraction') beginAv2Round('block-04');
+      if (action === 'open-av2-simulado-setup') {
+        cancelSpeech();
+        state.activeRevision = AV2_REVISION_ID;
+        state.screen = 'av2-simulado-setup';
+        render();
+      }
+      if (action === 'start-av2-simulado') {
+        const counts = readAv2SimuladoSetup();
+        state.av2SimuladoSetup = Object.fromEntries(AV2_SIMULADO_SUBJECTS.map(({ id }) => [id, counts[id] ?? 0]));
+        if (Object.keys(counts).length) beginAv2SimuladoRound(counts);
+      }
+      if (action === 'review-av2-simulado-errors') {
+        const targets = state.av2Simulation?.errors.map((target) => ({ ...target })) ?? [];
+        if (targets.length) beginAv2SimuladoRound(null, {
+          mode: 'focus',
+          targets,
+          initialReport: state.av2Simulation.mode === 'full' ? state.av2Simulation.metrics : state.av2Simulation.initialReport,
+        });
+      }
+      if (action === 'show-simulado-reward') {
+        selectRewardPage();
+        state.screen = 'reward';
+        render();
+      }
       if (action === 'start-av2-sequences') beginAv2Round('block-05');
       if (action === 'start-av2-money-composition') beginAv2Round('block-06');
       if (action === 'restart') {
@@ -1740,6 +2102,32 @@ function bindEvents() {
 
   document.querySelectorAll('[data-av2-answer]').forEach((button) => {
     button.addEventListener('click', () => selectAv2Option(button.dataset.av2Answer));
+  });
+
+  document.querySelectorAll('[data-simulado-subject]').forEach((checkbox) => {
+    checkbox.addEventListener('change', () => {
+      const subjectId = checkbox.dataset.simuladoSubject;
+      const count = Number(document.querySelector(`[data-simulado-count="${subjectId}"]`)?.value) || AV2_SIMULADO_DEFAULT_QUESTIONS_PER_SUBJECT;
+      state.av2SimuladoSetup[subjectId] = checkbox.checked ? count : 0;
+      render();
+    });
+  });
+  document.querySelectorAll('[data-simulado-count]').forEach((select) => {
+    select.addEventListener('change', () => {
+      const subjectId = select.dataset.simuladoCount;
+      if (state.av2SimuladoSetup[subjectId] > 0) state.av2SimuladoSetup[subjectId] = Number(select.value);
+      render();
+    });
+  });
+
+  document.querySelectorAll('[data-av2-association-answer]').forEach((select) => {
+    select.addEventListener('change', () => {
+      state.av2Selected = { ...(state.av2Selected ?? {}), [select.dataset.av2AssociationAnswer]: select.value };
+      state.av2SimuladoInputError = '';
+      document.querySelector('[data-av2-question-type="simulado-association"] .av2-addition-input-error')?.remove();
+      const submitButton = document.querySelector('[data-action="submit-av2"]');
+      if (submitButton) submitButton.disabled = [...document.querySelectorAll('[data-av2-association-answer]')].some((field) => !field.value);
+    });
   });
 
   document.querySelectorAll('[data-add-money]').forEach((button) => {
