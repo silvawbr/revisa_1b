@@ -1,5 +1,5 @@
 import { AV2_SUBTRACTION_ACTIVITY_ID, createAv2SubtractionRound, validateAv2SubtractionAnswer } from './src/av2/subtraction.js';
-import { AV2_SEQUENCES_PROGRESS_STORAGE_KEY, createAv2SequencesRound, validateAv2SequencesAnswer } from './src/av2/sequences.js';
+import { AV2_SEQUENCES_ACTIVITY_ID, AV2_SEQUENCES_PROGRESS_STORAGE_KEY, createAv2SequencesRound, validateAv2SequencesAnswer } from './src/av2/sequences.js';
 import { renderSubtractionQuestion } from './src/av2/subtraction-layout.js';
 import {
   AV2_MONEY_COMPOSITION_ACTIVITY_ID,
@@ -40,6 +40,8 @@ import {
   AV2_REVISION_ID,
   BANKNOTES,
   COINS,
+  AV2_MONEY_ACTIVITY_ID,
+  AV2_SHOPPING_ACTIVITY_ID,
   MONEY_DENOMINATIONS,
   createAv2Round,
   createAv2ShoppingRound,
@@ -56,6 +58,7 @@ import { getAv2ProductIllustration } from './src/av2/product-illustrations.js';
 import {
   AV2_ADDITION_PROGRESS_STORAGE_KEY,
   AV2_MONEY_COMPOSITION_PROGRESS_STORAGE_KEY,
+  AV2_SIMULATION_PROGRESS_STORAGE_KEY,
   AV2_SUBTRACTION_PROGRESS_STORAGE_KEY,
   AV2_SHOPPING_PROGRESS_STORAGE_KEY,
   createAv2ProgressStore,
@@ -81,6 +84,7 @@ const officialColoringPageHistory = createRecentIdStore({
   limit: OFFICIAL_COLORING_PAGE_HISTORY_LIMIT,
 });
 const av2Progress = createAv2ProgressStore();
+const av2SimulationProgress = createAv2ProgressStore({ key: AV2_SIMULATION_PROGRESS_STORAGE_KEY });
 const av2ShoppingProgress = createAv2ProgressStore({ key: AV2_SHOPPING_PROGRESS_STORAGE_KEY });
 const av2AdditionProgress = createAv2ProgressStore({ key: AV2_ADDITION_PROGRESS_STORAGE_KEY });
 const av2SubtractionProgress = createAv2ProgressStore({ key: AV2_SUBTRACTION_PROGRESS_STORAGE_KEY });
@@ -616,7 +620,7 @@ function renderNameScreen() {
 }
 
 function renderHome() {
-  const av2RoundsCompleted = av2Progress.get().roundsCompleted;
+  const av2RoundsCompleted = av2SimulationProgress.get().roundsCompleted;
   return `<div class="site-shell home-screen">
     <main class="home-main">
       <div class="home-decor decor-one" aria-hidden="true">2</div><div class="home-decor decor-two" aria-hidden="true">★</div><div class="home-decor decor-three" aria-hidden="true">5</div>
@@ -630,9 +634,9 @@ function renderHome() {
           <div class="simulation-feature-content">
             <p class="simulation-kicker">Preparação para a prova</p>
             <h2 id="simulation-title">Simulado AV2</h2>
-            <p>Responda a 10 questões de dinheiro e acompanhe seu progresso.</p>
+            <p>Responda a 12 questões: duas de cada assunto da AV2.</p>
             <p class="simulation-progress">Simulados concluídos: <strong>${av2RoundsCompleted}</strong></p>
-            <button class="primary-button simulation-start-button" type="button" data-action="start-av2">Começar simulado <span aria-hidden="true">→</span></button>
+            <button class="primary-button simulation-start-button" type="button" data-action="start-av2-simulation">Começar simulado <span aria-hidden="true">→</span></button>
           </div>
         </section>
         <section class="home-review-section" aria-labelledby="home-reviews-title">
@@ -736,6 +740,18 @@ function renderAv2Progress() {
   return `<div class="av2-progress" role="img" aria-label="Progresso: questão ${state.av2Index + 1} de ${total}">
     ${Array.from({ length: total }, (_, index) => `<span class="av2-progress-dot ${index < state.av2Index ? 'is-complete' : ''} ${index === state.av2Index ? 'is-current' : ''}" aria-hidden="true">${index < state.av2Index ? '★' : '☆'}</span>`).join('')}
   </div>`;
+}
+
+function av2ActivityName(question) {
+  const activityNames = {
+    [AV2_MONEY_ACTIVITY_ID]: 'Dinheiro',
+    [AV2_SHOPPING_ACTIVITY_ID]: 'Compras e troco',
+    [AV2_ADDITION_ACTIVITY_ID]: 'Adição com reagrupamento',
+    [AV2_SUBTRACTION_ACTIVITY_ID]: 'Subtração com reagrupamento',
+    [AV2_SEQUENCES_ACTIVITY_ID]: 'Sequências e números por extenso',
+    [AV2_MONEY_COMPOSITION_ACTIVITY_ID]: 'Formar quantias',
+  };
+  return activityNames[question.activityId] ?? 'Questão AV2';
 }
 
 function renderAv2Header() {
@@ -1071,7 +1087,8 @@ function renderAv2Feedback(question) {
 
 function renderAv2Game() {
   const question = state.av2Round[state.av2Index];
-  const activityName = state.av2Block === 'block-05' ? 'Sequências e números por extenso'
+  const activityName = state.av2Block === 'simulado' ? av2ActivityName(question)
+    : state.av2Block === 'block-05' ? 'Sequências e números por extenso'
     : state.av2Block === 'block-06' ? 'Formar quantias'
     : state.av2Block === 'block-04' ? 'Subtração com reagrupamento'
     : state.av2Block === 'block-03' ? 'Adição com reagrupamento'
@@ -1161,18 +1178,19 @@ function renderReward() {
   const rewardPage = getColoringPageById(state.rewardPageId);
   const rewardMessage = createRewardMessage();
   const av2Reward = state.activeRevision === AV2_REVISION_ID;
+  const simulationReward = av2Reward && state.av2Block === 'simulado';
   const subtractionReward = av2Reward && state.av2Block === 'block-04';
   const additionReward = av2Reward && ['block-03', 'block-04'].includes(state.av2Block);
-  const twelveChallengeReward = av2Reward && ['block-03', 'block-04', 'block-05', 'block-06'].includes(state.av2Block);
+  const twelveChallengeReward = simulationReward || av2Reward && ['block-03', 'block-04', 'block-05', 'block-06'].includes(state.av2Block);
   const starCount = twelveChallengeReward ? 12 : av2Reward ? 10 : 6;
   const starsLabel = `${starCount} estrelas conquistadas`;
   return `<div class="site-shell reward-screen">
     <main class="reward-main">
       <section class="reward-card" aria-labelledby="reward-title">
-        <div class="reward-stars${av2Reward ? ' av2-reward-stars' : ''}${additionReward ? ' av2-addition-reward-stars' : ''}" aria-label="${starsLabel}">${Array.from({ length: starCount }, () => av2Reward ? '<span aria-hidden="true">★</span>' : '★').join(av2Reward ? '' : ' ')}</div>
+        <div class="reward-stars${av2Reward ? ' av2-reward-stars' : ''}${twelveChallengeReward ? ' av2-addition-reward-stars' : ''}" aria-label="${starsLabel}">${Array.from({ length: starCount }, () => av2Reward ? '<span aria-hidden="true">★</span>' : '★').join(av2Reward ? '' : ' ')}</div>
         <p class="eyebrow">Missão cumprida!</p>
         <h1 id="reward-title">${escapeHtml(rewardMessage.visualText)}</h1>
-        <p class="reward-copy">${av2Reward && state.av2Block === 'block-06' ? 'Você concluiu os 12 desafios de formar quantias. Agora é hora de colorir!' : av2Reward && state.av2Block === 'block-05' ? 'Você concluiu as 12 questões de sequências e números. Agora é hora de colorir!' : subtractionReward ? 'Você concluiu as 12 questões de subtração. Agora é hora de colorir!' : additionReward ? 'Você concluiu as 12 questões de adição. Agora é hora de colorir!' : av2Reward ? 'Você concluiu as 10 questões sobre dinheiro. Agora é hora de colorir!' : 'Você passou por todas as atividades. Agora é hora de colorir!'}</p>
+        <p class="reward-copy">${simulationReward ? 'Você concluiu o simulado AV2 com questões de todos os assuntos. Agora é hora de colorir!' : av2Reward && state.av2Block === 'block-06' ? 'Você concluiu os 12 desafios de formar quantias. Agora é hora de colorir!' : av2Reward && state.av2Block === 'block-05' ? 'Você concluiu as 12 questões de sequências e números. Agora é hora de colorir!' : subtractionReward ? 'Você concluiu as 12 questões de subtração. Agora é hora de colorir!' : additionReward ? 'Você concluiu as 12 questões de adição. Agora é hora de colorir!' : av2Reward ? 'Você concluiu as 10 questões sobre dinheiro. Agora é hora de colorir!' : 'Você passou por todas as atividades. Agora é hora de colorir!'}</p>
         ${state.rewardFallback ? renderColoringPage(null) : renderColoringPage(rewardPage)}
         <div class="reward-actions">
           <button class="primary-button" type="button" data-action="print">🖨 Imprimir meu desenho</button>
@@ -1316,12 +1334,34 @@ function beginRound() {
   render();
 }
 
+function shuffleAv2Questions(questions) {
+  const shuffled = [...questions];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled;
+}
+
+function createAv2SimulationRound() {
+  const topicRounds = [
+    createAv2Round(),
+    createAv2ShoppingRound(),
+    createAv2AdditionRound(),
+    createAv2SubtractionRound(),
+    createAv2SequencesRound(),
+    createAv2MoneyCompositionRound(),
+  ];
+  return shuffleAv2Questions(topicRounds.flatMap((round) => round.slice(0, 2)));
+}
+
 function beginAv2Round(block = 'block-01') {
   cancelSpeech();
   state.activeRevision = AV2_REVISION_ID;
   state.av2Block = block;
   state.screen = 'av2-game';
-  state.av2Round = block === 'block-06' ? createAv2MoneyCompositionRound()
+  state.av2Round = block === 'simulado' ? createAv2SimulationRound()
+    : block === 'block-06' ? createAv2MoneyCompositionRound()
     : block === 'block-05' ? createAv2SequencesRound()
     : block === 'block-04' ? createAv2SubtractionRound()
     : block === 'block-03' ? createAv2AdditionRound()
@@ -1369,7 +1409,8 @@ function nextAv2Question() {
   if (!state.av2Correct) return;
   cancelSpeech();
   if (state.av2Index >= state.av2Round.length - 1) {
-    const progressStore = state.av2Block === 'block-06' ? av2MoneyCompositionProgress
+    const progressStore = state.av2Block === 'simulado' ? av2SimulationProgress
+      : state.av2Block === 'block-06' ? av2MoneyCompositionProgress
       : state.av2Block === 'block-05' ? av2SequencesProgress
       : state.av2Block === 'block-04' ? av2SubtractionProgress
       : state.av2Block === 'block-03' ? av2AdditionProgress
@@ -1672,6 +1713,7 @@ function bindEvents() {
       const action = element.dataset.action;
       if (action === 'start') beginRound();
       if (action === 'start-av2') beginAv2Round();
+      if (action === 'start-av2-simulation') beginAv2Round('simulado');
       if (action === 'start-av2-shopping') beginAv2Round('block-02');
       if (action === 'start-av2-addition') beginAv2Round('block-03');
       if (action === 'start-av2-subtraction') beginAv2Round('block-04');
