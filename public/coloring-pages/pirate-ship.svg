@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1100" role="img" aria-label="Navio pirata no mar">
+<rect x="18" y="18" width="764" height="1064" rx="16" fill="white" stroke="#111" stroke-width="4"/>
+<g transform="translate(650 130)" fill="white" stroke="#111" stroke-width="6" stroke-linecap="round"><path d="M0 -62v-18" transform="rotate(0)"/><path d="M0 -62v-18" transform="rotate(45)"/><path d="M0 -62v-18" transform="rotate(90)"/><path d="M0 -62v-18" transform="rotate(135)"/><path d="M0 -62v-18" transform="rotate(180)"/><path d="M0 -62v-18" transform="rotate(225)"/><path d="M0 -62v-18" transform="rotate(270)"/><path d="M0 -62v-18" transform="rotate(315)"/><circle r="45"/></g>
+<g transform="translate(70 145) scale(0.62)"><g fill="white" stroke="#111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><path d="M0 28h94c20 0 30-29 9-39-8-4-16-4-24 0C72-43 39-35 36-10 11-18-3-2 0 28z"/></g></g>
+<g transform="translate(93 213) scale(0.7)"><g fill="white" stroke="#111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><path d="M0 28h94c20 0 30-29 9-39-8-4-16-4-24 0C72-43 39-35 36-10 11-18-3-2 0 28z"/></g></g><path d="M68 840q90-35 180 0t180 0 180 0 124 0m-640 40q90-35 180 0t180 0 180 0 124 0"/>
+<g transform="translate(400 520) scale(1)" fill="white" stroke="#111" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><path d="M-210 95h420l-66 92h-288zM-8-174v260"/><path d="M-4-162q-109 41-142 149L-4-13zM7-129q100 30 141 116L7-13z"/><path d="M-254 220q51-26 102 0t102 0 102 0 102 0"/><circle cx="-128" cy="142" r="12"/><circle cx="128" cy="142" r="12"/></g>
+<path d="M75 985q325 -35 650 0" fill="none" stroke="#111" stroke-width="5" stroke-linecap="round"/>
+</svg>

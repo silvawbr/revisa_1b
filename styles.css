@@ -714,6 +714,7 @@ h1 span { color: var(--blue-deep); }
 
 @media print {
   @page { size: A4 portrait; margin: 10mm; }
+  @page coloring-landscape { size: A4 landscape; margin: 10mm; }
   body,
   #app,
   .reward-screen,
@@ -737,6 +738,7 @@ h1 span { color: var(--blue-deep); }
   .official-reward-option,
   .official-open-message { display: none !important; }
   .print-sheet { position: fixed; inset: 10mm; width: auto; height: auto; min-height: 0; margin: 0; padding: 0; border-radius: 0; box-shadow: none; background: #fff; justify-content: center; gap: 4mm; }
+  .print-sheet[data-orientation="landscape"] { page: coloring-landscape; }
   .coloring-image,
   .coloring-svg { display: block; width: auto; max-width: 100%; max-height: calc(100% - 8mm); height: auto; object-fit: contain; }
   .coloring-attribution { flex: 0 0 auto; max-width: 100%; color: #171925; font-size: 7pt; line-height: 1.2; text-align: center; }
