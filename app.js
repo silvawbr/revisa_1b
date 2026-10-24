@@ -153,12 +153,6 @@ const state = {
   av2MoneyFeedback: null,
 };
 
-function createSimuladoMetrics(counts) {
-  return Object.fromEntries(AV2_SIMULADO_SUBJECTS
-    .filter(({ id }) => counts[id] > 0)
-    .map(({ id }) => [id, { questions: counts[id], firstTryCorrect: 0, solved: 0, attempts: 0 }]));
-}
-
 function countSimuladoQuestions(round) {
   const counts = Object.fromEntries(AV2_SIMULADO_SUBJECTS.map(({ id }) => [id, 0]));
   for (const question of round) {
@@ -167,28 +161,14 @@ function countSimuladoQuestions(round) {
   return Object.fromEntries(Object.entries(counts).filter(([, count]) => count > 0));
 }
 
-function copySimuladoMetrics(metrics = {}) {
-  return Object.fromEntries(Object.entries(metrics).map(([subjectId, values]) => [subjectId, { ...values }]));
-}
-
 function recordSimuladoAttempt(question, isCorrect, subjectId = null) {
   const subject = subjectId ?? question?.simulado?.subjectId;
-  recordSimuladoStageAttempt(question, isCorrect, subject, {
-    complete: isCorrect,
-    firstTry: state.av2Attempts === 0,
-  });
+  recordSimuladoStageAttempt(question, isCorrect, subject);
 }
 
-function recordSimuladoStageAttempt(question, isCorrect, subjectId, { complete = false, firstTry = false } = {}) {
+function recordSimuladoStageAttempt(question, isCorrect, subjectId) {
   if (state.av2Block !== 'block-07' || !state.av2Simulation || !question?.simulado) return;
   const subject = subjectId ?? question.simulado.subjectId;
-  const metric = state.av2Simulation.metrics[subject];
-  if (!metric) return;
-  metric.attempts += 1;
-  if (isCorrect && complete) {
-    metric.solved += 1;
-    if (firstTry) metric.firstTryCorrect += 1;
-  }
   if (isCorrect) return;
   const key = `${question.simulado.questionId}:${subject}`;
   if (!state.av2Simulation.errors.some((target) => target.key === key)) {
@@ -855,40 +835,6 @@ function readAv2SimuladoSetup() {
     if (enabled && Number.isInteger(count) && count >= 1 && count <= 5) counts[id] = count;
   }
   return counts;
-}
-
-function renderSimuladoMetrics(metrics, heading) {
-  const rows = AV2_SIMULADO_SUBJECTS.filter(({ id }) => metrics?.[id]).map(({ id, label }) => {
-    const value = metrics[id];
-    return `<tr><th scope="row">${escapeHtml(label)}</th><td>${value.firstTryCorrect} de ${value.questions}</td><td>${value.solved} de ${value.questions}</td><td>${value.attempts}</td></tr>`;
-  }).join('');
-  return `<section class="simulado-results-section"><h2>${escapeHtml(heading)}</h2><div class="simulado-results-scroll"><table class="simulado-results-table"><thead><tr><th scope="col">Assunto</th><th scope="col">Acertos na 1ª tentativa</th><th scope="col">Questões resolvidas</th><th scope="col">Tentativas</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
-}
-
-function renderAv2SimuladoResults() {
-  const simulation = state.av2Simulation;
-  const inFocusRound = simulation?.mode === 'focus';
-  const currentMetrics = inFocusRound ? simulation.focusReport : simulation.initialReport;
-  const title = inFocusRound ? 'Rodada focada nos erros' : 'Resultado do simulado';
-  const errorCount = simulation?.errors.length ?? 0;
-  return `<div class="site-shell home-screen av2-home-screen">
-    <main class="home-main">
-      <section class="home-card av2-home-card simulado-results-card" aria-labelledby="simulado-results-title">
-        <p class="eyebrow">Simulado AV2</p>
-        <h1 id="simulado-results-title">${title}<br><span>Resultado por assunto</span></h1>
-        ${inFocusRound && simulation.initialReport ? renderSimuladoMetrics(simulation.initialReport, 'Rodada inicial') : ''}
-        ${renderSimuladoMetrics(currentMetrics, inFocusRound ? 'Nesta rodada de reforço' : 'Desempenho por assunto')}
-        <p class="simulado-results-note">“Acertos na 1ª tentativa” considera a primeira resposta de cada questão. Tentativas inclui todas as respostas enviadas.</p>
-        <div class="simulado-result-actions">
-          <button class="primary-button" type="button" data-action="show-simulado-reward">Concluir e ver recompensa <span aria-hidden="true">→</span></button>
-          ${errorCount ? `<button class="secondary-button" type="button" data-action="review-av2-simulado-errors">Revisar os erros com novas questões (${errorCount})</button>` : ''}
-          <button class="secondary-button" type="button" data-action="open-av2-simulado-setup">Preparar outro simulado</button>
-          <button class="secondary-button" type="button" data-action="av2-home">Voltar às atividades AV2</button>
-        </div>
-        ${renderGuide(errorCount ? 'Os assuntos que pedem mais prática já estão separados.' : 'Você concluiu a revisão com muito cuidado!')}
-      </section>
-    </main>
-  </div>`;
 }
 
 function renderAv2Progress() {
@@ -1597,6 +1543,7 @@ function renderReward() {
         <div class="reward-actions">
           <button class="primary-button" type="button" data-action="print">🖨 Imprimir meu desenho</button>
           <button class="secondary-button" type="button" data-action="another-coloring-page" ${state.generatingRewardImage ? 'disabled' : ''}>🎨 Ver outro desenho</button>
+          ${simuladoReward && state.av2Simulation?.errors.length ? `<button class="secondary-button" type="button" data-action="review-av2-simulado-errors">Praticar as questões que errei (${state.av2Simulation.errors.length})</button>` : ''}
           <button class="secondary-button" type="button" data-action="generate-coloring-page" ${state.generatingRewardImage ? 'disabled' : ''}>${state.generatingRewardImage ? 'Criando desenho…' : '✨ Gerar desenho novo'}</button>
           <button class="secondary-button" type="button" data-action="restart">↻ ${av2Reward ? 'Outra rodada AV2' : 'Jogar novamente'}</button>
           ${additionReward || simuladoReward ? '<button class="secondary-button" type="button" data-action="av2-home">Voltar às atividades AV2</button>' : ''}
@@ -1646,7 +1593,6 @@ function render() {
   else if (state.screen === 'home') app.innerHTML = renderHome();
   else if (state.screen === 'av2-home') app.innerHTML = renderAv2Home();
   else if (state.screen === 'av2-simulado-setup') app.innerHTML = renderAv2SimuladoSetup();
-  else if (state.screen === 'av2-simulado-results') app.innerHTML = renderAv2SimuladoResults();
   else if (state.screen === 'av2-game') app.innerHTML = renderAv2Game();
   else if (state.screen === 'reward') app.innerHTML = renderReward();
   else app.innerHTML = renderGame();
@@ -1780,7 +1726,7 @@ function beginAv2Round(block = 'block-01') {
   render();
 }
 
-function beginAv2SimuladoRound(counts, { mode = 'full', preset = 'custom', targets = [], initialReport = null } = {}) {
+function beginAv2SimuladoRound(counts, { mode = 'full', preset = 'custom', targets = [] } = {}) {
   cancelSpeech();
   const round = mode === 'focus' ? createAv2SimuladoFocusRound(targets)
     : preset === AV2_SIMULADO_FULL_COVERAGE_PRESET_ID ? createAv2SimuladoFullCoverageRound()
@@ -1790,19 +1736,11 @@ function beginAv2SimuladoRound(counts, { mode = 'full', preset = 'custom', targe
   state.activeRevision = AV2_REVISION_ID;
   state.av2Block = 'block-07';
   state.av2Round = round;
-  const previousSimulation = state.av2Simulation;
   state.av2Simulation = {
     counts: normalizedCounts,
     mode,
     preset,
-    metrics: createSimuladoMetrics(normalizedCounts),
     errors: [],
-    initialReport: initialReport
-      ? copySimuladoMetrics(initialReport)
-      : mode === 'focus' && previousSimulation?.mode === 'full'
-        ? copySimuladoMetrics(previousSimulation.metrics)
-        : previousSimulation?.initialReport ?? null,
-    focusReport: null,
     focusTargets: targets.map((target) => ({ ...target })),
   };
   state.screen = 'av2-game';
@@ -1858,9 +1796,8 @@ function nextAv2Question() {
   if (state.av2Index >= state.av2Round.length - 1) {
     if (state.av2Block === 'block-07') {
       av2SimuladoProgress.completeRound();
-      if (state.av2Simulation.mode === 'focus') state.av2Simulation.focusReport = copySimuladoMetrics(state.av2Simulation.metrics);
-      else state.av2Simulation.initialReport = copySimuladoMetrics(state.av2Simulation.metrics);
-      state.screen = 'av2-simulado-results';
+      selectRewardPage();
+      state.screen = 'reward';
       render();
       return;
     }
@@ -2417,16 +2354,7 @@ function bindEvents() {
       }
       if (action === 'review-av2-simulado-errors') {
         const targets = state.av2Simulation?.errors.map((target) => ({ ...target })) ?? [];
-        if (targets.length) beginAv2SimuladoRound(null, {
-          mode: 'focus',
-          targets,
-          initialReport: state.av2Simulation.mode === 'full' ? state.av2Simulation.metrics : state.av2Simulation.initialReport,
-        });
-      }
-      if (action === 'show-simulado-reward') {
-        selectRewardPage();
-        state.screen = 'reward';
-        render();
+        if (targets.length) beginAv2SimuladoRound(null, { mode: 'focus', targets });
       }
       if (action === 'generate-coloring-page') generateRewardColoringPage();
       if (action === 'start-av2-sequences') beginAv2Round('block-05');

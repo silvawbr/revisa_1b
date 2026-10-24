@@ -136,7 +136,7 @@ O pareamento exige quatro associações únicas e corretas; a compra possível e
 
 Na biblioteca, C/D/U de **156 + 195 = 351** é validado antes da identificação das parcelas e da soma. A subtração **351 − 147 = 204** depende do 351 guardado pela primeira etapa; depois são identificados minuendo, subtraendo e resto/diferença. Os traces e componentes visuais vêm dos Blocks 03/04.
 
-O resultado mostra acertos na primeira tentativa, questões resolvidas e tentativas por assunto. Erros entram em nova rodada local de reforço; quando possível, o formato da habilidade errada é mantido. O simulado reaproveita TTS, feedback, progressão, histórico local e recompensa de desenho. Uma imagem nova pode ser solicitada pelo endpoint server-side opcional; o progresso continua no dispositivo e não há analytics remoto.
+Ao concluir, a criança vai direto à recompensa de desenho, sem relatório por assunto. Erros podem ser praticados em nova rodada local de reforço; quando possível, o formato da habilidade errada é mantido. O simulado reaproveita TTS, feedback, progressão, histórico local e recompensa de desenho. Uma imagem nova pode ser solicitada pelo endpoint server-side opcional; o progresso continua no dispositivo e não há analytics remoto.
 
 ## 11. Contrato obrigatório de validação
 

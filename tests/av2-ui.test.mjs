@@ -610,9 +610,9 @@ test('simulado completo percorre os formatos oficiais, registra erro, pratica de
       clickAction(document, 'next-av2');
     }
 
-    assert.match(app.innerHTML, /Resultado do simulado/);
-    assert.match(app.innerHTML, /Números por extenso/);
-    assert.match(app.innerHTML, /Revisar os erros com novas questões \(2\)/);
+    assert.match(app.innerHTML, /Você concluiu o Simulado AV2/);
+    assert.doesNotMatch(app.innerHTML, /Resultado do simulado|Resultado por assunto/);
+    assert.match(app.innerHTML, /Praticar as questões que errei \(2\)/);
     assert.equal(JSON.parse(storage.getItem(AV2_SIMULADO_PROGRESS_STORAGE_KEY)).roundsCompleted, 1);
     clickAction(document, 'review-av2-simulado-errors');
     assert.match(app.innerHTML, /Questão 1 de 2/);
@@ -642,8 +642,8 @@ test('simulado completo percorre os formatos oficiais, registra erro, pratica de
       }
       clickAction(document, 'next-av2');
     }
-    assert.match(app.innerHTML, /Rodada focada nos erros/);
-    clickAction(document, 'show-simulado-reward');
+    assert.match(app.innerHTML, /Você concluiu o Simulado AV2/);
+    assert.doesNotMatch(app.innerHTML, /Rodada focada nos erros/);
     assert.match(app.innerHTML, /Você concluiu o Simulado AV2/);
     assert.match(app.innerHTML, /estrelas conquistadas/);
     assert.match(app.innerHTML, /data-coloring-image/);
