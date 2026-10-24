@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { TtsProvider } from './server/tts-provider.js';
 import { handleTts } from './server/tts-handler.js';
+import { createColoringHandler } from './server/coloring-handler.js';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const MIME_TYPES = {
@@ -25,6 +26,8 @@ const PUBLIC_FILES = new Set([
   'src/tts-client.js',
   'src/child-profile.js',
   'src/data/coloringPages.js',
+  'src/data/generatedColoringPages.js',
+  'src/data/originalColoringPages.js',
   'src/data/officialColoringPages.js',
   'src/av2/money.js',
   'src/av2/money-composition.js',
@@ -35,6 +38,7 @@ const PUBLIC_FILES = new Set([
   'src/av2/subtraction-layout.js',
   'src/av2/cdu-layout.js',
   'src/av2/progress.js',
+  'src/av2/simulado.js',
   'public/currency/ATTRIBUTIONS.md',
   'public/coloring-pages/ATTRIBUTIONS.md',
   'public/coloring-pages/animals-bunny-02.svg',
@@ -91,10 +95,15 @@ export { handleTts } from './server/tts-handler.js';
 
 export function createServer({ env = process.env, fetchImpl = globalThis.fetch, logger = console.info } = {}) {
   const provider = new TtsProvider({ env, fetchImpl });
+  const handleColoring = createColoringHandler({ env, fetchImpl });
   const server = http.createServer(async (request, response) => {
     const pathname = new URL(request.url, 'http://localhost').pathname;
     if (pathname === '/api/tts') {
       await handleTts(request, response, provider, logger);
+      return;
+    }
+    if (pathname === '/api/coloring') {
+      await handleColoring(request, response);
       return;
     }
     await serveStatic(request, response);

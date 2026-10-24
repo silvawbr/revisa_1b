@@ -18,10 +18,10 @@ desafios.
 As regras de conteúdo e geração para a avaliação estão documentadas no
 [Contrato Pedagógico da AV2 Matemática](docs/av2-matematica-contrato-pedagogico.md).
 
-Ao concluir a rodada, a criança recebe um desenho local para colorir. A
-aplicação inclui um servidor Node mínimo para servir os arquivos estáticos e
-gerar voz pelo endpoint de Text-to-Speech do OpenRouter, sem expor a chave no
-navegador.
+Ao concluir a rodada, a criança recebe um desenho local para colorir. Na tela
+da recompensa, também pode pedir um desenho novo ao OpenRouter. A chamada é
+feita pelo servidor; a chave não vai para o navegador. O servidor Node local e
+a função da Vercel atendem esse pedido e a leitura por voz.
 
 ## Requisitos
 
@@ -40,7 +40,9 @@ cp example.env .env
 ```
 
 Edite `.env`, mantendo a chave somente nesse arquivo privado e preenchendo as
-cinco variáveis abaixo. O arquivo `.env` não é servido pela aplicação e os
+cinco variáveis de voz abaixo. Para habilitar também a geração de desenhos,
+preencha `OPENROUTER_IMAGE_MODEL` com um modelo de imagem disponível na sua
+conta. O arquivo `.env` não é servido pela aplicação e os
 nomes de arquivos de ambiente local estão ignorados pelo Git.
 
 | Variável | Obrigatória | Valor de exemplo | Sensível |
@@ -50,10 +52,12 @@ nomes de arquivos de ambiente local estão ignorados pelo Git.
 | `tts_model` | Sim | `google/gemini-3.1-flash-tts-preview` | Não |
 | `tts_voice` | Sim | `Zephyr` | Não |
 | `tts_response_format` | Sim | `pcm` | Não |
+| `OPENROUTER_IMAGE_MODEL` | Para gerar desenhos | `provedor/modelo-de-imagem` | Não |
 
 Em hospedagem, configure essas variáveis no painel do provedor. Alterações nas
-variáveis de ambiente podem exigir um novo deploy. A leitura é opcional: sem
-uma configuração válida, as atividades continuam disponíveis.
+variáveis de ambiente podem exigir um novo deploy. A leitura e a geração são
+opcionais: sem configuração válida, as atividades e os desenhos locais
+continuam disponíveis.
 
 Para iniciar localmente:
 
@@ -124,14 +128,18 @@ ignorada pelo Git.
   para uso offline.
 - `public/coloring-pages/ATTRIBUTIONS.md`: origem, licença e auditoria visual de
   cada desenho, incluindo candidatos rejeitados.
-- `server.js`: servidor HTTP local para os arquivos estáticos e o endpoint
-  `POST /api/tts`.
+- `server.js`: servidor HTTP local para os arquivos estáticos e os endpoints
+  `POST /api/tts` e `POST /api/coloring`.
 - `api/tts.js`: entrypoint da função Node serverless da Vercel para
   `POST /api/tts`.
+- `api/coloring.js`: entrypoint da função Node serverless da Vercel para
+  `POST /api/coloring`.
 - `server/tts-handler.js`: handler HTTP compartilhado pelo servidor local e
   pela função da Vercel.
 - `server/tts-provider.js`: adaptador do OpenRouter com Bearer, áudio binário,
   cache server-side, timeout, validação e tratamento seguro de erros.
+- `server/coloring-handler.js`: geração sob demanda com tema e instruções
+  fixos, validação da imagem e limites por cliente, sem expor a chave.
 - `server/pcm-to-wav.js`: encapsulamento determinístico de PCM em WAV, sem
   alterar os samples e sem processo externo de áudio.
 - `tests/game.test.mjs`: testes automatizados da lógica pedagógica.
@@ -146,27 +154,35 @@ ignorada pelo Git.
 - `tests/vercel.test.mjs`: testes do build estático, função Vercel, assets e
   ausência de segredos em `dist/`.
 
-Tudo funciona sem cadastro, sem armazenamento server-side e sem imagens externas…21 tokens truncated…do e o mantém exclusivamente no `localStorage` do navegador, na chave
-versionada `revisao-matematica.childName.v1`. Em dispositivos compartilhados, a
-ação “Trocar criança” remove somente esse nome e volta à tela de identificação.
+Tudo funciona sem cadastro ou perfil remoto. Os desenhos locais são padrão; a
+criança também pode pedir uma imagem nova ao OpenRouter, que não é salva no
+servidor nem no catálogo. O perfil guarda o nome da criança somente no
+dispositivo, em `localStorage`, na chave versionada
+`revisao-matematica.childName.v1`. Em dispositivos compartilhados, a ação
+“Trocar criança” remove somente esse nome e volta à tela de identificação.
 Os Blocos 01 e 02 da AV2 guardam somente a quantidade de rodadas concluídas em
 chaves versionadas próprias (`av2-matematica.block-01.dinheiro.progress.v1` e
 `av2-matematica.block-02.compras.progress.v1`); esses dados não incluem o nome
 da criança nem alteram o progresso ou os históricos da revisão original.
 O Bloco 06 usa a chave independente
 `av2-matematica.block-06.formar-quantias.progress.v1`.
-Os desenhos locais da recompensa são instalados junto com o projeto; não há
-hotlink nem download durante o uso. A seleção mantém apenas os IDs recentes dos
-desenhos locais e dos destinos oficiais em chaves separadas do `localStorage`,
-com fallback em memória quando o armazenamento não estiver disponível.
+Os desenhos locais da recompensa são instalados junto com o projeto. Uma
+imagem criada pelo botão “Gerar desenho novo” é entregue pelo endpoint e não é
+salva no servidor nem adicionada ao catálogo. A seleção mantém apenas os IDs
+recentes dos desenhos locais e dos destinos oficiais em chaves separadas do
+`localStorage`, com fallback em memória quando o armazenamento não estiver
+disponível.
 
 Na tela final, “Abrir desenho oficial surpresa ↗” só abre uma página externa
 depois de um clique explícito. O destino é escolhido do manifesto oficial, abre
 em nova aba com `noopener,noreferrer` e recebe um link acessível de fallback se
 o navegador bloquear pop-ups. O botão e suas mensagens ficam ocultos na
-impressão; a impressão contém somente o desenho local e a atribuição obrigatória.
+impressão; a impressão contém somente o desenho e sua atribuição, quando houver.
 As origens, licenças e auditorias visuais dos desenhos locais estão registradas
-em `public/coloring-pages/ATTRIBUTIONS.md`.
+em `public/coloring-pages/ATTRIBUTIONS.md`. O botão de geração envia somente
+uma solicitação vazia a `/api/coloring`; o servidor escolhe um tema infantil e
+usa uma instrução fixa, sem enviar nome ou informação da criança. A geração
+requer `OPENROUTER_IMAGE_MODEL` configurada no servidor.
 
 Mensagens personalizadas ficam apenas na interface. A versão enviada ao
 `/api/tts` é sempre um texto pedagógico neutro, sem o nome da criança, e o
@@ -176,8 +192,8 @@ frontend continua enviando somente a propriedade `text`.
 
 O arquivo `.env` é ignorado pelo Git e deve permanecer privado. Nunca inclua
 uma chave real no repositório, no HTML, no JavaScript público, em logs ou em
-relatórios. O navegador envia somente `{ "text": "..." }` para `/api/tts`; as
-demais configurações permanecem no servidor.
+relatórios. O navegador envia somente `{ "text": "..." }` para `/api/tts` e
+`{}` para `/api/coloring`; as demais configurações permanecem no servidor.
 
 ## Contrato do TTS
 
@@ -213,10 +229,10 @@ hospedagem; nunca registre essa chave em logs ou relatórios.
 ## Publicar na Vercel
 
 O repositório usa o preset `Other` e a configuração versionada em
-`vercel.json`. O build publica somente o conteúdo de `dist/`; a função
-`api/tts.js` é descoberta automaticamente pela Vercel e continua disponível
-em `/api/tts`. Não é necessário iniciar `server.js` na Vercel e não há rewrite
-para `index.html`.
+`vercel.json`. O build publica somente o conteúdo de `dist/`; as funções
+`api/tts.js` e `api/coloring.js` são descobertas automaticamente pela Vercel e
+continuam disponíveis em `/api/tts` e `/api/coloring`. Não é necessário iniciar
+`server.js` na Vercel e não há rewrite para `index.html`.
 
 No painel do projeto, mantenha:
 
@@ -230,8 +246,9 @@ No painel do projeto, mantenha:
 Como o projeto não possui dependências externas, o Install Command deve
 continuar automático; não use `npm run dev` como comando de instalação.
 
-Configure na Vercel as cinco variáveis abaixo, no ambiente de deployment
-correto, sem colocá-las no Git ou no frontend:
+Configure na Vercel as cinco variáveis obrigatórias de voz e, se quiser
+habilitar a geração de desenhos, `OPENROUTER_IMAGE_MODEL`. Mantenha tudo no
+ambiente de deployment correto, sem colocar segredos no Git ou no frontend:
 
 ```env
 api_url=https://openrouter.ai/api/v1/audio/speech
@@ -239,12 +256,14 @@ api_key=
 tts_model=google/gemini-3.1-flash-tts-preview
 tts_voice=Zephyr
 tts_response_format=pcm
+OPENROUTER_IMAGE_MODEL=provedor/modelo-de-imagem
 ```
 
-`api_key` deve receber o valor real somente no painel da Vercel. O servidor
-monta a chamada para a OpenRouter; o navegador continua enviando apenas
-`{ "text": "..." }` para `/api/tts`. Alterações nas variáveis de ambiente só
-entram em vigor após um novo deployment.
+`api_key` deve receber o valor real somente no painel da Vercel. O navegador
+envia somente texto pedagógico para `/api/tts` e uma solicitação vazia para
+`/api/coloring`; as duas chamadas ao OpenRouter são montadas no servidor.
+Alterações nas variáveis de ambiente só entram em vigor após um novo
+deployment.
 
 Após o deployment, valide sem expor a chave:
 
@@ -253,6 +272,7 @@ GET /              → 200 e index.html
 GET /styles.css    → 200 e text/css
 GET /app.js        → 200 e JavaScript
 GET /api/tts       → 405 e Allow: POST
+GET /api/coloring  → 405 e Allow: POST
 POST /api/tts      → 200 audio/wav com configuração válida
 ```
 

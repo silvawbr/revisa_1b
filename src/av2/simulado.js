@@ -35,7 +35,7 @@ export const AV2_SIMULADO_SUBJECTS = Object.freeze([
   Object.freeze({ id: 'addition', label: 'Adição', description: 'Contas e problemas de adição.' }),
   Object.freeze({ id: 'subtraction', label: 'Subtração', description: 'Contas e problemas de subtração.' }),
   Object.freeze({ id: 'sequences', label: 'Sequências', description: 'Complete sequências que aumentam de um em um.' }),
-  Object.freeze({ id: 'words', label: 'Números por extenso', description: 'Relacione números e suas escritas.' }),
+  Object.freeze({ id: 'words', label: 'Números por extenso', description: 'Leia o número e escolha sua escrita.' }),
 ]);
 
 const SUBJECT_IDS = new Set(AV2_SIMULADO_SUBJECTS.map(({ id }) => id));
@@ -109,7 +109,7 @@ function createWordQuestion(random, requestedValue = null, requestedMode = null)
     ? [300, 400, 200, 250].filter((candidate) => candidate !== value)
     : [...new Set([value - 1, value + 1, value - 10, value + 10, value - 2, value + 2])]
       .filter((candidate) => candidate >= 200 && candidate <= 250 && candidate !== value);
-  const selected = shuffled([value, ...distractorValues].slice(0, 4), random);
+  const selected = shuffled([value, ...distractorValues].slice(0, 3), random);
   const options = selected.map((option) => ({
     value: option,
     label: mode === 'number-to-word' ? numberToPortuguese(option) : String(option),
@@ -133,28 +133,6 @@ function createWordQuestion(random, requestedValue = null, requestedMode = null)
     explanation: `${word} corresponde ao número ${value}.`,
     hint: 'Leia cada parte do número e procure a escrita que corresponde a todas elas.',
     feedback: { correct: 'Muito bem! Você encontrou a escrita correta.', retry: 'Leia as opções com calma e tente outra vez.' },
-  };
-  return attachSubject(question, 'words');
-}
-
-function createAssociationQuestion(random) {
-  const values = [208, 215, shuffled([221, 230, 237, 244, 250], random)[0]];
-  const pairs = values.map((value) => ({ value, word: numberToPortuguese(value) }));
-  const options = shuffled(pairs.map(({ word }) => word), random);
-  const question = {
-    revisionId: 'av2-matematica',
-    activityId: AV2_SIMULADO_ACTIVITY_ID,
-    pedagogicalCategory: 'NUMBER_WORD_ASSOCIATION',
-    questionId: `word-association-${values.join('-')}`,
-    type: 'simulado-association',
-    data: { pairs, options },
-    correctAnswer: Object.fromEntries(pairs.map(({ value, word }) => [String(value), word])),
-    options,
-    prompt: 'Associe cada número à sua escrita por extenso. Use cada opção uma vez.',
-    speech: `Associe cada número à sua escrita por extenso: ${values.join(', ')}.`,
-    explanation: pairs.map(({ value, word }) => `${value} é ${word}`).join('; ') + '.',
-    hint: 'Leia cada número e compare as centenas, dezenas e unidades com as palavras.',
-    feedback: { correct: 'Muito bem! Todas as associações estão corretas.', retry: 'Confira cada par e use cada escrita uma só vez.' },
   };
   return attachSubject(question, 'words');
 }
@@ -255,12 +233,12 @@ function topicCandidates(subjectId, count, random, { preferContext = false } = {
     return shuffled(patterns, random).slice(0, count).map(([start, missingIndex]) => createSequenceQuestion(random, start, missingIndex));
   }
   if (subjectId === 'words') {
-    const selected = count > 0 ? [createAssociationQuestion(random)] : [];
     const wordCases = [];
     for (let value = 200; value <= 250; value += 1) {
       wordCases.push([value, 'number-to-word'], [value, 'word-to-number']);
     }
     wordCases.push([300, 'number-to-word'], [400, 'number-to-word']);
+    const selected = [];
     for (const [value, mode] of shuffled(wordCases, random)) {
       if (selected.length >= count) break;
       selected.push(createWordQuestion(random, value, mode));
@@ -311,18 +289,6 @@ function validateWordQuestion(question) {
     && question.speech === question.prompt;
 }
 
-function validateAssociationQuestion(question) {
-  const { pairs, options } = question.data ?? {};
-  if (!Array.isArray(pairs) || pairs.length !== 3 || !Array.isArray(options) || options.length !== pairs.length
-    || new Set(options).size !== options.length || new Set(pairs.map(({ value }) => value)).size !== pairs.length) return false;
-  const expected = Object.fromEntries(pairs.map(({ value, word }) => [String(value), word]));
-  return pairs.every(({ value, word }) => Number.isInteger(value) && value >= 200 && value <= 250 && word === numberToPortuguese(value))
-    && [...options].sort().join('|') === pairs.map(({ word }) => word).sort().join('|')
-    && JSON.stringify(options) === JSON.stringify(question.options)
-    && JSON.stringify(expected) === JSON.stringify(question.correctAnswer)
-    && question.prompt === 'Associe cada número à sua escrita por extenso. Use cada opção uma vez.';
-}
-
 function validateTwoStepQuestion(question) {
   const data = question.data;
   const [first, second] = data?.steps ?? [];
@@ -357,10 +323,6 @@ export function validateAv2SimuladoQuestionCandidate(question) {
     && question.pedagogicalCategory === 'NUMBER_WORDS'
     && question.simulado.subjectId === 'words' && question.simulado.subjectIds.join('|') === 'words'
     && validateWordQuestion(question);
-  if (question.type === 'simulado-association') return question.activityId === AV2_SIMULADO_ACTIVITY_ID
-    && question.pedagogicalCategory === 'NUMBER_WORD_ASSOCIATION'
-    && question.simulado.subjectId === 'words' && question.simulado.subjectIds.join('|') === 'words'
-    && validateAssociationQuestion(question);
   if (question.type === 'simulado-two-step') return question.activityId === AV2_SIMULADO_ACTIVITY_ID
     && question.pedagogicalCategory === 'CONTEXTUAL_TWO_STEP_PROBLEM'
     && question.simulado.composite === true && question.simulado.subjectIds.join('|') === 'addition|subtraction'
@@ -391,14 +353,6 @@ export function validateAv2SimuladoAnswer(question, answer, stage = 1) {
     const normalized = typeof answer === 'string' && /^\d+$/.test(answer.trim()) ? Number(answer.trim()) : answer;
     const offered = question.options.some((option) => typeof option === 'object' ? option.value === normalized : option === normalized);
     return normalized === question.correctAnswer && offered;
-  }
-  if (question.type === 'simulado-association') {
-    if (!answer || typeof answer !== 'object' || Array.isArray(answer)) return false;
-    const { pairs } = question.data;
-    const selectedWords = pairs.map(({ value }) => answer[String(value)]);
-    return Object.keys(answer).length === pairs.length
-      && pairs.every(({ value, word }) => answer[String(value)] === word)
-      && new Set(selectedWords).size === pairs.length;
   }
   if (question.type === 'simulado-two-step') {
     const step = question.data.steps[stage - 1];
