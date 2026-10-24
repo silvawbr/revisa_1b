@@ -100,6 +100,7 @@ const av2SimuladoProgress = createAv2ProgressStore({ key: AV2_SIMULADO_PROGRESS_
 const av2SequencesProgress = createAv2ProgressStore({ key: AV2_SEQUENCES_PROGRESS_STORAGE_KEY });
 const av2MoneyCompositionProgress = createAv2ProgressStore({ key: AV2_MONEY_COMPOSITION_PROGRESS_STORAGE_KEY });
 const moneyById = new Map(MONEY_DENOMINATIONS.map((money) => [money.id, money]));
+const simuladoPairColors = ['red', 'green', 'blue', 'yellow'];
 let visualSelectionInteraction = null;
 
 const state = {
@@ -144,7 +145,7 @@ const state = {
   av2CompositeIntermediate: null,
   av2SimuladoInputError: '',
   av2SimuladoTextAnswer: '',
-  av2Pairing: { selectedGroupId: null, matches: {} },
+  av2Pairing: { selectedGroupId: null, selectedProductId: null, matches: {}, matchColors: {} },
   av2CompositeFirstTry: { addition: true, subtraction: true },
   av2CompositeNotice: '',
   av2MoneySelection: [],
@@ -1018,12 +1019,12 @@ function renderSimuladoMoneyGroup(denominationIds, title = 'Dinheiro') {
   }).join('')}</div></section>`;
 }
 
-function renderSimuladoProductCard(product, { selectable = false, selected = false, incorrect = false, match = false } = {}) {
+function renderSimuladoProductCard(product, { selectable = false, selected = false, incorrect = false, match = false, matchColor = '' } = {}) {
   const illustration = getAv2ProductIllustration(product.illustrationId);
   if (!illustration) return '';
   const price = `${product.priceReais} ${product.priceReais === 1 ? 'real' : 'reais'}`;
   const body = `<img class="av2-product-image" src="${escapeAttribute(illustration.src)}" alt="" aria-hidden="true" width="180" height="130" decoding="async"><strong>${escapeHtml(product.label)}</strong><span class="av2-product-price">${price}</span>`;
-  if (match) return `<button class="av2-product-card simulado-match-product ${selected ? 'is-selected' : ''}" type="button" data-match-product="${escapeAttribute(product.id)}" aria-pressed="${selected}" aria-label="${escapeAttribute(`${product.label}, ${price}`)}">${body}</button>`;
+  if (match) return `<button class="av2-product-card simulado-match-product ${selected ? 'is-selected' : ''} ${incorrect ? 'is-incorrect' : ''} ${matchColor ? `is-pair-${matchColor}` : ''}" type="button" data-match-product="${escapeAttribute(product.id)}" aria-pressed="${selected}" aria-label="${escapeAttribute(`${product.label}, ${price}`)}" ${matchColor ? 'disabled' : ''}>${body}</button>`;
   if (!selectable) return `<article class="av2-product-card" data-av2-product-id="${escapeAttribute(product.id)}">${body}</article>`;
   return `<button class="av2-product-card av2-product-choice ${selected ? 'is-selected' : ''} ${incorrect ? 'is-incorrect' : ''}" type="button" data-av2-answer="${escapeAttribute(product.id)}" data-av2-product-id="${escapeAttribute(product.id)}" aria-pressed="${selected}" aria-label="${escapeAttribute(`${product.label}, ${price}`)}">${body}</button>`;
 }
@@ -1065,20 +1066,34 @@ function renderSimuladoMoneyProductMatching(question) {
   const groupById = new Map(groups.map((group, index) => [group.id, `Grupo ${index + 1}`]));
   const groupCards = groups.map((group, index) => {
     const product = productById.get(matches[group.id]);
-    const correct = matches[group.id] === question.correctAnswer[group.id];
-    const stateClass = state.av2Attempts > 0 ? (correct ? 'is-pair-correct' : 'is-pair-incorrect') : '';
-    return `<button class="simulado-match-group ${state.av2Pairing.selectedGroupId === group.id ? 'is-selected' : ''} ${stateClass}" type="button" data-match-group="${escapeAttribute(group.id)}" data-match-denominations="${escapeAttribute(group.denominationIds.join('|'))}" aria-pressed="${state.av2Pairing.selectedGroupId === group.id}"><strong>Grupo ${index + 1}</strong><span class="simulado-match-money">${group.denominationIds.map((id) => moneyById.get(id)).filter(Boolean).map((money) => renderMoneyIllustration(money)).join('')}</span><span class="simulado-match-status">${product ? `Ligado: ${escapeHtml(product.label)}` : 'Toque para escolher'}</span></button>`;
+    const selected = state.av2Pairing.selectedGroupId === group.id;
+    const incorrect = selected && Boolean(state.av2Pairing.selectedProductId);
+    const matchColor = state.av2Pairing.matchColors[group.id] ?? '';
+    const stateClass = matchColor ? `is-pair-${matchColor}` : incorrect ? 'is-pair-incorrect' : '';
+    const status = product ? `Associado a ${escapeHtml(product.label)}`
+      : incorrect ? 'Esse brinquedo tem outro preço'
+        : selected ? 'Agora toque no brinquedo com o mesmo preço' : 'Toque para escolher';
+    return `<button class="simulado-match-group ${selected ? 'is-selected' : ''} ${stateClass}" type="button" data-match-group="${escapeAttribute(group.id)}" data-match-denominations="${escapeAttribute(group.denominationIds.join('|'))}" aria-pressed="${Boolean(product || selected)}" aria-label="${escapeAttribute(`Grupo ${index + 1}${product ? `, associado a ${product.label}` : selected ? ', selecionado' : ''}`)}" ${product || state.av2Correct ? 'disabled' : ''}><strong>Grupo ${index + 1}</strong><span class="simulado-match-money">${group.denominationIds.map((id) => moneyById.get(id)).filter(Boolean).map((money) => renderMoneyIllustration(money)).join('')}</span><span class="simulado-match-status">${status}</span></button>`;
   }).join('');
   const productCards = products.map((product) => {
     const matchedGroup = Object.entries(matches).find(([, productId]) => productId === product.id)?.[0];
-    const activeMatch = matches[state.av2Pairing.selectedGroupId] === product.id;
-    return `<div class="simulado-match-product-card">${renderSimuladoProductCard(product, { match: true, selected: activeMatch })}<span class="simulado-match-product-status">${matchedGroup ? `Associado a ${groupById.get(matchedGroup)}` : 'Ainda sem associação'}</span></div>`;
+    const incorrect = Boolean(state.av2Pairing.selectedGroupId)
+      && state.av2Pairing.selectedProductId === product.id && !matchedGroup;
+    const selected = Boolean(matchedGroup) || incorrect;
+    const matchColor = matchedGroup ? state.av2Pairing.matchColors[matchedGroup] ?? '' : '';
+    const status = matchedGroup ? `Associado a ${groupById.get(matchedGroup)}`
+      : incorrect ? 'Esse preço não corresponde ao grupo selecionado' : 'Ainda sem associação';
+    return `<div class="simulado-match-product-card">${renderSimuladoProductCard(product, { match: true, selected, incorrect, matchColor })}<span class="simulado-match-product-status">${status}</span></div>`;
   }).join('');
+  const matchCount = Object.keys(matches).length;
+  const status = state.av2SimuladoInputError
+    ? `<p class="av2-addition-input-error" role="alert">${escapeHtml(state.av2SimuladoInputError)}${state.av2Attempts >= 2 ? `<br><b>Dica:</b> ${escapeHtml(question.hint)}` : ''}</p>`
+    : matchCount ? `<p class="simulado-match-feedback" role="status" aria-live="polite" aria-atomic="true">${matchCount === groups.length ? 'Muito bem! Todos os pares estão corretos.' : `Pares corretos: ${matchCount} de ${groups.length}.`}</p>` : '';
   return `<div class="av2-exercise is-simulado is-money-matching" data-av2-question-type="simulado-money-product-match">
     <p class="simulado-match-instructions">Toque em um grupo de cédulas e depois no brinquedo com o mesmo preço.</p>
     <div class="simulado-pairing-columns"><section aria-label="Grupos de cédulas"><h2>Grupos de cédulas</h2><div class="simulado-match-groups">${groupCards}</div></section><section aria-label="Brinquedos e preços"><h2>Brinquedos e preços</h2><div class="simulado-match-products">${productCards}</div></section></div>
-    ${state.av2SimuladoInputError ? `<p class="av2-addition-input-error" role="alert">${escapeHtml(state.av2SimuladoInputError)}</p>` : ''}
-    <button class="primary-button simulado-submit-button" type="button" data-action="submit-av2" ${Object.keys(matches).length !== groups.length || state.av2Correct ? 'disabled' : ''}>Conferir associações</button>
+    ${status}
+    <button class="primary-button simulado-submit-button" type="button" data-action="submit-av2" ${matchCount !== groups.length || state.av2Correct ? 'disabled' : ''}>Conferir associações</button>
   </div>`;
 }
 
@@ -1366,6 +1381,7 @@ function renderAv2Feedback(question) {
       </div>
     </div>`;
   }
+  if (question.type === 'simulado-money-product-match') return '';
   if (state.av2Attempts === 0) return '';
   if (state.av2Block === 'block-07' && question.activityId === AV2_SIMULADO_ACTIVITY_ID) {
     const step = question.type === 'simulado-two-step'
@@ -1717,7 +1733,7 @@ function beginAv2Round(block = 'block-01') {
   state.av2MoneySolutions = [];
   state.av2MoneyFeedback = null;
   state.av2SimuladoTextAnswer = '';
-  state.av2Pairing = { selectedGroupId: null, matches: {} };
+  state.av2Pairing = { selectedGroupId: null, selectedProductId: null, matches: {}, matchColors: {} };
   state.av2CompositeFirstTry = { addition: true, subtraction: true };
   state.av2CompositeNotice = '';
   state.rewardPageId = null;
@@ -1759,7 +1775,7 @@ function beginAv2SimuladoRound(counts, { mode = 'full', preset = 'custom', targe
   state.av2CompositeNotice = '';
   state.av2SimuladoInputError = '';
   state.av2SimuladoTextAnswer = '';
-  state.av2Pairing = { selectedGroupId: null, matches: {} };
+  state.av2Pairing = { selectedGroupId: null, selectedProductId: null, matches: {}, matchColors: {} };
   state.av2MoneySelection = [];
   state.av2MoneyNextItemId = 0;
   state.av2MoneySolutions = [];
@@ -1827,7 +1843,7 @@ function nextAv2Question() {
   state.av2CompositeNotice = '';
   state.av2SimuladoInputError = '';
   state.av2SimuladoTextAnswer = '';
-  state.av2Pairing = { selectedGroupId: null, matches: {} };
+  state.av2Pairing = { selectedGroupId: null, selectedProductId: null, matches: {}, matchColors: {} };
   state.av2MoneySelection = [];
   state.av2MoneyNextItemId = 0;
   state.av2MoneySolutions = [];
@@ -2442,26 +2458,46 @@ function bindEvents() {
 
   document.querySelectorAll('[data-match-group]').forEach((button) => {
     button.addEventListener('click', () => {
-      if (state.av2Correct) return;
-      state.av2Pairing.selectedGroupId = state.av2Pairing.selectedGroupId === button.dataset.matchGroup
-        ? null : button.dataset.matchGroup;
+      const question = state.av2Round[state.av2Index];
+      if (state.av2Correct || question?.type !== 'simulado-money-product-match') return;
+      const groupId = button.dataset.matchGroup;
+      if (state.av2Pairing.matches[groupId]) return;
+      state.av2Pairing = {
+        ...state.av2Pairing,
+        selectedGroupId: state.av2Pairing.selectedGroupId === groupId ? null : groupId,
+        selectedProductId: null,
+      };
       state.av2SimuladoInputError = '';
       render();
     });
   });
   document.querySelectorAll('[data-match-product]').forEach((button) => {
     button.addEventListener('click', () => {
-      if (state.av2Correct) return;
+      const question = state.av2Round[state.av2Index];
+      if (state.av2Correct || question?.type !== 'simulado-money-product-match') return;
       const groupId = state.av2Pairing.selectedGroupId;
+      const productId = button.dataset.matchProduct;
       if (!groupId) {
         state.av2SimuladoInputError = 'Escolha primeiro um grupo de cédulas.';
         render(); return;
       }
-      const matches = Object.fromEntries(Object.entries(state.av2Pairing.matches)
-        .filter(([existingGroup, productId]) => existingGroup !== groupId && productId !== button.dataset.matchProduct));
-      matches[groupId] = button.dataset.matchProduct;
-      state.av2Pairing = { selectedGroupId: null, matches };
-      state.av2SimuladoInputError = '';
+      if (state.av2Pairing.matches[groupId] || Object.values(state.av2Pairing.matches).includes(productId)) return;
+      if (question.correctAnswer[groupId] === productId) {
+        const color = simuladoPairColors[Object.keys(state.av2Pairing.matches).length % simuladoPairColors.length];
+        state.av2Pairing = {
+          ...state.av2Pairing,
+          selectedGroupId: null,
+          selectedProductId: null,
+          matches: { ...state.av2Pairing.matches, [groupId]: productId },
+          matchColors: { ...state.av2Pairing.matchColors, [groupId]: color },
+        };
+        state.av2SimuladoInputError = '';
+      } else {
+        state.av2Pairing = { ...state.av2Pairing, selectedProductId: productId };
+        recordSimuladoAttempt(question, false);
+        state.av2Attempts += 1;
+        state.av2SimuladoInputError = 'Esse brinquedo tem outro preço. Compare os valores e tente novamente.';
+      }
       render();
     });
   });

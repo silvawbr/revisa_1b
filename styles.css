@@ -971,7 +971,6 @@ h1 span { color: var(--blue-deep); }
 .simulado-match-group { min-width: 0; display: grid; grid-template-columns: minmax(56px, auto) minmax(0, 1fr); align-items: center; gap: 8px; min-height: 94px; padding: 9px; border: 3px solid #d9ceef; border-radius: 14px; color: #3d315d; background: white; font: inherit; cursor: pointer; }
 .simulado-match-group strong { font-size: 0.95rem; }
 .simulado-match-group.is-selected { border-color: #735aa7; background: #f3edff; box-shadow: 0 0 0 2px #ded3f4; }
-.simulado-match-group.is-pair-correct { border-color: #69aa7d; background: #eff9f0; }
 .simulado-match-group.is-pair-incorrect { border-color: #df806c; background: #fff1ed; }
 .simulado-match-money { display: flex; align-items: center; justify-content: center; gap: 4px; min-width: 0; }
 .simulado-match-money .money-note { width: min(100%, 126px); }
@@ -981,6 +980,19 @@ h1 span { color: var(--blue-deep); }
 .simulado-match-product-card .av2-product-card { width: 100%; min-height: 150px; }
 .simulado-match-product-status { color: var(--muted); font-size: 0.82rem; font-weight: 800; text-align: center; }
 .simulado-match-product-card .simulado-match-product.is-selected { border-color: #735aa7; background: #f3edff; }
+.simulado-match-group.is-pair-red,
+.simulado-match-product-card .simulado-match-product.is-pair-red { border-color: #c6435b; color: #682b38; background: #fbe1e6; }
+.simulado-match-group.is-pair-green,
+.simulado-match-product-card .simulado-match-product.is-pair-green { border-color: #27844d; color: #285c3d; background: #e1f4e7; }
+.simulado-match-group.is-pair-blue,
+.simulado-match-product-card .simulado-match-product.is-pair-blue { border-color: #3f69b4; color: #2b487d; background: #e1eaff; }
+.simulado-match-group.is-pair-yellow,
+.simulado-match-product-card .simulado-match-product.is-pair-yellow { border-color: #b18815; color: #69520c; background: #fff4c6; }
+.simulado-match-group:disabled,
+.simulado-match-product:disabled { cursor: default; opacity: 1; }
+.simulado-match-product-card .simulado-match-product.is-incorrect { border-color: #df806c; background: #fff1ed; }
+.simulado-match-feedback { margin: 0 0 10px; color: #287346; font-weight: 800; text-align: center; }
+
 .simulado-product-board { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .simulado-product-board .av2-product-card { min-height: 138px; }
 .simulado-number-table { width: min(100%, 760px); }
