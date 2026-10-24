@@ -1,6 +1,5 @@
 export const AV2_SUBTRACTION_PROGRESS_STORAGE_KEY = 'av2-matematica.block-04.subtracao.progress.v1';
 export const AV2_MONEY_COMPOSITION_PROGRESS_STORAGE_KEY = 'av2-matematica.block-06.formar-quantias.progress.v1';
-export const AV2_SIMULATION_PROGRESS_STORAGE_KEY = 'av2-matematica.simulado.progress.v1';
 export const AV2_PROGRESS_STORAGE_KEY = 'av2-matematica.block-01.dinheiro.progress.v1';
 export const AV2_SHOPPING_PROGRESS_STORAGE_KEY = 'av2-matematica.block-02.compras.progress.v1';
 export const AV2_ADDITION_PROGRESS_STORAGE_KEY = 'av2-matematica.block-03.adicao.progress.v1';

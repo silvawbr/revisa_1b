@@ -122,17 +122,19 @@ Referência oficial: **351 − 147 = 204**. Evidência adicional do caderno apoi
 
 A atividade pratica sequências crescentes e decrescentes de uma unidade até 250, a tabela 200–239, antecessor e sucessor, reconhecimento de números por extenso e escolha da grafia que corresponde a um número. Os números 300 e 400 são permitidos somente nas questões por extenso. Não estender sequências numéricas até 400; preservar as grafias corretas em português brasileiro e a apresentação adequada para crianças.
 
-## 9. Bloco 06 — Composição de dinheiro (especificação futura)
+## 9. Bloco 06 — Formar quantias
 
-Não implementar aqui. A futura atividade pode apoiar cinco moedas de 1 real formando 5 reais; duas moedas de 50 centavos formando 1 real; grupos documentados que totalizem 100 centavos; composições mistas documentadas que resultem em reais inteiros; e combinações diferentes para o mesmo total.
+A atividade tem uma rodada de 12 desafios, com duas questões em cada categoria COMP-01 a COMP-06. Usa as denominações e limites documentados para formar quantias, comparar equivalências e reconhecer combinações diferentes para o mesmo total. Os valores são calculados em centavos inteiros.
 
-A interação não exige arrastar e soltar. Deve aceitar todas as combinações matematicamente válidas que respeitem a categoria pedagógica. Se o desafio exigir quantidade específica de moedas ou cédulas, validar simultaneamente o valor total e a quantidade de peças.
+A interação permite adicionar, remover e limpar moedas e cédulas sem arrastar e soltar. Cada resposta respeita as denominações disponíveis, os limites de peças e o total exato. COMP-05 exige duas combinações diferentes; COMP-06 confere o total e a quantidade exata de cédulas.
 
-## 10. Bloco 07 — Simulado misto (especificação futura)
+## 10. Bloco 07 — Simulado AV2
 
-Não implementar aqui. A futura simulação deve incluir reconhecimento e equivalência de dinheiro; compras e troco; adição e subtração com reagrupamento; termos matemáticos; sequências e números por extenso; e problemas contextuais de duas etapas.
+O simulado combina questões validadas dos conteúdos implementados: sistema monetário, adição, subtração, sequências crescentes de um em um e números por extenso. A configuração permite habilitar assuntos e escolher de 1 a 5 questões por assunto; o padrão deixa todos habilitados com três questões cada. A ordem é sorteada em cada rodada.
 
-Exemplo dependente: a biblioteca tem 156 livros e recebe 195 (**156 + 195 = 351**); depois retira 147 (**351 − 147 = 204**). A segunda operação usa o resultado da primeira.
+Os formatos incluem associação de números e palavras, seleção múltipla para compras possíveis e problemas contextualizados. Quando adição e subtração estão habilitadas juntas, uma questão composta reserva uma vaga de cada assunto. Na referência oficial da biblioteca, a etapa 1 valida **156 + 195 = 351**; a etapa 2 usa o resultado intermediário e valida **351 − 147 = 204**.
+
+O resultado mostra acertos na primeira tentativa, questões resolvidas e tentativas por assunto. Questões com erro podem gerar novas questões do mesmo assunto. O progresso é local e reutiliza o fluxo existente de leitura TTS, feedback e recompensas. O assunto de sistema monetário também pode selecionar desafios validados de Formar quantias com uma única solução, respeitando as regras do Bloco 06.
 
 ## 11. Contrato obrigatório de validação
 
@@ -151,6 +153,6 @@ Todo candidato é validado antes de chegar à interface. Cada questão deve decl
 
 ## 12. Escopo e manutenção
 
-Esta entrega mantém os Blocos 01 e 02, implementa o Bloco 03 e conserva as regras futuras dos Blocos 04–07 como especificações. A revisão independente anterior mantém seus geradores e ordem de atividades. O conversor numérico compartilhado ganhou suporte de leitura para 200–499, sem ampliar as faixas ou as questões geradas pela revisão anterior.
+O Bloco 07 atua como orquestrador e mantém separados os geradores, progresso e atividades dos demais blocos. Ele valida os candidatos existentes antes de os incluir, aplica quantidades equilibradas por assunto e acompanha cada operação da questão composta separadamente. Sequências e números por extenso usam os limites desta especificação. A revisão independente anterior mantém seus geradores e ordem de atividades.
 
 Os exemplos do livro fora das quatro páginas oficiais continuam suplementando as regras deste contrato. Na ausência de evidência escolar, não transformar uma possibilidade matemática em novo requisito curricular.
