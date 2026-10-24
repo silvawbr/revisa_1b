@@ -18,10 +18,11 @@ desafios.
 As regras de conteúdo e geração para a avaliação estão documentadas no
 [Contrato Pedagógico da AV2 Matemática](docs/av2-matematica-contrato-pedagogico.md).
 
-Ao concluir a rodada, a criança recebe um desenho local para colorir. Na tela
-da recompensa, também pode pedir um desenho novo ao OpenRouter. A chamada é
-feita pelo servidor; a chave não vai para o navegador. O servidor Node local e
-a função da Vercel atendem esse pedido e a leitura por voz.
+Ao concluir a rodada, a criança recebe uma página de colorir real do Wikimedia
+Commons, escolhida de um catálogo de imagens com licenças abertas. As imagens
+são carregadas pela internet; autor, fonte e licença aparecem junto ao desenho
+e na impressão. Na tela da recompensa, também pode pedir um desenho novo ao
+OpenRouter. A chamada é feita pelo servidor; a chave não vai para o navegador.
 
 ## Requisitos
 
@@ -56,8 +57,8 @@ nomes de arquivos de ambiente local estão ignorados pelo Git.
 
 Em hospedagem, configure essas variáveis no painel do provedor. Alterações nas
 variáveis de ambiente podem exigir um novo deploy. A leitura e a geração são
-opcionais: sem configuração válida, as atividades e os desenhos locais
-continuam disponíveis.
+opcionais: sem configuração válida, as atividades e o catálogo de páginas do
+Commons continuam disponíveis quando há internet.
 
 Para iniciar localmente:
 
@@ -94,7 +95,7 @@ O build limpa somente `dist/` e recria uma árvore publicável com:
 
 - `dist/index.html`, `dist/styles.css` e `dist/app.js`;
 - `dist/src/`, com os módulos ES usados pelo frontend;
-- `dist/public/`, com os desenhos locais e suas atribuições.
+- `dist/public/`, com os assets legados e os registros de atribuição.
 
 Arquivos de ambiente, código do servidor, funções, testes, scripts e
 configurações privadas não são copiados para `dist/`. A pasta `dist/` continua
@@ -116,18 +117,20 @@ ignorada pelo Git.
   unidade para reutilização por atividades futuras.
 - `src/av2/progress.js`: progresso separado dos Blocos 01 a 06 da AV2.
 - `src/figures.js`: renderização das figuras espaciais em SVG.
-- `src/data/coloringPages.js`: catálogo local, seleção aleatória e metadados de
-  licença dos desenhos da recompensa.
+- `src/data/coloringPages.js`: seleção aleatória e histórico das páginas de
+  colorir da recompensa.
+- `src/data/searchColoringPages.js`: catálogo de imagens do Wikimedia Commons,
+  com URLs, autores, fontes e licenças.
 - `src/data/officialColoringPages.js`: catálogo separado de páginas oficiais
   externas; ele contém somente URLs HTTPS, sem cópias locais ou `iframe`.
 - `src/child-profile.js`: validação, normalização e persistência local do nome
   da criança, além da separação entre mensagens visuais e textos neutros de
   voz.
 - `src/tts-client.js`: cliente do endpoint interno de voz, com cache de sessão.
-- `public/coloring-pages/*.svg`: desenhos aprovados, armazenados localmente
-  para uso offline.
-- `public/coloring-pages/ATTRIBUTIONS.md`: origem, licença e auditoria visual de
-  cada desenho, incluindo candidatos rejeitados.
+- `public/coloring-pages/*.svg`: acervo vetorial legado, fora do catálogo ativo
+  de recompensas.
+- `public/coloring-pages/ATTRIBUTIONS.md`: fontes, autores e licenças das
+  imagens ativas, além do histórico dos desenhos antigos.
 - `server.js`: servidor HTTP local para os arquivos estáticos e os endpoints
   `POST /api/tts` e `POST /api/coloring`.
 - `api/tts.js`: entrypoint da função Node serverless da Vercel para
@@ -146,17 +149,18 @@ ignorada pelo Git.
 - `tests/av2-money.test.mjs` e `tests/av2-ui.test.mjs`: testes de denominações,
   geração de questões, isolamento de progresso e jornada infantil da AV2.
 - `tests/figures.test.mjs`: testes das figuras espaciais em SVG.
-- `tests/coloring-pages.test.mjs`: testes do catálogo, fallback, seleção,
-  entrega local dos assets, atribuição e impressão A4.
+- `tests/coloring-pages.test.mjs`: testes do catálogo remoto, fallback, seleção,
+  atribuição e impressão A4.
 - `tests/child-profile.test.mjs`: testes do perfil local, personalização e
   privacidade do texto enviado ao TTS.
 - `tests/tts.test.mjs`: testes do contrato HTTP, segurança e cache de voz.
 - `tests/vercel.test.mjs`: testes do build estático, função Vercel, assets e
   ausência de segredos em `dist/`.
 
-Tudo funciona sem cadastro ou perfil remoto. Os desenhos locais são padrão; a
-criança também pode pedir uma imagem nova ao OpenRouter, que não é salva no
-servidor nem no catálogo. O perfil guarda o nome da criança somente no
+Tudo funciona sem cadastro ou perfil remoto. As páginas de colorir são
+carregadas do Wikimedia Commons durante o uso. A criança também pode pedir uma
+imagem nova ao OpenRouter, que não é salva no servidor nem no catálogo. O
+perfil guarda o nome da criança somente no
 dispositivo, em `localStorage`, na chave versionada
 `revisao-matematica.childName.v1`. Em dispositivos compartilhados, a ação
 “Trocar criança” remove somente esse nome e volta à tela de identificação.
@@ -166,10 +170,9 @@ chaves versionadas próprias (`av2-matematica.block-01.dinheiro.progress.v1` e
 da criança nem alteram o progresso ou os históricos da revisão original.
 O Bloco 06 usa a chave independente
 `av2-matematica.block-06.formar-quantias.progress.v1`.
-Os desenhos locais da recompensa são instalados junto com o projeto. Uma
-imagem criada pelo botão “Gerar desenho novo” é entregue pelo endpoint e não é
-salva no servidor nem adicionada ao catálogo. A seleção mantém apenas os IDs
-recentes dos desenhos locais e dos destinos oficiais em chaves separadas do
+As páginas do catálogo precisam de internet; o botão “Gerar desenho novo”
+continua disponível e recebe uma imagem pelo endpoint sem salvá-la no servidor
+nem adicioná-la ao catálogo. A seleção mantém apenas os IDs recentes em
 `localStorage`, com fallback em memória quando o armazenamento não estiver
 disponível.
 
@@ -177,9 +180,9 @@ Na tela final, “Abrir desenho oficial surpresa ↗” só abre uma página ext
 depois de um clique explícito. O destino é escolhido do manifesto oficial, abre
 em nova aba com `noopener,noreferrer` e recebe um link acessível de fallback se
 o navegador bloquear pop-ups. O botão e suas mensagens ficam ocultos na
-impressão; a impressão contém somente o desenho e sua atribuição, quando houver.
-As origens, licenças e auditorias visuais dos desenhos locais estão registradas
-em `public/coloring-pages/ATTRIBUTIONS.md`. O botão de geração envia somente
+impressão; a impressão contém somente a página selecionada e seus créditos.
+As origens e licenças estão registradas em
+`public/coloring-pages/ATTRIBUTIONS.md`. O botão de geração envia somente
 uma solicitação vazia a `/api/coloring`; o servidor escolhe um tema infantil e
 usa uma instrução fixa, sem enviar nome ou informação da criança. A geração
 requer `OPENROUTER_IMAGE_MODEL` configurada no servidor.

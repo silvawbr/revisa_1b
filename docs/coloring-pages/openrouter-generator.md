@@ -1,12 +1,16 @@
 # Gerador de desenhos para colorir
 
+> O botão de geração sob demanda continua ativo na recompensa. O fluxo abaixo
+> de revisão e aprovação de imagens locais é legado; a seleção do catálogo usa
+> páginas licenciadas do Wikimedia Commons em `src/data/searchColoringPages.js`.
+
 O gerador administrativo usa a API de imagens do OpenRouter pelo terminal. A chave fica em `OPENROUTER_API_KEY`; nunca a coloque em `app.js`, em arquivos de `src/` ou no navegador. Configure também `OPENROUTER_IMAGE_MODEL` com um modelo de imagem disponível na sua conta.
 
 ## Gerar na tela da recompensa
 
 O botão “Gerar desenho novo” chama `POST /api/coloring`. Ele usa a chave privada `api_key` (ou `OPENROUTER_API_KEY`) e `OPENROUTER_IMAGE_MODEL`, que devem estar configuradas no ambiente do servidor. O navegador envia somente `{}`; o servidor seleciona um tema permitido e aplica uma instrução fixa, sem receber dados da criança.
 
-A resposta é validada como PNG ou JPEG em orientação retrato e entregue diretamente à tela para colorir e imprimir. Ela não é gravada, revisada nem incluída no catálogo local. O catálogo continua usando o fluxo administrativo abaixo, que exige inspeção visual e aprovação com metadados de licença.
+A resposta é validada como PNG ou JPEG em orientação retrato e entregue diretamente à tela para colorir e imprimir. Ela não é gravada, revisada nem incluída no catálogo. O fluxo administrativo abaixo continua documentado para manter os assets locais legados; ele exige inspeção visual e aprovação com metadados de licença, mas não alimenta o catálogo ativo do Wikimedia Commons.
 
 ```sh
 export OPENROUTER_API_KEY="..."
@@ -36,4 +40,4 @@ npm run coloring:generate -- approve \
   --license-url "https://exemplo.org/termos"
 ```
 
-A aprovação verifica integridade, formato, resolução, orientação A4 e duplicatas exatas. Em seguida copia a imagem para `public/coloring-pages/`, registra os metadados em `src/data/generatedColoringPages.js` e em `public/coloring-pages/ATTRIBUTIONS.md`, e passa a servir o arquivo localmente. O catálogo aprovado continua funcionando offline durante as recompensas.
+A aprovação verifica integridade, formato, resolução, orientação A4 e duplicatas exatas. Em seguida copia a imagem para `public/coloring-pages/`, registra os metadados em `src/data/generatedColoringPages.js` e em `public/coloring-pages/ATTRIBUTIONS.md`, e passa a servir o arquivo localmente. Os assets aprovados permanecem locais e podem ser servidos offline; a seleção da recompensa agora usa o catálogo remoto do Wikimedia Commons.
