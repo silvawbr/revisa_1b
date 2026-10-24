@@ -28,7 +28,7 @@ import { numberToPortuguese } from '../game.js';
 
 export const AV2_SIMULADO_ACTIVITY_ID = 'av2-simulado-block-07';
 export const AV2_SIMULADO_PROGRESS_STORAGE_KEY = 'av2-matematica.block-07.simulado.progress.v1';
-export const AV2_SIMULADO_DEFAULT_QUESTIONS_PER_SUBJECT = 3;
+export const AV2_SIMULADO_DEFAULT_QUESTIONS_PER_SUBJECT = 1;
 export const AV2_SIMULADO_QUESTION_COUNTS = Object.freeze([1, 2, 3, 4, 5]);
 export const AV2_SIMULADO_SUBJECTS = Object.freeze([
   Object.freeze({ id: 'money', label: 'Sistema monetário', description: 'Moedas, cédulas, compras e troco.' }),

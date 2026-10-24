@@ -2,7 +2,7 @@
 
 ## Rodada
 
-- Os assuntos podem ser habilitados separadamente, com 1 a 5 questões por assunto. O padrão usa todos os cinco assuntos com três questões cada.
+- O simulado começa direto, sem tela de configuração, com uma questão de cada um dos cinco assuntos.
 - A ordem final é embaralhada a cada rodada.
 - Dinheiro reúne reconhecimento, comparação, equivalência e compras; quando há duas ou mais questões, a seleção inclui uma questão de compras com múltiplas respostas e um desafio validado de Formar quantias com uma solução.
 - Adição e subtração usam os geradores e validadores dos blocos existentes. Sem os dois assuntos juntos, cada gerador reserva uma questão contextualizada.

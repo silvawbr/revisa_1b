@@ -923,21 +923,6 @@ h1 span { color: var(--blue-deep); }
 .is-terms > .av2-answer-options { margin-top: 15px; }
 .is-terms .av2-addition-actions { margin-top: 12px; }
 
-.simulado-setup-card { width: min(100%, 920px); text-align: left; }
-.simulado-setup-card > h1 { text-align: center; }
-.simulado-setup-card > .home-subtitle { text-align: center; }
-.simulado-topic-list { display: grid; gap: 10px; margin: 20px 0 8px; padding: 15px; border: 2px solid #e6e1f2; border-radius: 18px; }
-.simulado-topic-list legend { padding: 0 8px; color: #44365f; font-size: 1.15rem; font-weight: 900; }
-.simulado-topic-option { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 13px; padding: 12px; border-radius: 14px; background: #faf8ff; cursor: pointer; }
-.simulado-topic-option > input { width: 22px; height: 22px; accent-color: #735aa7; }
-.simulado-topic-copy { display: grid; gap: 3px; }
-.simulado-topic-copy strong { color: #3d315d; font-size: 1rem; }
-.simulado-topic-copy small { color: var(--muted); line-height: 1.35; }
-.simulado-count-control { display: grid; justify-items: center; gap: 4px; color: var(--muted); font-size: 0.8rem; font-weight: 800; }
-.simulado-count-control select { min-width: 76px; min-height: 42px; border: 2px solid #cfc4e7; border-radius: 10px; color: #3d315d; background: white; font: inherit; font-weight: 900; text-align: center; }
-.simulado-count-control select:disabled { opacity: 0.48; }
-.simulado-setup-note { min-height: 25px; margin: 11px 0; color: var(--muted); font-weight: 700; text-align: center; }
-.simulado-setup-card > .start-button { display: block; margin-inline: auto; }
 .simulado-step-heading { display: grid; gap: 5px; margin: 0 auto 12px; text-align: center; }
 .simulado-step-heading span { color: #765da8; font-size: 0.9rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; }
 .simulado-step-heading strong { color: #44365f; font-size: 1.1rem; }

@@ -136,7 +136,6 @@ const state = {
   av2AdditionAnswer: {},
   av2AdditionInputError: false,
   av2ActiveAdditionField: null,
-  av2SimuladoSetup: Object.fromEntries(AV2_SIMULADO_SUBJECTS.map(({ id }) => [id, AV2_SIMULADO_DEFAULT_QUESTIONS_PER_SUBJECT])),
   av2Simulation: null,
   av2CompositeStage: 1,
   av2CompositeIntermediate: null,
@@ -150,6 +149,10 @@ function createSimuladoMetrics(counts) {
   return Object.fromEntries(AV2_SIMULADO_SUBJECTS
     .filter(({ id }) => counts[id] > 0)
     .map(({ id }) => [id, { questions: counts[id], firstTryCorrect: 0, solved: 0, attempts: 0 }]));
+}
+
+function defaultAv2SimuladoCounts() {
+  return Object.fromEntries(AV2_SIMULADO_SUBJECTS.map(({ id }) => [id, AV2_SIMULADO_DEFAULT_QUESTIONS_PER_SUBJECT]));
 }
 
 function copySimuladoMetrics(metrics = {}) {
@@ -686,9 +689,9 @@ function renderHome() {
           <div class="simulation-feature-content">
             <p class="simulation-kicker">Preparação para a prova</p>
             <h2 id="simulation-title">Simulado AV2</h2>
-            <p>Revise todos os assuntos da AV2 ou escolha quais quer praticar.</p>
+            <p>Uma questão de cada assunto: dinheiro, adição, subtração, sequências e números por extenso.</p>
             <p class="simulation-progress">Simulados concluídos: <strong>${av2RoundsCompleted}</strong></p>
-            <button class="primary-button simulation-start-button" type="button" data-action="open-av2-simulado-setup">Preparar simulado <span aria-hidden="true">→</span></button>
+            <button class="primary-button simulation-start-button" type="button" data-action="start-av2-simulado">Começar simulado <span aria-hidden="true">→</span></button>
           </div>
         </section>
         <section class="home-review-section" aria-labelledby="home-reviews-title">
@@ -785,46 +788,6 @@ function renderAv2Home() {
       </section>
     </main>
   </div>`;
-}
-
-function renderAv2SimuladoSetup() {
-  const selectedCount = Object.keys(state.av2SimuladoSetup).filter((id) => state.av2SimuladoSetup[id] > 0).length;
-  const topics = AV2_SIMULADO_SUBJECTS.map(({ id, label, description }) => {
-    const enabled = state.av2SimuladoSetup[id] > 0;
-    const count = enabled ? state.av2SimuladoSetup[id] : AV2_SIMULADO_DEFAULT_QUESTIONS_PER_SUBJECT;
-    return `<div class="simulado-topic-option">
-      <input id="simulado-subject-${id}" type="checkbox" data-simulado-subject="${id}" ${enabled ? 'checked' : ''}>
-      <label class="simulado-topic-copy" for="simulado-subject-${id}"><strong>${escapeHtml(label)}</strong><small>${escapeHtml(description)}</small></label>
-      <span class="simulado-count-control"><span>Questões</span><select data-simulado-count="${id}" aria-label="Quantidade de questões de ${escapeAttribute(label)}" ${enabled ? '' : 'disabled'}>${[1, 2, 3, 4, 5].map((value) => `<option value="${value}" ${value === count ? 'selected' : ''}>${value}</option>`).join('')}</select></span>
-    </div>`;
-  }).join('');
-  return `<div class="site-shell home-screen av2-home-screen">
-    <main class="home-main">
-      <section class="home-card av2-home-card simulado-setup-card" aria-labelledby="simulado-setup-title">
-        <p class="eyebrow">Simulado AV2</p>
-        <h1 id="simulado-setup-title">Prepare a revisão<br><span>de ${escapeHtml(currentChildName())}</span></h1>
-        <p class="home-subtitle">Escolha os assuntos e quantas questões quer fazer em cada um.</p>
-        <fieldset class="simulado-topic-list">
-          <legend>Assuntos do simulado</legend>
-          ${topics}
-        </fieldset>
-        <p class="simulado-setup-note">${selectedCount ? `${selectedCount} assunto${selectedCount === 1 ? '' : 's'} selecionado${selectedCount === 1 ? '' : 's'}. Cada assunto mantém a quantidade escolhida.` : 'Selecione pelo menos um assunto para começar.'}</p>
-        <button class="primary-button start-button" type="button" data-action="start-av2-simulado" ${selectedCount ? '' : 'disabled'}>Começar simulado <span aria-hidden="true">→</span></button>
-        <button class="secondary-button av2-back-button" type="button" data-action="home">Voltar às revisões</button>
-        ${renderGuide('Vamos revisar vários assuntos. Você consegue!')}
-      </section>
-    </main>
-  </div>`;
-}
-
-function readAv2SimuladoSetup() {
-  const counts = {};
-  for (const { id } of AV2_SIMULADO_SUBJECTS) {
-    const enabled = document.querySelector(`[data-simulado-subject="${id}"]`)?.checked;
-    const count = Number(document.querySelector(`[data-simulado-count="${id}"]`)?.value);
-    if (enabled && Number.isInteger(count) && count >= 1 && count <= 5) counts[id] = count;
-  }
-  return counts;
 }
 
 function renderAv2Progress() {
@@ -1427,7 +1390,6 @@ function render() {
   if (state.screen === 'name') app.innerHTML = renderNameScreen();
   else if (state.screen === 'home') app.innerHTML = renderHome();
   else if (state.screen === 'av2-home') app.innerHTML = renderAv2Home();
-  else if (state.screen === 'av2-simulado-setup') app.innerHTML = renderAv2SimuladoSetup();
   else if (state.screen === 'av2-game') app.innerHTML = renderAv2Game();
   else if (state.screen === 'reward') app.innerHTML = renderReward();
   else app.innerHTML = renderGame();
@@ -1525,7 +1487,7 @@ function beginRound() {
 
 function beginAv2Round(block = 'block-01') {
   if (block === 'block-07') {
-    beginAv2SimuladoRound(state.av2SimuladoSetup);
+    beginAv2SimuladoRound(defaultAv2SimuladoCounts());
     return;
   }
   cancelSpeech();
@@ -1997,16 +1959,8 @@ function bindEvents() {
       if (action === 'start-av2-shopping') beginAv2Round('block-02');
       if (action === 'start-av2-addition') beginAv2Round('block-03');
       if (action === 'start-av2-subtraction') beginAv2Round('block-04');
-      if (action === 'open-av2-simulado-setup') {
-        cancelSpeech();
-        state.activeRevision = AV2_REVISION_ID;
-        state.screen = 'av2-simulado-setup';
-        render();
-      }
       if (action === 'start-av2-simulado') {
-        const counts = readAv2SimuladoSetup();
-        state.av2SimuladoSetup = Object.fromEntries(AV2_SIMULADO_SUBJECTS.map(({ id }) => [id, counts[id] ?? 0]));
-        if (Object.keys(counts).length) beginAv2SimuladoRound(counts);
+        beginAv2SimuladoRound(defaultAv2SimuladoCounts());
       }
       if (action === 'generate-coloring-page') generateRewardColoringPage();
       if (action === 'start-av2-sequences') beginAv2Round('block-05');
@@ -2090,22 +2044,6 @@ function bindEvents() {
 
   document.querySelectorAll('[data-av2-answer]').forEach((button) => {
     button.addEventListener('click', () => selectAv2Option(button.dataset.av2Answer));
-  });
-
-  document.querySelectorAll('[data-simulado-subject]').forEach((checkbox) => {
-    checkbox.addEventListener('change', () => {
-      const subjectId = checkbox.dataset.simuladoSubject;
-      const count = Number(document.querySelector(`[data-simulado-count="${subjectId}"]`)?.value) || AV2_SIMULADO_DEFAULT_QUESTIONS_PER_SUBJECT;
-      state.av2SimuladoSetup[subjectId] = checkbox.checked ? count : 0;
-      render();
-    });
-  });
-  document.querySelectorAll('[data-simulado-count]').forEach((select) => {
-    select.addEventListener('change', () => {
-      const subjectId = select.dataset.simuladoCount;
-      if (state.av2SimuladoSetup[subjectId] > 0) state.av2SimuladoSetup[subjectId] = Number(select.value);
-      render();
-    });
   });
 
   document.querySelectorAll('[data-add-money]').forEach((button) => {
