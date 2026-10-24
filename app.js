@@ -616,18 +616,33 @@ function renderNameScreen() {
 }
 
 function renderHome() {
+  const av2RoundsCompleted = av2Progress.get().roundsCompleted;
   return `<div class="site-shell home-screen">
     <main class="home-main">
       <div class="home-decor decor-one" aria-hidden="true">2</div><div class="home-decor decor-two" aria-hidden="true">★</div><div class="home-decor decor-three" aria-hidden="true">5</div>
-      <section class="home-card" aria-labelledby="home-title">
+      <section class="home-card home-dashboard-card" aria-labelledby="home-title">
         <div class="home-art" aria-hidden="true"><span class="home-circle">6</span><span class="home-triangle"></span><span class="home-square">＋</span><span class="home-star">★</span></div>
         <p class="eyebrow">1º ano Vita · Uma aventura de aprender</p>
         <h1 id="home-title">Revisão de Matemática<br><span>de ${escapeHtml(currentChildName())}</span></h1>
-        <p class="home-subtitle">Escolha sua revisão para aprender, brincar e conquistar estrelas.</p>
-        <div class="revision-choices" aria-label="Escolha uma revisão de Matemática">
-          <button class="primary-button revision-choice" type="button" data-action="start"><span class="revision-choice-title">Revisão de Matemática</span><span class="revision-choice-copy">Formas, números e desafios</span><span class="revision-choice-arrow" aria-hidden="true">→</span></button>
-          <button class="secondary-button revision-choice av2-choice" type="button" data-action="av2-entry"><span class="revision-choice-title">AV2 Matemática</span><span class="revision-choice-copy">Vamos aprender sobre dinheiro</span><span class="revision-choice-arrow" aria-hidden="true">→</span></button>
-        </div>
+        <p class="home-subtitle">Comece pelo simulado ou escolha uma revisão para praticar.</p>
+        <section class="simulation-feature" aria-labelledby="simulation-title">
+          <div class="simulation-feature-art" aria-hidden="true">✏️</div>
+          <div class="simulation-feature-content">
+            <p class="simulation-kicker">Preparação para a prova</p>
+            <h2 id="simulation-title">Simulado AV2</h2>
+            <p>Responda a 10 questões de dinheiro e acompanhe seu progresso.</p>
+            <p class="simulation-progress">Simulados concluídos: <strong>${av2RoundsCompleted}</strong></p>
+            <button class="primary-button simulation-start-button" type="button" data-action="start-av2">Começar simulado <span aria-hidden="true">→</span></button>
+          </div>
+        </section>
+        <section class="home-review-section" aria-labelledby="home-reviews-title">
+          <h2 id="home-reviews-title">Revisões por assunto</h2>
+          <p>Escolha uma área para praticar no seu ritmo.</p>
+          <div class="revision-choices" aria-label="Outras revisões de Matemática">
+            <button class="primary-button revision-choice" type="button" data-action="start"><span class="revision-choice-title">1ª revisão</span><span class="revision-choice-copy">Formas, números e desafios</span><span class="revision-choice-arrow" aria-hidden="true">→</span></button>
+            <button class="secondary-button revision-choice av2-choice" type="button" data-action="av2-entry"><span class="revision-choice-title">Reforço AV2 por assunto</span><span class="revision-choice-copy">Dinheiro, operações, sequências e compras</span><span class="revision-choice-arrow" aria-hidden="true">→</span></button>
+          </div>
+        </section>
         ${renderGuide('Estou aqui para torcer por você!')}
         <button class="change-child-home" type="button" data-action="change-child">Trocar criança</button>
         <p class="privacy-note">Sem cadastro. Só brincadeira e aprendizado.</p>
@@ -655,7 +670,7 @@ function renderAv2Home() {
   return `<div class="site-shell home-screen av2-home-screen">
     <main class="home-main">
       <section class="home-card av2-home-card" aria-labelledby="av2-home-title">
-        <p class="eyebrow">Revisão para 27 de outubro</p>
+        <p class="eyebrow">Reforço AV2 por assunto · Revisão para 27 de outubro</p>
         <h1 id="av2-home-title">AV2 Matemática<br><span>Escolha uma atividade</span></h1>
         <div class="av2-activity-grid" aria-label="Atividades da AV2 de Matemática">
           <article class="av2-activity-card">

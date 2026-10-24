@@ -752,6 +752,22 @@ h1 span { color: var(--blue-deep); }
 .av2-choice { color: #3d315d; background: var(--lilac); box-shadow: 0 5px 0 #c2b0ec; }
 .av2-choice:hover { background: #eee7ff; }
 
+.home-dashboard-card { width: min(100%, 900px); }
+.home-dashboard-card .home-subtitle { margin-bottom: 24px; }
+.simulation-feature { display: grid; grid-template-columns: 112px minmax(0, 1fr); align-items: center; gap: 22px; margin: 0 auto 30px; padding: 24px; border: 2px solid #cdbcf2; border-radius: 26px; background: linear-gradient(125deg, #f2edff, #fff); text-align: left; }
+.simulation-feature-art { display: grid; place-items: center; width: 104px; height: 104px; border-radius: 25px; background: #e4d9ff; font-size: 3.5rem; }
+.simulation-kicker { margin: 0 0 5px; color: #705b9e; font-size: 0.8rem; font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; }
+.simulation-feature h2 { margin: 0 0 7px; color: #3d315d; font-size: clamp(1.55rem, 3.5vw, 2.1rem); }
+.simulation-feature-content > p:not(.simulation-kicker):not(.simulation-progress) { margin: 0; color: var(--muted); line-height: 1.45; }
+.simulation-progress { margin: 10px 0 14px; color: var(--muted); font-size: 0.92rem; font-weight: 700; }
+.simulation-progress strong { color: #5d4c83; }
+.simulation-start-button { min-height: 52px; padding-inline: 20px; }
+.home-review-section { padding-top: 23px; border-top: 2px solid #f0ebf6; }
+.home-review-section h2 { margin: 0 0 7px; color: #44365f; font-size: clamp(1.3rem, 3vw, 1.65rem); }
+.home-review-section > p { margin: 0 auto 17px; color: var(--muted); }
+.home-review-section .revision-choices { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: none; }
+.home-review-section .revision-choice { min-height: 92px; }
+
 .av2-home-card { width: min(100%, 800px); }
 .av2-home-card h1 { margin-bottom: 15px; }
 .av2-home-card h1 span { color: #5d4c83; }
@@ -999,4 +1015,17 @@ h1 span { color: var(--blue-deep); }
   .av2-composition-selected-item .money-coin { width: min(100%, 108px); }
   .av2-composition-selected-item .money-note { width: min(100%, 136px); }
   .av2-composition-controls { display: grid; grid-template-columns: 1fr; }
+}
+
+@media (max-width: 760px) {
+  .simulation-feature { grid-template-columns: 82px minmax(0, 1fr); gap: 15px; padding: 18px; }
+  .simulation-feature-art { width: 78px; height: 78px; border-radius: 20px; font-size: 2.7rem; }
+  .home-review-section .revision-choice { min-height: 84px; }
+}
+
+@media (max-width: 460px) {
+  .simulation-feature { grid-template-columns: 1fr; justify-items: center; gap: 12px; padding: 17px 14px; text-align: center; }
+  .simulation-feature-art { width: 66px; height: 66px; font-size: 2.25rem; }
+  .simulation-feature-content { width: 100%; }
+  .home-review-section .revision-choices { grid-template-columns: 1fr; }
 }
