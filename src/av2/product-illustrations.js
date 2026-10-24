@@ -19,6 +19,9 @@ export const AV2_PRODUCT_ILLUSTRATIONS = Object.freeze([
   illustration('sandwich', '/public/av2-products/sandwich.svg', 'o'),
   illustration('popcorn', '/public/av2-products/popcorn.svg', 'a'),
   illustration('gum', '/public/av2-products/gum.svg', 'o'),
+  illustration('truck', '/public/av2-products/truck.svg', 'o'),
+  illustration('building-blocks', '/public/av2-products/building-blocks.svg', 'os'),
+  illustration('dinosaur', '/public/av2-products/dinosaur.svg', 'o'),
 ]);
 
 const illustrationById = new Map(AV2_PRODUCT_ILLUSTRATIONS.map((item) => [item.id, item]));
@@ -42,6 +45,9 @@ const illustrationIdByLabel = Object.freeze({
   Sanduíche: 'sandwich',
   Pipoca: 'popcorn',
   Chiclete: 'gum',
+  Caminhão: 'truck',
+  Blocos: 'building-blocks',
+  Dinossauro: 'dinosaur',
 });
 
 export function getAv2ProductIllustration(id) {

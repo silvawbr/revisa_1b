@@ -13,6 +13,7 @@ import {
 } from '../src/av2/progress.js';
 import { CHILD_NAME_STORAGE_KEY } from '../src/child-profile.js';
 import { createAv2MoneyCompositionRound, findMoneyCompositionSolutions, formatMoneyCompositionTotal } from '../src/av2/money-composition.js';
+import { createAv2SimuladoFullCoverageRound, AV2_SIMULADO_PROGRESS_STORAGE_KEY } from '../src/av2/simulado.js';
 
 const SHOPPING_PRODUCT_LABELS = [
   'Caderno', 'Livro', 'Lápis', 'Cola', 'Tesoura', 'Borracha', 'Régua', 'Giz de cera',
@@ -25,6 +26,7 @@ class FakeElement {
     this.dataset = {};
     this.listeners = new Map();
     this.value = attributes.value ?? '';
+    this.checked = Object.hasOwn(attributes, 'checked');
     for (const [name, value] of Object.entries(attributes)) {
       if (name.startsWith('data-')) {
         const key = name.slice(5).replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase());
@@ -101,9 +103,14 @@ function parseElements(markup, selector) {
   const selectorMatch = selector.match(/^\[(data-[\w-]+)(?:="([^"]*)")?\]$/);
   if (!selectorMatch) return [];
   const [, attribute, expectedValue] = selectorMatch;
-  if (!['data-action', 'data-av2-answer', 'data-av2-add-field', 'data-av2-add-digit', 'data-av2-add-clear', 'data-sequence-answer', 'data-table-gap', 'data-add-money', 'data-remove-money-item'].includes(attribute)) return [];
-  return [...markup.matchAll(/<(?:button|input|a)\b[^>]*>/g)].flatMap(([tag]) => {
-    const attributes = Object.fromEntries([...tag.matchAll(/([\w:-]+)="([^"]*)"/g)].map((match) => [match[1], match[2]]));
+  if (!['data-action', 'data-av2-answer', 'data-av2-add-field', 'data-av2-add-digit', 'data-av2-add-clear', 'data-sequence-answer', 'data-table-gap', 'data-add-money', 'data-remove-money-item', 'data-match-group', 'data-match-product', 'data-simulado-term-role', 'data-simulado-word-answer', 'data-simulado-numeric-answer', 'data-av2-association-answer', 'data-simulado-subject', 'data-simulado-count'].includes(attribute)) return [];
+  return [...markup.matchAll(/<(?:button|input|a|select)\b[^>]*>/g)].flatMap(([tag]) => {
+    const attributes = Object.fromEntries([...tag.matchAll(/\s([\w:-]+)(?:="([^"]*)")?/g)].map((match) => [match[1], match[2] ?? '']));
+    if (tag.startsWith('<select')) {
+      const start = markup.indexOf(tag) + tag.length;
+      const selected = markup.slice(start).match(/<option\s+value="([^"]+)"\s+selected>/);
+      if (selected) attributes.value = selected[1];
+    }
     return attributes[attribute] !== undefined && (expectedValue === undefined || attributes[attribute] === expectedValue)
       ? [new FakeElement(attributes)] : [];
   });
@@ -264,7 +271,7 @@ test('a criança entra na AV2, termina dez questões, inicia outra rodada e reto
   try {
     await import(`../app.js?av2-ui-${Date.now()}`);
     assert.match(app.innerHTML, /Revisão de Matemática/);
-    assert.match(app.innerHTML, /AV2 Matemática/);
+    assert.match(app.innerHTML, /Simulado AV2/);
 
     clickAction(document, 'av2-entry');
     assert.match(app.innerHTML, /AV2 Matemática<br><span>Escolha uma atividade/);
@@ -375,6 +382,274 @@ test('a criança entra na AV2, termina dez questões, inicia outra rodada e reto
     assert.match(app.innerHTML, /Atividade 1/);
     assert.match(app.innerHTML, /Progresso: atividade 1 de 6/);
     assert.doesNotMatch(app.innerHTML, /data-av2-answer=/);
+  } finally {
+    globalThis.document = previousDocument;
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+    if (previousStorage) Object.defineProperty(globalThis, 'localStorage', previousStorage);
+    else delete globalThis.localStorage;
+  }
+});
+
+test('simulado personalizado mantém seleção de assunto e quantidade de questões', async () => {
+  const previousDocument = globalThis.document;
+  const previousWindow = globalThis.window;
+  const previousStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const storageValues = new Map([[CHILD_NAME_STORAGE_KEY, 'Ana']]);
+  const storage = {
+    getItem(key) { return storageValues.get(key) ?? null; },
+    setItem(key, value) { storageValues.set(key, String(value)); },
+    removeItem(key) { storageValues.delete(key); },
+  };
+  const app = new FakeApp();
+  const document = {
+    title: '',
+    querySelector(selector) { return selector === '#app' ? app : app.querySelector(selector); },
+    querySelectorAll(selector) { return app.querySelectorAll(selector); },
+  };
+  globalThis.document = document;
+  globalThis.window = { addEventListener() {} };
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage });
+
+  try {
+    await import(`../app.js?av2-custom-setup-${Date.now()}`);
+    clickAction(document, 'open-av2-simulado-setup');
+    for (const subjectId of ['money', 'addition', 'subtraction', 'sequences']) {
+      const checkbox = document.querySelectorAll('[data-simulado-subject]')
+        .find((item) => item.dataset.simuladoSubject === subjectId);
+      assert.ok(checkbox?.checked, `${subjectId} começa habilitado`);
+      assert.ok(checkbox.listeners.has('change'), `${subjectId} permite mudar a seleção: ${[...checkbox.listeners.keys()].join(',')}`);
+      checkbox.checked = false;
+      checkbox.dispatchEvent({ type: 'change' });
+    }
+    const count = document.querySelectorAll('[data-simulado-count]')
+      .find((item) => item.dataset.simuladoCount === 'words');
+    count.value = '3';
+    count.dispatchEvent({ type: 'change' });
+    assert.match(app.innerHTML, /1 assunto selecionado/);
+    clickAction(document, 'start-av2-simulado');
+    assert.match(app.innerHTML, /Questão 1 de 3/);
+    assert.match(app.innerHTML, /data-av2-question-type="simulado-(?:word-write|association|word)"/);
+  } finally {
+    globalThis.document = previousDocument;
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+    if (previousStorage) Object.defineProperty(globalThis, 'localStorage', previousStorage);
+    else delete globalThis.localStorage;
+  }
+});
+
+test('simulado completo percorre os formatos oficiais, registra erro, pratica de novo e entrega a recompensa', async () => {
+  const previousDocument = globalThis.document;
+  const previousWindow = globalThis.window;
+  const previousStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const storageValues = new Map([[CHILD_NAME_STORAGE_KEY, 'Marina']]);
+  const storage = {
+    getItem(key) { return storageValues.get(key) ?? null; },
+    setItem(key, value) { storageValues.set(key, String(value)); },
+    removeItem(key) { storageValues.delete(key); },
+  };
+  const app = new FakeApp();
+  const document = {
+    title: '',
+    querySelector(selector) { return selector === '#app' ? app : app.querySelector(selector); },
+    querySelectorAll(selector) { return app.querySelectorAll(selector); },
+  };
+  globalThis.document = document;
+  globalThis.window = { innerWidth: 390, addEventListener() {} };
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage });
+
+  const seed = 20261024;
+  const expectedRound = createAv2SimuladoFullCoverageRound(seededRandom(seed));
+  const submit = () => clickAction(document, 'submit-av2');
+  const input = (selector, value) => {
+    const field = document.querySelector(selector);
+    assert.ok(field, `campo ${selector} está visível`);
+    field.value = String(value);
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  const fillDigits = (result) => {
+    const digits = String(result).padStart(3, '0');
+    for (const field of document.querySelectorAll('[data-av2-add-field]')) {
+      const name = field.dataset.av2AddField;
+      if (['hundreds', 'tens', 'units'].includes(name)) {
+        field.value = digits[{ hundreds: 0, tens: 1, units: 2 }[name]];
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+    submit();
+  };
+
+  try {
+    await import(`../app.js?av2-full-e2e-${Date.now()}`);
+    assert.match(app.innerHTML, /Simulado AV2/);
+    clickAction(document, 'open-av2-simulado-setup');
+    assert.match(app.innerHTML, /Revisão completa AV2/);
+    assert.match(app.innerHTML, /personalize sua prática/i);
+    const originalRandom = Math.random;
+    try { Math.random = seededRandom(seed); clickAction(document, 'start-av2-full-simulado'); }
+    finally { Math.random = originalRandom; }
+    assert.match(app.innerHTML, /Questão 1 de 15/);
+
+    for (let index = 0; index < expectedRound.length; index += 1) {
+      const question = expectedRound[index];
+      assert.match(app.innerHTML, new RegExp(`Questão ${index + 1} de 15`));
+      assert.match(app.innerHTML, /data-speech-button="question"/);
+      assert.equal(app.innerHTML.match(/data-av2-question-type="([^"]+)"/)?.[1], question.type,
+        `a questão ${index + 1} corresponde ao tipo esperado ${question.type}`);
+      if (question.activityId === 'av2-money-composition') {
+        assert.match(app.innerHTML, new RegExp(`data-challenge-id="${question.challengeId}"`));
+      }
+      if (question.type === 'equivalence') {
+        const answer = document.querySelectorAll('[data-av2-answer]').find((button) => button.dataset.av2Answer === question.correctAnswer);
+        assert.ok(answer, 'a nota equivalente tem uma ilustração selecionável');
+        answer.click();
+      } else if (question.type === 'simulado-money-product-match') {
+        assert.match(app.innerHTML, /Toque em um grupo de cédulas/);
+        for (let groupIndex = 0; groupIndex < question.data.groups.length; groupIndex += 1) {
+          const group = question.data.groups[groupIndex];
+          const nextGroup = question.data.groups[(groupIndex + 1) % question.data.groups.length];
+          document.querySelectorAll('[data-match-group]').find((button) => button.dataset.matchGroup === group.id).click();
+          document.querySelectorAll('[data-match-product]').find((button) => button.dataset.matchProduct === question.correctAnswer[nextGroup.id]).click();
+        }
+        submit();
+        assert.match(app.innerHTML, /Confira os grupos destacados/);
+        assert.match(app.innerHTML, /is-pair-incorrect/);
+        for (const group of question.data.groups) {
+          document.querySelectorAll('[data-match-group]').find((button) => button.dataset.matchGroup === group.id).click();
+          document.querySelectorAll('[data-match-product]').find((button) => button.dataset.matchProduct === question.correctAnswer[group.id]).click();
+        }
+        submit();
+      } else if (question.type === 'simulado-shopping-total' || question.type === 'simulado-shopping-change') {
+        assert.match(app.innerHTML, /Dinheiro de Rael/);
+        input('[data-simulado-numeric-answer]', question.correctAnswer);
+        submit();
+      } else if (question.type === 'simulado-shopping-affordability') {
+        assert.match(app.innerHTML, /Pode haver mais de uma resposta/);
+        for (const productId of question.correctAnswers) {
+          document.querySelectorAll('[data-av2-answer]').find((button) => button.dataset.av2Answer === productId).click();
+        }
+        submit();
+      } else if (question.activityId === 'av2-money-composition') {
+        let remaining = question.targetCents;
+        for (const denominationId of question.allowedDenominationIds) {
+          const denomination = MONEY_DENOMINATIONS.find((money) => money.id === denominationId);
+          const quantity = Math.floor(remaining / denomination.valueCents);
+          for (let count = 0; count < quantity; count += 1) {
+            document.querySelectorAll('[data-add-money]').find((button) => button.dataset.addMoney === denominationId).click();
+          }
+          remaining -= quantity * denomination.valueCents;
+        }
+        assert.equal(remaining, 0);
+        submit();
+      } else if (question.type === 'simulado-product-board' && question.options.length) {
+        document.querySelectorAll('[data-av2-answer]').find((button) => button.dataset.av2Answer === question.correctAnswer).click();
+        submit();
+      } else if (question.type === 'simulado-product-board') {
+        input('[data-simulado-numeric-answer]', question.correctAnswer);
+        submit();
+      } else if (question.type === 'simulado-number-table') {
+        assert.match(app.innerHTML, /data-table-gap=/);
+        assert.match(app.innerHTML, /simulado-number-table" style="--table-columns:5/);
+        const gaps = document.querySelectorAll('[data-table-gap]');
+        for (const field of gaps.slice(0, -1)) {
+          const cellIndex = Number(field.dataset.tableGap);
+          field.value = String(question.data.table.values[cellIndex]);
+          field.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        submit();
+        assert.match(app.innerHTML, /Preencha todos os espaços vazios/);
+        const lastIndex = Number(gaps.at(-1).dataset.tableGap);
+        input(`[data-table-gap="${lastIndex}"]`, question.data.table.values[lastIndex]);
+        for (const field of document.querySelectorAll('[data-table-gap]')) {
+          const cellIndex = Number(field.dataset.tableGap);
+          field.value = String(question.data.table.values[cellIndex]);
+          field.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        submit();
+      } else if (question.type === 'simulado-word-write') {
+        assert.match(app.innerHTML, /data-simulado-word-answer/);
+        assert.doesNotMatch(app.innerHTML, new RegExp(question.correctAnswer, 'i'), 'a escrita não aparece antes da resposta');
+        if (question.data.value === 208) {
+          input('[data-simulado-word-answer]', 'duzentos e nove');
+          submit();
+          assert.match(app.innerHTML, /tente escrever novamente/i);
+          clickAction(document, 'av2-hint');
+          assert.match(app.innerHTML, /Pense nas centenas, dezenas e unidades/);
+          assert.doesNotMatch(app.innerHTML, new RegExp(question.correctAnswer, 'i'), 'a dica não revela a resposta por extenso');
+        }
+        input('[data-simulado-word-answer]', question.correctAnswer);
+        submit();
+      } else if (question.type === 'simulado-two-step') {
+        assert.match(app.innerHTML, /role="columnheader">C<\/b>/);
+        assert.match(app.innerHTML, /role="columnheader">D<\/b>/);
+        assert.match(app.innerHTML, /role="columnheader">U<\/b>/);
+        assert.doesNotMatch(app.innerHTML, />351<|>204</, 'o resultado não aparece antes da primeira operação');
+        fillDigits(351);
+        assert.match(app.innerHTML, /Etapa 2 de 4/);
+        for (const select of document.querySelectorAll('[data-simulado-term-role]')) {
+          select.value = question.data.steps[1].expectedRoles[select.dataset.simuladoTermRole];
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        submit();
+        assert.match(app.innerHTML, /Etapa 3 de 4/);
+        assert.match(app.innerHTML, /Resultado confirmado na primeira etapa: <strong>351<\/strong>/);
+        fillDigits(204);
+        assert.match(app.innerHTML, /Etapa 4 de 4/);
+        for (const select of document.querySelectorAll('[data-simulado-term-role]')) {
+          select.value = question.data.steps[3].expectedRoles[select.dataset.simuladoTermRole];
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        submit();
+      } else {
+        assert.fail(`formato inesperado: ${question.type}`);
+      }
+
+      if (question.activityId === 'av2-money-composition') assert.ok(app.innerHTML.includes(question.feedback.correct));
+      else assert.match(app.innerHTML, /Muito bem, Marina!/);
+      clickAction(document, 'next-av2');
+    }
+
+    assert.match(app.innerHTML, /Resultado do simulado/);
+    assert.match(app.innerHTML, /Números por extenso/);
+    assert.match(app.innerHTML, /Revisar os erros com novas questões \(2\)/);
+    assert.equal(JSON.parse(storage.getItem(AV2_SIMULADO_PROGRESS_STORAGE_KEY)).roundsCompleted, 1);
+    clickAction(document, 'review-av2-simulado-errors');
+    assert.match(app.innerHTML, /Questão 1 de 2/);
+    for (let focusIndex = 0; focusIndex < 2; focusIndex += 1) {
+      const focusedType = app.innerHTML.match(/data-av2-question-type="([^"]+)"/)?.[1];
+      if (focusedType === 'simulado-money-product-match') {
+        const getPairs = () => {
+          const products = document.querySelectorAll('[data-match-product]').map((button) => ({
+            id: button.dataset.matchProduct,
+            cents: Number(button.attributes['aria-label'].match(/(\d+) reais?/)?.[1]) * 100,
+          }));
+          return document.querySelectorAll('[data-match-group]').map((button) => ({
+            id: button.dataset.matchGroup,
+            cents: button.dataset.matchDenominations.split('|').reduce((sum, id) => sum + MONEY_DENOMINATIONS.find((money) => money.id === id).valueCents, 0),
+          })).map((group) => ({ ...group, productId: products.find((product) => product.cents === group.cents).id }));
+        };
+        for (const pair of getPairs()) {
+          document.querySelectorAll('[data-match-group]').find((button) => button.dataset.matchGroup === pair.id).click();
+          document.querySelectorAll('[data-match-product]').find((button) => button.dataset.matchProduct === pair.productId).click();
+        }
+        submit();
+      } else {
+        assert.equal(focusedType, 'simulado-word-write');
+        const focusedValue = Number(app.innerHTML.match(/Escreva o número (\d+) por extenso/)?.[1]);
+        input('[data-simulado-word-answer]', numberToWordsPtBr(focusedValue));
+        submit();
+      }
+      clickAction(document, 'next-av2');
+    }
+    assert.match(app.innerHTML, /Rodada focada nos erros/);
+    clickAction(document, 'show-simulado-reward');
+    assert.match(app.innerHTML, /Você concluiu o Simulado AV2/);
+    assert.match(app.innerHTML, /estrelas conquistadas/);
+    assert.match(app.innerHTML, /data-coloring-image/);
+    clickAction(document, 'home');
+    assert.match(app.innerHTML, /Revisão de Matemática/);
+    assert.equal(JSON.parse(storage.getItem(AV2_SIMULADO_PROGRESS_STORAGE_KEY)).roundsCompleted, 2);
   } finally {
     globalThis.document = previousDocument;
     if (previousWindow === undefined) delete globalThis.window;
@@ -616,6 +891,7 @@ test('Block 05 completes mixed questions, selects cursive number-word options, r
   try {
     await import(`../app.js?av2-sequences-ui-${Date.now()}`);clickAction(document,'av2-entry');assert.match(app.innerHTML,/Sequências e números por extenso/);
     const seed=90512, original=Math.random;
+    const expectedRound = createAv2SequencesRound(seededRandom(seed));
     try{Math.random=seededRandom(seed);clickAction(document,'start-av2-sequences');}finally{Math.random=original;}
     assert.match(app.innerHTML,/Questão 1 de 12/);
     let checkedWrongWordOption=false;
@@ -630,7 +906,7 @@ test('Block 05 completes mixed questions, selects cursive number-word options, r
         else {const row=app.innerHTML.match(/<div class="number-sequence[^\"]*"[^>]*>([\s\S]*?)<\/div>/)?.[1]??'';const tokens=[...row.matchAll(/<span>(\d+)<\/span>|<input[^>]*data-sequence-answer/g)];const blank=tokens.findIndex(t=>t[0].includes('data-sequence-answer'));const direction=app.innerHTML.includes('diminuem de um em um')?-1:1;const visible=tokens.findIndex(t=>t[1]!==undefined);const first=Number(tokens[visible][1]);const start=first-visible*direction;answer=start+blank*direction;}
         sequenceInput.value=String(answer);sequenceInput.dispatchEvent(new Event('input',{bubbles:true}));clickAction(document,'submit-av2');
       } else if(tableInputs.length){
-        for(const input of tableInputs){const m=input.attributes['aria-label'].match(/entre (\d+) e (\d+)/);input.value=String(Number(m[1])+1);input.dispatchEvent(new Event('input',{bubbles:true}));}clickAction(document,'submit-av2');
+        for(const input of tableInputs){const index=Number(input.dataset.tableGap);input.value=String(expectedRound[i].values[index]);input.dispatchEvent(new Event('input',{bubbles:true}));}clickAction(document,'submit-av2');
       } else {
         let answer;const word=app.innerHTML.match(/<div class="word-prompt cursive-text">([^<]+)<\/div>/)?.[1];const shownNumber=app.innerHTML.match(/<div class="number-prompt"><span>Número<\/span><strong>(\d+)<\/strong><\/div>/)?.[1];
         if(word){assert.match(app.innerHTML,/class="word-wrap av2-number-word-recognition"/);answer=[...Array(251).keys(),300,400].find(n=>numberToWordsPtBr(n)===word);}

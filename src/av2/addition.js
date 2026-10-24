@@ -377,6 +377,16 @@ export function createAv2AdditionQuestion({ category = 'ADD-01', digitCount = 2,
   return makeArithmeticQuestion({ type: 'addition', pedagogicalCategory: category, a: pair[0], b: pair[1], random });
 }
 
+/** Build a fixed, validated operation while reusing Block 03's trace and presentation contract. */
+export function createAv2AdditionQuestionForOperands({ a, b, random = Math.random } = {}) {
+  if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0 || a > 999 || b > 999) {
+    throw new RangeError('As parcelas devem ser números inteiros entre 0 e 999.');
+  }
+  const trace = calculateAdditionTrace(a, b);
+  if (trace.carries.toThousands > 0) throw new RangeError('A soma não pode ultrapassar 999.');
+  return makeArithmeticQuestion({ type: 'addition', pedagogicalCategory: categoryForTrace(trace), a, b, random });
+}
+
 export function validateAv2AdditionQuestionCandidate(question) {
   if (!question || question.revisionId !== 'av2-matematica' || question.activityId !== AV2_ADDITION_ACTIVITY_ID) return false;
   if (!['addition', 'terms', 'context'].includes(question.type)) return false;

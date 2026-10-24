@@ -24,7 +24,7 @@ function seededRandom(seed) {
 
 test('o catálogo contém identificadores únicos e ilustrações SVG locais para os produtos do módulo', async () => {
   const ids = AV2_PRODUCT_ILLUSTRATIONS.map(({ id }) => id);
-  assert.equal(ids.length, 18, 'o catálogo cobre materiais escolares, brinquedos e alimentos');
+  assert.equal(ids.length, 21, 'o catálogo cobre materiais escolares e os brinquedos da revisão oficial');
   assert.equal(new Set(ids).size, ids.length, 'não há identificadores duplicados');
 
   const expected = new Map([
@@ -32,7 +32,8 @@ test('o catálogo contém identificadores únicos e ilustrações SVG locais par
     ['Tesoura', 'scissors'], ['Borracha', 'eraser'], ['Régua', 'ruler'], ['Giz de cera', 'crayon'],
     ['Boneca', 'doll'], ['Carrinho', 'toy-car'], ['Bola', 'ball'], ['Urso', 'teddy-bear'],
     ['Jogo', 'board-game'], ['Brinquedo', 'toy'], ['Suco', 'juice'], ['Sanduíche', 'sandwich'],
-    ['Pipoca', 'popcorn'], ['Chiclete', 'gum'],
+    ['Pipoca', 'popcorn'], ['Chiclete', 'gum'], ['Caminhão', 'truck'],
+    ['Blocos', 'building-blocks'], ['Dinossauro', 'dinosaur'],
   ]);
   for (const [label, id] of expected) assert.equal(getAv2ProductIllustrationId(label), id, label);
 
@@ -67,6 +68,18 @@ test('os cartões mantêm destaque individual e grades responsivas para vários 
   assert.ok(styles.includes('.av2-products[data-product-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }'));
   assert.ok(styles.includes('.av2-products[data-product-count="3"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }'));
   assert.ok(styles.includes('.av2-products[data-product-count="3"] > :last-child:nth-child(odd)'));
+});
+
+test('os novos exercícios do Simulado têm controles grandes e layouts responsivos sem arrastar', async () => {
+  const styles = await fs.readFile(path.join(root, 'styles.css'), 'utf8');
+  assert.match(styles, /\.simulado-pairing-columns \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /\.simulado-match-group \{[^}]*min-height: 94px/);
+  assert.match(styles, /\.simulado-answer-entry input \{[^}]*min-height: 58px/);
+  assert.match(styles, /\.simulado-number-table \{[^}]*width: min\(100%, 760px\)/);
+  assert.match(styles, /\.simulado-product-board \{[^}]*repeat\(5, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /\.simulado-pairing-columns \{ grid-template-columns: minmax\(0, 1fr\);/);
+  assert.match(styles, /\.simulado-product-board \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
+  assert.doesNotMatch(styles, /\.simulado-(?:match|pairing)[^{]*\{[^}]*drag/i);
 });
 
 test('somas, troco e alternativas preservam nomes, preços, seleção e fala com os dados necessários', () => {
