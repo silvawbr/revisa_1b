@@ -148,6 +148,11 @@ function makeChallengePools() {
   };
 }
 
+/** Return an existing Block 06 challenge for reuse in another AV2 flow. */
+export function getAv2MoneyCompositionChallenge(challengeId) {
+  return Object.values(makeChallengePools()).flat().find(({ challengeId: id }) => id === challengeId) ?? null;
+}
+
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }

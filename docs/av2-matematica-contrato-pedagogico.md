@@ -130,11 +130,13 @@ A interação permite adicionar, remover e limpar moedas e cédulas sem arrastar
 
 ## 10. Bloco 07 — Simulado AV2
 
-O simulado combina questões validadas dos conteúdos implementados: sistema monetário, adição, subtração, sequências crescentes de um em um e números por extenso. Ele começa direto, sem tela de configuração, com uma questão de cada assunto. A ordem é sorteada em cada rodada.
+O simulado combina duas modalidades: **Revisão completa AV2** cobre todas as famílias apresentadas pela revisão oficial; a configuração personalizada mantém assuntos habilitáveis e de 1 a 5 questões por assunto, sem prometer cobertura completa em rodadas curtas. Além das questões existentes dos Blocks, a revisão completa inclui equivalência moedas/cédula; pareamento de grupos de cédulas e preços de brinquedos; cenário conectado de disponibilidade, compra e troco; composição de moedas reaproveitada do Block 06; quadro de cinco preços; tabela completa 200–239; escrita digitada de 208 e 215; e problema encadeado da biblioteca.
 
-Os números por extenso usam uma questão de múltipla escolha por vez, com três alternativas, como na revisão original. O simulado também inclui seleção múltipla para compras possíveis e problemas contextualizados. Quando adição e subtração estão habilitadas juntas, uma questão composta reserva uma vaga de cada assunto. Na referência oficial da biblioteca, a etapa 1 valida **156 + 195 = 351**; a etapa 2 usa o resultado intermediário e valida **351 − 147 = 204**.
+O pareamento exige quatro associações únicas e corretas; a compra possível exige selecionar exatamente o caminhão e o dinossauro; a tabela confere todas as lacunas. As duas somas do quadro de materiais requerem o total digitado após identificar os itens no quadro compartilhado. A escrita por extenso é entrada textual, com normalização apenas de caixa e espaços. Perguntas compostas só contam como completas após todas as etapas.
 
-Após a última resposta, a criança vai direto ao desenho da recompensa. O progresso é local e reutiliza o fluxo existente de leitura TTS, feedback e recompensas. O assunto de sistema monetário também pode selecionar desafios validados de Formar quantias com uma única solução, respeitando as regras do Bloco 06.
+Na biblioteca, C/D/U de **156 + 195 = 351** é validado antes da identificação das parcelas e da soma. A subtração **351 − 147 = 204** depende do 351 guardado pela primeira etapa; depois são identificados minuendo, subtraendo e resto/diferença. Os traces e componentes visuais vêm dos Blocks 03/04.
+
+O resultado mostra acertos na primeira tentativa, questões resolvidas e tentativas por assunto. Erros entram em nova rodada local de reforço; quando possível, o formato da habilidade errada é mantido. O simulado reaproveita TTS, feedback, progressão, histórico local e recompensa de desenho. Uma imagem nova pode ser solicitada pelo endpoint server-side opcional; o progresso continua no dispositivo e não há analytics remoto.
 
 ## 11. Contrato obrigatório de validação
 
