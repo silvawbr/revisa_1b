@@ -1397,7 +1397,7 @@ function renderAv2Game() {
   const activityName = state.av2Block === 'block-07'
     ? question.type === 'simulado-two-step' ? 'Problema em duas etapas'
       : AV2_SIMULADO_SUBJECTS.find(({ id }) => id === question.simulado?.subjectId)?.label ?? 'Simulado AV2'
-    : state.av2Block === 'block-05' ? 'Sequências e números por extenso'
+    : state.av2Block === 'block-05' ? ['NUM-05','NUM-06'].includes(question.category) ? 'Números por extenso' : 'Sequências e números por extenso'
     : state.av2Block === 'block-06' ? 'Formar quantias'
     : state.av2Block === 'block-04' ? 'Subtração com reagrupamento'
     : state.av2Block === 'block-03' ? 'Adição com reagrupamento'
