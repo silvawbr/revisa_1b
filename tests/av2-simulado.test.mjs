@@ -19,18 +19,21 @@ test('REV-01 e REV-02: equivalência de moedas e quatro associações de cédula
   const round = createAv2SimuladoFullCoverageRound(seededRandom(101));
   const equivalence = round.find((question) => question.type === 'equivalence');
   const coinValues = equivalence.data.denominationIds.map((id) => MONEY_DENOMINATIONS.find((money) => money.id === id).valueCents);
-  assert.deepEqual(coinValues, [100, 50, 25, 25]);
-  assert.equal(coinValues.reduce((sum, cents) => sum + cents, 0), 200);
-  assert.equal(equivalence.correctAnswer, 'note-2-reais');
+  const targetNote = MONEY_DENOMINATIONS.find(({ id }) => id === equivalence.data.targetDenominationId);
+  assert.equal(coinValues.reduce((sum, cents) => sum + cents, 0), targetNote.valueCents);
+  assert.equal(equivalence.correctAnswer, targetNote.id);
   assert.equal(validateAv2MoneyQuestionCandidate(equivalence), true);
 
   const match = findType(round, 'simulado-money-product-match');
   assert.equal(validateAv2SimuladoQuestionCandidate(match), true);
-  assert.deepEqual(match.data.groups.map(({ totalCents }) => totalCents).sort((a, b) => a - b), [700, 1200, 2200, 2500]);
-  assert.deepEqual(match.data.products.map(({ priceReais }) => priceReais).sort((a, b) => a - b), [7, 12, 22, 25]);
+  assert.deepEqual(match.data.groups.map(({ totalCents }) => totalCents).sort((a, b) => a - b),
+    match.data.products.map(({ priceReais }) => priceReais * 100).sort((a, b) => a - b));
   assert.equal(new Set(Object.values(match.correctAnswer)).size, 4);
   assert.equal(validateAv2SimuladoAnswer(match, match.correctAnswer), true);
-  assert.equal(validateAv2SimuladoAnswer(match, { ...match.correctAnswer, 'group-12': 'truck-7' }), false);
+  const [firstGroup, secondGroup] = Object.keys(match.correctAnswer);
+  const swappedMatches = { ...match.correctAnswer,
+    [firstGroup]: match.correctAnswer[secondGroup], [secondGroup]: match.correctAnswer[firstGroup] };
+  assert.equal(validateAv2SimuladoAnswer(match, swappedMatches), false);
 
   assert.throws(() => createCurrencyEquivalenceQuestion({
     denominationIds: ['coin-1-real', 'coin-1-real', 'coin-1-real', 'coin-1-real', 'coin-50-centavos', 'coin-10-centavos'],
@@ -38,21 +41,26 @@ test('REV-01 e REV-02: equivalência de moedas e quatro associações de cédula
   }), /contrato pedagógico/i, 'R$ 4,60 não pode ser associado a uma cédula oferecida com outro valor');
 });
 
-test('REV-03: cenário de Rael preserva R$ 24, seleção exata dos brinquedos e troco', () => {
+test('REV-03: cenário de Rael calcula total, produtos possíveis e troco com os valores sorteados', () => {
   const round = createAv2SimuladoFullCoverageRound(seededRandom(202));
   const total = findType(round, 'simulado-shopping-total');
   const afford = findType(round, 'simulado-shopping-affordability');
   const change = findType(round, 'simulado-shopping-change');
-  assert.equal(total.data.moneyDenominationIds.reduce((sum, id) => sum + MONEY_DENOMINATIONS.find((money) => money.id === id).valueCents, 0), 2400);
-  assert.equal(total.correctAnswer, 24);
+  const availableCents = total.data.moneyDenominationIds.reduce((sum, id) => sum + MONEY_DENOMINATIONS.find((money) => money.id === id).valueCents, 0);
+  assert.equal(availableCents, total.data.availableCents);
+  assert.equal(total.correctAnswer, total.data.availableReais);
+  assert.equal(total.correctAnswer * 100, availableCents);
   assert.equal(afford.data.scenarioId, total.data.scenarioId);
-  assert.deepEqual([...afford.correctAnswers].sort(), ['dinosaur-3', 'truck-20']);
-  assert.equal(validateAv2SimuladoAnswer(afford, ['truck-20']), false);
-  assert.equal(validateAv2SimuladoAnswer(afford, ['truck-20', 'dinosaur-3']), true);
-  assert.equal(validateAv2SimuladoAnswer(afford, ['truck-20', 'dinosaur-3', 'teddy-bear-25']), false);
-  assert.equal(change.data.availableReais, 24);
-  assert.equal(change.data.purchaseProductId, 'truck-20');
-  assert.equal(validateAv2SimuladoAnswer(change, 4), true);
+  const expectedAffordable = afford.data.products.filter(({ priceReais }) => priceReais <= afford.data.availableReais).map(({ id }) => id);
+  assert.deepEqual([...afford.correctAnswers].sort(), [...expectedAffordable].sort());
+  assert.equal(validateAv2SimuladoAnswer(afford, expectedAffordable), true);
+  assert.equal(validateAv2SimuladoAnswer(afford, [expectedAffordable[0]]), false);
+  const unaffordable = afford.data.products.find(({ id }) => !expectedAffordable.includes(id));
+  assert.equal(validateAv2SimuladoAnswer(afford, [...expectedAffordable, unaffordable.id]), false);
+  const purchase = change.data.products.find(({ id }) => id === change.data.purchaseProductId);
+  const changeAmount = change.data.availableReais - purchase.priceReais;
+  assert.equal(change.correctAnswer, changeAmount);
+  assert.equal(validateAv2SimuladoAnswer(change, changeAmount), true);
 });
 
 test('REV-04: composição reutiliza os desafios reais do Block 06 e aceita equivalência de 100 centavos', () => {
@@ -72,21 +80,24 @@ test('REV-05: o quadro compartilhado escolhe os produtos certos e soma apenas se
   const round = createAv2SimuladoFullCoverageRound(seededRandom(303));
   const board = round.filter((question) => question.type === 'simulado-product-board');
   const byTask = Object.fromEntries(board.map((question) => [question.data.taskId, question]));
-  assert.equal(byTask.cheapest.correctAnswer, 'pencil');
-  assert.equal(byTask['most-expensive'].correctAnswer, 'notebook');
-  assert.deepEqual(byTask['pencil-eraser-scissors'].data.productIds, ['pencil', 'eraser', 'scissors']);
-  assert.equal(byTask['pencil-eraser-scissors'].correctAnswer, 9);
-  assert.deepEqual(byTask['notebook-glue'].data.productIds, ['notebook', 'glue']);
-  assert.equal(byTask['notebook-glue'].correctAnswer, 17);
+  const products = byTask.cheapest.data.products;
+  assert.equal(byTask.cheapest.correctAnswer, [...products].sort((a, b) => a.priceReais - b.priceReais)[0].id);
+  assert.equal(byTask['most-expensive'].correctAnswer, [...products].sort((a, b) => b.priceReais - a.priceReais)[0].id);
+  for (const task of [byTask['pencil-eraser-scissors'], byTask['notebook-glue']]) {
+    const expected = task.data.productIds.reduce((sum, id) => sum + products.find((product) => product.id === id).priceReais, 0);
+    assert.equal(task.correctAnswer, expected);
+  }
   for (const question of board) assert.equal(validateAv2SimuladoQuestionCandidate(question), true);
 });
 
-test('REV-06: tabela mantém 200–239 ordenados e exige todos os espaços corretos', () => {
+test('REV-06: tabela mantém 40 números ordenados e exige todos os espaços corretos', () => {
   const round = createAv2SimuladoFullCoverageRound(seededRandom(404));
   const question = findType(round, 'simulado-number-table');
   const table = question.data.table;
   assert.equal(table.values.length, 40);
-  assert.deepEqual(table.values, Array.from({ length: 40 }, (_, index) => 200 + index));
+  assert.ok(table.values[0] >= 200 && table.values[0] <= 211);
+  assert.deepEqual(table.values, Array.from({ length: 40 }, (_, index) => table.values[0] + index));
+  assert.ok([0, 5, 10, 19, 20, 25, 30, 38].every((index) => !table.gaps.includes(index)));
   const answer = Object.fromEntries(table.gaps.map((index) => [index, table.values[index]]));
   assert.equal(validateAv2SimuladoAnswer(question, answer), true);
   assert.equal(validateAv2SimuladoAnswer(question, { ...answer, [table.gaps[0]]: '' }), false);
@@ -96,34 +107,38 @@ test('REV-06: tabela mantém 200–239 ordenados e exige todos os espaços corre
   assert.ok(table.gaps.every((index, order) => table.values[index] === table.answers[order]));
 });
 
-test('REV-07: 208 e 215 exigem escrita digitada e aceitam apenas normalização de caixa e espaços', () => {
+test('REV-07: os dois números sorteados exigem escrita digitada e aceitam normalização de caixa e espaços', () => {
   const round = createAv2SimuladoFullCoverageRound(seededRandom(505));
-  const byValue = new Map(round.filter((question) => question.type === 'simulado-word-write').map((question) => [question.data.value, question]));
-  assert.equal(validateAv2SimuladoAnswer(byValue.get(208), '  DUZENTOS   E oito '), true);
-  assert.equal(validateAv2SimuladoAnswer(byValue.get(208), 'duzentos e oitenta'), false);
-  assert.equal(validateAv2SimuladoAnswer(byValue.get(215), 'duzentos e quinze'), true);
-  assert.equal(byValue.get(208).options.length, 0);
-  assert.doesNotMatch(`${byValue.get(208).prompt} ${byValue.get(208).speech} ${byValue.get(208).hint}`, /duzentos e oito/i);
-  assert.doesNotMatch(`${byValue.get(215).prompt} ${byValue.get(215).speech} ${byValue.get(215).hint}`, /duzentos e quinze/i);
-  assert.equal(round.filter((question) => question.type === 'simulado-word-write').length, 2);
+  const questions = round.filter((question) => question.type === 'simulado-word-write');
+  assert.equal(questions.length, 2);
+  assert.equal(new Set(questions.map(({ data }) => data.value)).size, 2);
+  for (const question of questions) {
+    assert.equal(validateAv2SimuladoAnswer(question, ` ${question.correctAnswer.toLocaleUpperCase('pt-BR')} `), true);
+    assert.equal(validateAv2SimuladoAnswer(question, `${question.correctAnswer} errado`), false);
+    assert.equal(question.options.length, 0);
+    assert.doesNotMatch(`${question.prompt} ${question.speech} ${question.hint}`, new RegExp(question.correctAnswer, 'i'));
+  }
 });
 
 test('REV-08: biblioteca usa C/D/U, valida as duas operações e associa os termos em quatro etapas', () => {
   const round = createAv2SimuladoFullCoverageRound(seededRandom(606));
   const question = findType(round, 'simulado-two-step');
   const [addition, additionTerms, subtraction, subtractionTerms] = question.data.steps;
-  assert.deepEqual([addition.question.data.a, addition.question.data.b, addition.question.data.trace.result], [156, 195, 351]);
-  assert.equal(addition.question.data.trace.pattern, 'both');
-  assert.deepEqual(addition.question.data.trace.carries, { toTens: 1, toHundreds: 1, toThousands: 0 });
+  assert.deepEqual([addition.question.data.a, addition.question.data.b, addition.question.data.trace.result], [
+    question.data.initialAmount, question.data.donatedAmount, question.data.intermediate,
+  ]);
+  assert.ok(addition.question.data.trace.carries.toTens || addition.question.data.trace.carries.toHundreds);
   assert.deepEqual(additionTerms.expectedRoles, { a: '1ª parcela', b: '2ª parcela', result: 'soma ou total' });
-  assert.deepEqual([subtraction.question.data.a, subtraction.question.data.b, subtraction.question.data.trace.result], [351, 147, 204]);
-  assert.equal(subtraction.question.data.trace.pattern, 'units');
+  assert.deepEqual([subtraction.question.data.a, subtraction.question.data.b, subtraction.question.data.trace.result], [
+    question.data.intermediate, question.data.removedAmount, question.data.finalAmount,
+  ]);
+  assert.ok(subtraction.question.data.trace.events.length > 0);
   assert.deepEqual(subtractionTerms.expectedRoles, { a: 'minuendo', b: 'subtraendo', result: 'resto ou diferença' });
-  assert.equal(validateAv2SimuladoAnswer(question, 351, 1), true);
+  assert.equal(validateAv2SimuladoAnswer(question, question.data.intermediate, 1), true);
   assert.equal(validateAv2SimuladoAnswer(question, additionTerms.expectedRoles, 2), true);
-  assert.equal(validateAv2SimuladoAnswer(question, 204, 3), true);
+  assert.equal(validateAv2SimuladoAnswer(question, question.data.finalAmount, 3), true);
   assert.equal(validateAv2SimuladoAnswer(question, subtractionTerms.expectedRoles, 4), true);
-  assert.equal(validateAv2SimuladoAnswer(question, 204, 1), false);
+  assert.equal(validateAv2SimuladoAnswer(question, question.data.finalAmount + 1, 1), false);
   assert.equal(validateAv2SimuladoQuestionCandidate(question), true);
 });
 

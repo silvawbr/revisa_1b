@@ -461,6 +461,7 @@ test('simulado completo percorre os formatos oficiais, registra erro, pratica de
 
   const seed = 20261024;
   const expectedRound = createAv2SimuladoFullCoverageRound(seededRandom(seed));
+  let incorrectWritingChecked = false;
   const submit = () => clickAction(document, 'submit-av2');
   const input = (selector, value) => {
     const field = document.querySelector(selector);
@@ -570,13 +571,15 @@ test('simulado completo percorre os formatos oficiais, registra erro, pratica de
       } else if (question.type === 'simulado-word-write') {
         assert.match(app.innerHTML, /data-simulado-word-answer/);
         assert.doesNotMatch(app.innerHTML, new RegExp(question.correctAnswer, 'i'), 'a escrita não aparece antes da resposta');
-        if (question.data.value === 208) {
-          input('[data-simulado-word-answer]', 'duzentos e nove');
+        if (!incorrectWritingChecked) {
+          const wrongAnswer = numberToWordsPtBr(question.data.value === 208 ? 215 : 208);
+          input('[data-simulado-word-answer]', wrongAnswer);
           submit();
           assert.match(app.innerHTML, /tente escrever novamente/i);
           clickAction(document, 'av2-hint');
           assert.match(app.innerHTML, /Pense nas centenas, dezenas e unidades/);
           assert.doesNotMatch(app.innerHTML, new RegExp(question.correctAnswer, 'i'), 'a dica não revela a resposta por extenso');
+          incorrectWritingChecked = true;
         }
         input('[data-simulado-word-answer]', question.correctAnswer);
         submit();
@@ -584,8 +587,9 @@ test('simulado completo percorre os formatos oficiais, registra erro, pratica de
         assert.match(app.innerHTML, /role="columnheader">C<\/b>/);
         assert.match(app.innerHTML, /role="columnheader">D<\/b>/);
         assert.match(app.innerHTML, /role="columnheader">U<\/b>/);
-        assert.doesNotMatch(app.innerHTML, />351<|>204</, 'o resultado não aparece antes da primeira operação');
-        fillDigits(351);
+        assert.doesNotMatch(app.innerHTML, new RegExp(`>${question.data.intermediate}<|>${question.data.finalAmount}<`),
+          'os resultados não aparecem antes das operações');
+        fillDigits(question.data.intermediate);
         assert.match(app.innerHTML, /Etapa 2 de 4/);
         for (const select of document.querySelectorAll('[data-simulado-term-role]')) {
           select.value = question.data.steps[1].expectedRoles[select.dataset.simuladoTermRole];
@@ -593,8 +597,8 @@ test('simulado completo percorre os formatos oficiais, registra erro, pratica de
         }
         submit();
         assert.match(app.innerHTML, /Etapa 3 de 4/);
-        assert.match(app.innerHTML, /Resultado confirmado na primeira etapa: <strong>351<\/strong>/);
-        fillDigits(204);
+        assert.match(app.innerHTML, new RegExp(`Resultado confirmado na primeira etapa: <strong>${question.data.intermediate}<\/strong>`));
+        fillDigits(question.data.finalAmount);
         assert.match(app.innerHTML, /Etapa 4 de 4/);
         for (const select of document.querySelectorAll('[data-simulado-term-role]')) {
           select.value = question.data.steps[3].expectedRoles[select.dataset.simuladoTermRole];

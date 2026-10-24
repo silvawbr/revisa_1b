@@ -168,45 +168,70 @@ function createAssociationQuestion(random) {
   return attachSubject(question, 'words');
 }
 
-const OFFICIAL_SCENARIO_MONEY = Object.freeze([
-  'note-5-reais', 'note-5-reais', 'note-10-reais', 'note-2-reais', 'note-2-reais',
-]);
-
 const OFFICIAL_TOY_PRODUCTS = Object.freeze([
-  Object.freeze({ id: 'teddy-bear-25', label: 'Urso', illustrationId: 'teddy-bear', priceReais: 25 }),
-  Object.freeze({ id: 'truck-20', label: 'Caminhão', illustrationId: 'truck', priceReais: 20 }),
-  Object.freeze({ id: 'blocks-25', label: 'Blocos', illustrationId: 'building-blocks', priceReais: 25 }),
-  Object.freeze({ id: 'dinosaur-3', label: 'Dinossauro', illustrationId: 'dinosaur', priceReais: 3 }),
+  Object.freeze({ id: 'teddy-bear', label: 'Urso', article: 'o', illustrationId: 'teddy-bear' }),
+  Object.freeze({ id: 'truck', label: 'Caminhão', article: 'o', illustrationId: 'truck' }),
+  Object.freeze({ id: 'blocks', label: 'Blocos', article: 'os', illustrationId: 'building-blocks' }),
+  Object.freeze({ id: 'dinosaur', label: 'Dinossauro', article: 'o', illustrationId: 'dinosaur' }),
+  Object.freeze({ id: 'ball', label: 'Bola', article: 'a', illustrationId: 'ball' }),
+  Object.freeze({ id: 'doll', label: 'Boneca', article: 'a', illustrationId: 'doll' }),
+  Object.freeze({ id: 'toy-car', label: 'Carrinho', article: 'o', illustrationId: 'toy-car' }),
+  Object.freeze({ id: 'board-game', label: 'Jogo', article: 'o', illustrationId: 'board-game' }),
+  Object.freeze({ id: 'toy', label: 'Brinquedo', article: 'o', illustrationId: 'toy' }),
 ]);
 
 const SCHOOL_SUPPLIES = Object.freeze([
-  Object.freeze({ id: 'eraser', label: 'Borracha', illustrationId: 'eraser', priceReais: 3 }),
-  Object.freeze({ id: 'pencil', label: 'Lápis', illustrationId: 'pencil', priceReais: 2 }),
-  Object.freeze({ id: 'glue', label: 'Cola', illustrationId: 'glue', priceReais: 7 }),
-  Object.freeze({ id: 'scissors', label: 'Tesoura', illustrationId: 'scissors', priceReais: 4 }),
-  Object.freeze({ id: 'notebook', label: 'Caderno', illustrationId: 'notebook', priceReais: 10 }),
+  Object.freeze({ id: 'eraser', label: 'Borracha', article: 'a', illustrationId: 'eraser' }),
+  Object.freeze({ id: 'pencil', label: 'Lápis', article: 'o', illustrationId: 'pencil' }),
+  Object.freeze({ id: 'glue', label: 'Cola', article: 'a', illustrationId: 'glue' }),
+  Object.freeze({ id: 'scissors', label: 'Tesoura', article: 'a', illustrationId: 'scissors' }),
+  Object.freeze({ id: 'notebook', label: 'Caderno', article: 'o', illustrationId: 'notebook' }),
+  Object.freeze({ id: 'book', label: 'Livro', article: 'o', illustrationId: 'book' }),
+  Object.freeze({ id: 'ruler', label: 'Régua', article: 'a', illustrationId: 'ruler' }),
+  Object.freeze({ id: 'crayon', label: 'Giz de cera', article: 'o', illustrationId: 'crayon' }),
+]);
+
+const SCENARIO_CASH_OPTIONS = Object.freeze([
+  Object.freeze({ totalReais: 20, denominationIds: ['note-10-reais', 'note-5-reais', 'note-5-reais'] }),
+  Object.freeze({ totalReais: 25, denominationIds: ['note-20-reais', 'note-5-reais'] }),
+  Object.freeze({ totalReais: 25, denominationIds: ['note-10-reais', 'note-5-reais', 'note-5-reais', 'note-5-reais'] }),
+  Object.freeze({ totalReais: 30, denominationIds: ['note-10-reais', 'note-10-reais', 'note-10-reais'] }),
+  Object.freeze({ totalReais: 30, denominationIds: ['note-20-reais', 'note-5-reais', 'note-5-reais'] }),
+  Object.freeze({ totalReais: 35, denominationIds: ['note-20-reais', 'note-10-reais', 'note-5-reais'] }),
+  Object.freeze({ totalReais: 40, denominationIds: ['note-20-reais', 'note-20-reais'] }),
 ]);
 
 function createOfficialMoneyProductMatchingQuestion(random) {
-  const groups = shuffled([
-    { id: 'group-12', denominationIds: ['note-10-reais', 'note-2-reais'] },
-    { id: 'group-7', denominationIds: ['note-5-reais', 'note-2-reais'] },
-    { id: 'group-25', denominationIds: ['note-20-reais', 'note-5-reais'] },
-    { id: 'group-22', denominationIds: ['note-20-reais', 'note-2-reais'] },
-  ].map((group) => ({ ...group, totalCents: group.denominationIds.reduce((sum, id) => sum + moneyValue(id), 0) })), random);
-  const products = shuffled([
-    { id: 'teddy-bear-12', label: 'Urso', illustrationId: 'teddy-bear', priceReais: 12 },
-    { id: 'truck-7', label: 'Caminhão', illustrationId: 'truck', priceReais: 7 },
-    { id: 'blocks-25', label: 'Blocos', illustrationId: 'building-blocks', priceReais: 25 },
-    { id: 'dinosaur-22', label: 'Dinossauro', illustrationId: 'dinosaur', priceReais: 22 },
-  ], random);
+  const pairOptions = [
+    ['note-2-reais', 'note-2-reais'], ['note-2-reais', 'note-5-reais'],
+    ['note-2-reais', 'note-10-reais'], ['note-2-reais', 'note-20-reais'],
+    ['note-5-reais', 'note-5-reais'], ['note-5-reais', 'note-10-reais'],
+    ['note-5-reais', 'note-20-reais'], ['note-10-reais', 'note-10-reais'],
+    ['note-10-reais', 'note-20-reais'], ['note-20-reais', 'note-20-reais'],
+  ];
+  const pairs = shuffled(pairOptions, random).slice(0, 4).map((denominationIds) => ({
+    denominationIds,
+    totalCents: denominationIds.reduce((sum, id) => sum + moneyValue(id), 0),
+  }));
+  const products = shuffled(OFFICIAL_TOY_PRODUCTS, random).slice(0, 4).map((product, index) => ({
+    ...product,
+    id: `${product.id}-${pairs[index].totalCents / 100}`,
+    priceReais: pairs[index].totalCents / 100,
+  }));
+  const groups = shuffled(pairs.map((pair, index) => ({
+    id: `group-${pair.totalCents / 100}`,
+    denominationIds: pair.denominationIds,
+    totalCents: pair.totalCents,
+    matchingProductId: products.find(({ priceReais }) => priceReais * 100 === pair.totalCents)?.id,
+  })), random);
+  const correctMatches = Object.fromEntries(groups.map(({ id, matchingProductId }) => [id, matchingProductId]));
   const question = {
     revisionId: 'av2-matematica', activityId: AV2_SIMULADO_ACTIVITY_ID,
     pedagogicalCategory: 'BANKNOTE_PRODUCT_MATCHING',
-    questionId: `official-banknote-product-matching-${groups.map(({ id }) => id).join('-')}-${products.map(({ id }) => id).join('-')}`,
+    questionId: `banknote-product-matching-${groups.map(({ id }) => id).join('-')}-${products.map(({ id }) => id).join('-')}`,
     type: 'simulado-money-product-match',
-    data: { groups, products, correctMatches: Object.fromEntries(groups.map((group) => [group.id, products.find((product) => product.priceReais * 100 === group.totalCents).id])) },
-    correctAnswer: Object.fromEntries(groups.map((group) => [group.id, products.find((product) => product.priceReais * 100 === group.totalCents).id])),
+    data: { groups: groups.map(({ id, denominationIds, totalCents }) => ({ id, denominationIds, totalCents })), products, correctMatches },
+    correctAnswer: correctMatches,
     options: products.map(({ id }) => id),
     prompt: 'Associe cada grupo de cédulas ao brinquedo com o mesmo preço.',
     speech: 'Associe cada grupo de cédulas ao brinquedo com o mesmo preço.',
@@ -217,42 +242,70 @@ function createOfficialMoneyProductMatchingQuestion(random) {
   return attachSubject(question, 'money');
 }
 
+function createOfficialEquivalenceQuestion(random) {
+  const options = [
+    { targetDenominationId: 'note-2-reais', denominationIds: ['coin-1-real', 'coin-1-real'] },
+    { targetDenominationId: 'note-2-reais', denominationIds: ['coin-1-real', 'coin-50-centavos', 'coin-50-centavos'] },
+    { targetDenominationId: 'note-2-reais', denominationIds: ['coin-1-real', 'coin-25-centavos', 'coin-25-centavos', 'coin-50-centavos'] },
+    { targetDenominationId: 'note-5-reais', denominationIds: Array(5).fill('coin-1-real') },
+    { targetDenominationId: 'note-5-reais', denominationIds: ['coin-1-real', 'coin-1-real', 'coin-1-real', 'coin-1-real', 'coin-50-centavos', 'coin-50-centavos'] },
+    { targetDenominationId: 'note-10-reais', denominationIds: Array(10).fill('coin-1-real') },
+  ];
+  return createCurrencyEquivalenceQuestion({ ...shuffled(options, random)[0], random });
+}
+
 function moneyValue(id) {
   return MONEY_DENOMINATIONS.find(({ id: denominationId }) => denominationId === id)?.valueCents ?? Number.NaN;
 }
 
-function createOfficialShoppingScenarioQuestions() {
-  const products = OFFICIAL_TOY_PRODUCTS.map((product) => ({ ...product }));
-  const availableCents = OFFICIAL_SCENARIO_MONEY.reduce((sum, id) => sum + moneyValue(id), 0);
-  const availableReais = availableCents / 100;
-  const baseData = { scenarioId: 'rael-available-24', moneyDenominationIds: [...OFFICIAL_SCENARIO_MONEY], products, availableCents };
+function createOfficialShoppingScenarioQuestions(random) {
+  const cash = shuffled(SCENARIO_CASH_OPTIONS, random)[0];
+  const availableReais = cash.totalReais;
+  const availableCents = availableReais * 100;
+  const purchasePrice = availableReais - (1 + randomIndex(6, random));
+  const smallerAffordablePrice = 2 + randomIndex(purchasePrice - 2, random);
+  const prices = shuffled([
+    purchasePrice,
+    smallerAffordablePrice,
+    availableReais + 1,
+    availableReais + 2 + randomIndex(5, random),
+  ], random);
+  const products = shuffled(OFFICIAL_TOY_PRODUCTS, random).slice(0, 4).map((product, index) => ({
+    ...product,
+    id: `${product.id}-${prices[index]}`,
+    priceReais: prices[index],
+  }));
+  const purchaseProduct = products.find(({ priceReais }) => priceReais === purchasePrice);
+  const scenarioId = `rael-${availableReais}-${products.map(({ id }) => id).join('-')}`;
+  const baseData = { scenarioId, moneyDenominationIds: [...cash.denominationIds], products, availableCents, availableReais };
+  const affordableProducts = products.filter(({ priceReais }) => priceReais <= availableReais);
   const common = {
     revisionId: 'av2-matematica', activityId: AV2_SIMULADO_ACTIVITY_ID,
     pedagogicalCategory: 'CONNECTED_SHOPPING_SCENARIO',
-    speech: 'Rael tem moedas e cédulas para comprar brinquedos. Observe o dinheiro e os preços.',
+    speech: 'Rael está escolhendo brinquedos. Observe o dinheiro e os preços.',
     hint: 'Observe o dinheiro de Rael e compare os valores com calma.',
   };
   const questions = [
     {
-      ...common, questionId: 'official-rael-money-total', type: 'simulado-shopping-total',
+      ...common, questionId: `${scenarioId}-money-total`, type: 'simulado-shopping-total',
       data: { ...baseData, task: 'available-total' }, correctAnswer: availableReais,
       prompt: 'Quanto dinheiro Rael tem ao todo?',
-      explanation: 'As cédulas de Rael somam 24 reais.',
+      explanation: `O dinheiro de Rael soma ${availableReais} reais.`,
     },
     {
-      ...common, questionId: 'official-rael-affordability', type: 'simulado-shopping-affordability',
+      ...common, questionId: `${scenarioId}-affordability`, type: 'simulado-shopping-affordability',
       data: { ...baseData, task: 'affordability', availableReais },
-      correctAnswers: ['truck-20', 'dinosaur-3'],
+      correctAnswers: affordableProducts.map(({ id }) => id),
       options: products.map(({ id }) => id),
       prompt: 'Marque todos os brinquedos que Rael pode comprar, um de cada vez.',
-      explanation: 'Rael pode comprar o caminhão de 20 reais e o dinossauro de 3 reais.',
+      explanation: `Rael pode comprar ${affordableProducts.map(({ article, label, priceReais }) => `${article} ${label.toLocaleLowerCase('pt-BR')} de ${priceReais} reais`).join(' e ')}.`,
     },
     {
-      ...common, questionId: 'official-rael-truck-change', type: 'simulado-shopping-change',
-      data: { ...baseData, task: 'change', availableReais, purchaseProductId: 'truck-20' },
-      correctAnswer: (availableCents - products.find(({ id }) => id === 'truck-20').priceReais * 100) / 100,
-      prompt: 'Rael comprou o caminhão. Quanto recebeu de troco?',
-      explanation: '24 reais menos 20 reais são 4 reais de troco.',
+      ...common, questionId: `${scenarioId}-change`, type: 'simulado-shopping-change',
+      data: { ...baseData, task: 'change', availableReais, purchaseProductId: purchaseProduct.id },
+      correctAnswer: availableReais - purchaseProduct.priceReais,
+      prompt: `Rael comprou ${purchaseProduct.article} ${purchaseProduct.label.toLocaleLowerCase('pt-BR')} por ${purchaseProduct.priceReais} reais. Quanto recebeu de troco?`,
+      explanation: `${availableReais} reais menos ${purchaseProduct.priceReais} reais são ${availableReais - purchaseProduct.priceReais} reais de troco.`,
     },
   ];
   return questions.map((question) => attachSubject({
@@ -261,14 +314,29 @@ function createOfficialShoppingScenarioQuestions() {
   }, 'money'));
 }
 
-function createOfficialProductBoardQuestions() {
-  const products = SCHOOL_SUPPLIES.map((product) => ({ ...product }));
+function joinProductNames(products) {
+  const names = products.map(({ article, label }) => `${article} ${label.toLocaleLowerCase('pt-BR')}`);
+  if (names.length < 2) return names[0] ?? '';
+  return `${names.slice(0, -1).join(', ')} e ${names.at(-1)}`;
+}
+
+function createOfficialProductBoardQuestions(random) {
+  const priceValues = shuffled(Array.from({ length: 19 }, (_, index) => index + 2), random).slice(0, 5);
+  const products = shuffled(SCHOOL_SUPPLIES, random).slice(0, 5).map((product, index) => ({
+    ...product,
+    priceReais: priceValues[index],
+  }));
+  const boardId = `school-supplies-${products.map(({ id, priceReais }) => `${id}-${priceReais}`).join('-')}`;
   const answerOptions = products.map(({ id, label }) => ({ value: id, label }));
+  const cheapest = [...products].sort((left, right) => left.priceReais - right.priceReais)[0];
+  const mostExpensive = [...products].sort((left, right) => right.priceReais - left.priceReais)[0];
+  const triple = shuffled(products, random).slice(0, 3);
+  const pair = shuffled(products, random).slice(0, 2);
   const tasks = [
-    { id: 'cheapest', prompt: 'Qual item é o mais barato?', correctAnswer: 'pencil', mode: 'choice' },
-    { id: 'most-expensive', prompt: 'Qual item é o mais caro?', correctAnswer: 'notebook', mode: 'choice' },
-    { id: 'pencil-eraser-scissors', prompt: 'Quanto custam juntos o lápis, a borracha e a tesoura?', productIds: ['pencil', 'eraser', 'scissors'], correctAnswer: 9, mode: 'number' },
-    { id: 'notebook-glue', prompt: 'Quanto custam juntos o caderno e a cola?', productIds: ['notebook', 'glue'], correctAnswer: 17, mode: 'number' },
+    { id: 'cheapest', prompt: 'Qual item é o mais barato?', correctAnswer: cheapest.id, mode: 'choice' },
+    { id: 'most-expensive', prompt: 'Qual item é o mais caro?', correctAnswer: mostExpensive.id, mode: 'choice' },
+    { id: 'pencil-eraser-scissors', prompt: `Quanto custam juntos ${joinProductNames(triple)}?`, productIds: triple.map(({ id }) => id), mode: 'number' },
+    { id: 'notebook-glue', prompt: `Quanto custam juntos ${joinProductNames(pair)}?`, productIds: pair.map(({ id }) => id), mode: 'number' },
   ];
   return tasks.map((task) => {
     const priceTotalCents = (task.productIds ?? []).reduce((sum, id) => {
@@ -279,8 +347,8 @@ function createOfficialProductBoardQuestions() {
     return attachSubject({
       revisionId: 'av2-matematica', activityId: AV2_SIMULADO_ACTIVITY_ID,
       pedagogicalCategory: 'PRODUCT_PRICE_BOARD',
-      questionId: `official-school-supplies-${task.id}`, type: 'simulado-product-board',
-      data: { boardId: 'school-supplies-3-2-7-4-10', products, taskId: task.id, productIds: task.productIds ?? [] },
+      questionId: `${boardId}-${task.id}`, type: 'simulado-product-board',
+      data: { boardId, products, taskId: task.id, productIds: task.productIds ?? [] },
       correctAnswer,
       options: task.mode === 'choice' ? answerOptions : [],
       prompt: task.prompt, speech: task.prompt,
@@ -294,20 +362,18 @@ function createOfficialProductBoardQuestions() {
 }
 
 function createOfficialNumberTableQuestion(random) {
-  const base = createNumberTableQuestion(random, { start: 200, length: 40, columns: 10, blankCount: 40 });
-  const givenValues = new Set([200, 205, 210, 219, 220, 225, 230, 238]);
-  const gaps = base.gaps.filter((index) => !givenValues.has(base.values[index])).slice(0, 12);
-  for (let index = 0; gaps.length < 12 && index < base.values.length; index += 1) {
-    if (!givenValues.has(base.values[index]) && !gaps.includes(index)) gaps.push(index);
-  }
+  const start = 200 + randomIndex(12, random);
+  const base = createNumberTableQuestion(random, { start, length: 40, columns: 10, blankCount: 40 });
+  const givenIndexes = new Set([0, 5, 10, 19, 20, 25, 30, 38]);
+  const gaps = base.gaps.filter((index) => !givenIndexes.has(index)).slice(0, 12);
   gaps.sort((left, right) => left - right);
   const table = { ...base, gaps, answers: gaps.map((index) => base.values[index]) };
   return attachSubject({
     revisionId: 'av2-matematica', activityId: AV2_SIMULADO_ACTIVITY_ID,
-    pedagogicalCategory: 'NUMBER_TABLE_COMPLETION', questionId: 'official-number-table-200-239',
+    pedagogicalCategory: 'NUMBER_TABLE_COMPLETION', questionId: `full-coverage-number-table-${start}-${gaps.join('-')}`,
     type: 'simulado-number-table', data: { table },
     prompt: 'Complete os espaços vazios da tabela.',
-    speech: 'Complete a tabela dos números de duzentos até duzentos e trinta e nove.',
+    speech: 'Complete a tabela crescente, contando de um em um.',
     explanation: 'A tabela segue a contagem de um em um, da esquerda para a direita e de cima para baixo.',
     hint: 'Leia cada linha da esquerda para a direita. Depois continue na linha seguinte.',
     feedback: { correct: 'Muito bem! Você completou a tabela.', retry: 'Confira a ordem dos números e tente novamente.' },
@@ -328,14 +394,50 @@ function createWordWritingQuestion(value) {
   }, 'words');
 }
 
-function createTwoStepLibraryQuestion(random = Math.random) {
-  const additionQuestion = createAv2AdditionQuestionForOperands({ a: 156, b: 195, random });
-  const subtractionQuestion = createSubtractionQuestion({ a: 351, b: 147, random });
+function createTwoStepLibraryQuestion(random = Math.random, { varied = false } = {}) {
+  let initialAmount = 156;
+  let donatedAmount = 195;
+  let removedAmount = 147;
+  let additionQuestion;
+  let subtractionQuestion;
+
+  if (varied) {
+    for (let attempt = 0; attempt < 128; attempt += 1) {
+      const initial = 100 + randomIndex(400, random);
+      const donation = 100 + randomIndex(500, random);
+      const intermediate = initial + donation;
+      if (intermediate > 999) continue;
+
+      const maximumRemoval = intermediate - 100;
+      if (maximumRemoval < 100) continue;
+      const removed = 100 + randomIndex(maximumRemoval - 99, random);
+
+      try {
+        const addition = createAv2AdditionQuestionForOperands({ a: initial, b: donation, random });
+        if (!addition.data.trace.carries.toTens && !addition.data.trace.carries.toHundreds) continue;
+        const subtraction = createSubtractionQuestion({ a: intermediate, b: removed, random });
+        if (!subtraction.data.trace.events.length) continue;
+        initialAmount = initial;
+        donatedAmount = donation;
+        removedAmount = removed;
+        additionQuestion = addition;
+        subtractionQuestion = subtraction;
+        break;
+      } catch {
+        // Keep sampling if a candidate falls outside the subtraction contract.
+      }
+    }
+  }
+
+  const intermediate = initialAmount + donatedAmount;
+  const finalAmount = intermediate - removedAmount;
+  additionQuestion ??= createAv2AdditionQuestionForOperands({ a: initialAmount, b: donatedAmount, random });
+  subtractionQuestion ??= createSubtractionQuestion({ a: intermediate, b: removedAmount, random });
   const steps = [
-    { kind: 'operation', operation: 'addition', subjectId: 'addition', question: additionQuestion, result: 351 },
+    { kind: 'operation', operation: 'addition', subjectId: 'addition', question: additionQuestion, result: intermediate },
     { kind: 'terms', operation: 'addition', subjectId: 'addition', question: additionQuestion,
       expectedRoles: { a: '1ª parcela', b: '2ª parcela', result: 'soma ou total' } },
-    { kind: 'operation', operation: 'subtraction', subjectId: 'subtraction', question: subtractionQuestion, result: 204 },
+    { kind: 'operation', operation: 'subtraction', subjectId: 'subtraction', question: subtractionQuestion, result: finalAmount },
     { kind: 'terms', operation: 'subtraction', subjectId: 'subtraction', question: subtractionQuestion,
       expectedRoles: { a: 'minuendo', b: 'subtraendo', result: 'resto ou diferença' } },
   ];
@@ -343,27 +445,27 @@ function createTwoStepLibraryQuestion(random = Math.random) {
     revisionId: 'av2-matematica',
     activityId: AV2_SIMULADO_ACTIVITY_ID,
     pedagogicalCategory: 'CONTEXTUAL_TWO_STEP_PROBLEM',
-    questionId: 'two-step-library-156-195-147',
+    questionId: `two-step-library-${initialAmount}-${donatedAmount}-${removedAmount}`,
     type: 'simulado-two-step',
     data: {
       context: 'biblioteca',
       item: 'livros',
-      initialAmount: 156,
-      donatedAmount: 195,
-      removedAmount: 147,
-      intermediate: 351,
-      finalAmount: 204,
+      initialAmount,
+      donatedAmount,
+      removedAmount,
+      intermediate,
+      finalAmount,
       steps,
     },
-    correctAnswer: 204,
+    correctAnswer: finalAmount,
     options: [],
-    prompt: 'A biblioteca tinha 156 livros e recebeu mais 195. Depois, 147 livros foram retirados. Resolva uma etapa de cada vez.',
-    speech: 'A biblioteca tinha 156 livros e recebeu mais 195. Depois, 147 livros foram retirados. Resolva uma etapa de cada vez.',
-    explanation: 'A 1ª parcela é 156, a 2ª parcela é 195 e a soma é 351. Depois, 351 é o minuendo, 147 é o subtraendo e 204 é o resto ou diferença.',
+    prompt: `A biblioteca tinha ${initialAmount} livros e recebeu mais ${donatedAmount}. Depois, ${removedAmount} livros foram retirados. Resolva uma etapa de cada vez.`,
+    speech: `A biblioteca tinha ${initialAmount} livros e recebeu mais ${donatedAmount}. Depois, ${removedAmount} livros foram retirados. Resolva uma etapa de cada vez.`,
+    explanation: `A 1ª parcela é ${initialAmount}, a 2ª parcela é ${donatedAmount} e a soma é ${intermediate}. Depois, ${intermediate} é o minuendo, ${removedAmount} é o subtraendo e ${finalAmount} é o resto ou diferença.`,
     hint: 'Alinhe centenas, dezenas e unidades. Resolva a adição antes de começar a subtração.',
     feedback: { correct: 'Muito bem! Você resolveu as duas operações e identificou seus termos.', retry: 'Resolva uma etapa de cada vez e confira os nomes dos termos.' },
     simulado: {
-      questionId: 'two-step-library-156-195-147',
+      questionId: `two-step-library-${initialAmount}-${donatedAmount}-${removedAmount}`,
       subjectIds: ['addition', 'subtraction'],
       sourceType: 'context',
       contextual: true,
@@ -543,43 +645,70 @@ function validateMoneyProductMatching(question) {
 
 function validateOfficialScenarioQuestion(question) {
   const { scenarioId, moneyDenominationIds, products, task, availableCents, availableReais, purchaseProductId } = question.data ?? {};
-  if (scenarioId !== 'rael-available-24' || JSON.stringify(moneyDenominationIds) !== JSON.stringify(OFFICIAL_SCENARIO_MONEY)
-    || availableCents !== 2400 || moneyDenominationIds.reduce((sum, id) => sum + moneyValue(id), 0) !== availableCents
-    || JSON.stringify(products) !== JSON.stringify(OFFICIAL_TOY_PRODUCTS)) return false;
+  if (!Number.isInteger(availableCents) || availableCents <= 0 || availableCents % 100 !== 0
+    || availableReais * 100 !== availableCents || !Array.isArray(moneyDenominationIds) || moneyDenominationIds.length < 2
+    || moneyDenominationIds.some((id) => !MONEY_DENOMINATIONS.some((money) => money.id === id && money.kind === 'note'))
+    || moneyDenominationIds.reduce((sum, id) => sum + moneyValue(id), 0) !== availableCents
+    || !Array.isArray(products) || products.length !== 4
+    || new Set(products.map(({ id }) => id)).size !== products.length
+    || new Set(products.map(({ priceReais }) => priceReais)).size !== products.length
+    || products.some((product) => {
+      const prototype = OFFICIAL_TOY_PRODUCTS.find(({ id }) => product.id?.startsWith(`${id}-`));
+      return !prototype || product.id !== `${prototype.id}-${product.priceReais}`
+        || product.label !== prototype.label || product.article !== prototype.article
+        || product.illustrationId !== prototype.illustrationId
+        || !Number.isInteger(product.priceReais) || product.priceReais < 1 || product.priceReais > 50;
+    })) return false;
+  const expectedScenarioId = `rael-${availableReais}-${products.map(({ id }) => id).join('-')}`;
+  if (scenarioId !== expectedScenarioId || question.speech !== 'Rael está escolhendo brinquedos. Observe o dinheiro e os preços.') return false;
   const expectedAffordable = products.filter(({ priceReais }) => priceReais * 100 <= availableCents).map(({ id }) => id);
   if (question.type === 'simulado-shopping-total') return task === 'available-total'
     && question.correctAnswer * 100 === availableCents && question.prompt === 'Quanto dinheiro Rael tem ao todo?'
-    && question.speech === 'Rael tem moedas e cédulas para comprar brinquedos. Observe o dinheiro e os preços.';
+    && question.explanation === `O dinheiro de Rael soma ${availableReais} reais.`;
   if (question.type === 'simulado-shopping-affordability') return task === 'affordability'
     && availableReais * 100 === availableCents && JSON.stringify([...question.correctAnswers].sort()) === JSON.stringify([...expectedAffordable].sort())
     && JSON.stringify([...question.options].sort()) === JSON.stringify(products.map(({ id }) => id).sort())
-    && question.prompt === 'Marque todos os brinquedos que Rael pode comprar, um de cada vez.';
-  if (question.type === 'simulado-shopping-change') return task === 'change'
-    && availableReais * 100 === availableCents && purchaseProductId === 'truck-20'
-    && question.correctAnswer * 100 === availableCents - products.find(({ id }) => id === purchaseProductId).priceReais * 100
-    && question.correctAnswer === 4 && question.prompt === 'Rael comprou o caminhão. Quanto recebeu de troco?';
+    && expectedAffordable.length === 2
+    && question.prompt === 'Marque todos os brinquedos que Rael pode comprar, um de cada vez.'
+    && question.explanation === `Rael pode comprar ${products.filter(({ id }) => expectedAffordable.includes(id))
+      .map(({ article, label, priceReais }) => `${article} ${label.toLocaleLowerCase('pt-BR')} de ${priceReais} reais`).join(' e ')}.`;
+  if (question.type === 'simulado-shopping-change') {
+    const purchase = products.find(({ id }) => id === purchaseProductId);
+    return task === 'change' && purchase && purchase.priceReais < availableReais
+      && question.correctAnswer === availableReais - purchase.priceReais
+      && question.prompt === `Rael comprou ${purchase.article} ${purchase.label.toLocaleLowerCase('pt-BR')} por ${purchase.priceReais} reais. Quanto recebeu de troco?`
+      && question.explanation === `${availableReais} reais menos ${purchase.priceReais} reais são ${question.correctAnswer} reais de troco.`;
+  }
   return false;
 }
 
 function validateProductBoardQuestion(question) {
   const { boardId, products, taskId, productIds } = question.data ?? {};
-  if (boardId !== 'school-supplies-3-2-7-4-10' || JSON.stringify(products) !== JSON.stringify(SCHOOL_SUPPLIES)
-    || !Array.isArray(productIds)) return false;
+  if (!Array.isArray(products) || products.length !== 5 || !Array.isArray(productIds)
+    || new Set(products.map(({ id }) => id)).size !== products.length
+    || new Set(products.map(({ priceReais }) => priceReais)).size !== products.length
+    || products.some((product) => {
+      const prototype = SCHOOL_SUPPLIES.find(({ id }) => id === product.id);
+      return !prototype || product.label !== prototype.label || product.article !== prototype.article
+        || product.illustrationId !== prototype.illustrationId
+        || !Number.isInteger(product.priceReais) || product.priceReais < 2 || product.priceReais > 20;
+    }) || boardId !== `school-supplies-${products.map(({ id, priceReais }) => `${id}-${priceReais}`).join('-')}`) return false;
   if (taskId === 'cheapest' || taskId === 'most-expensive') {
     const ordered = [...products].sort((a, b) => taskId === 'cheapest' ? a.priceReais - b.priceReais : b.priceReais - a.priceReais);
+    const expectedExplanation = `${ordered[0].label} é o item ${taskId === 'cheapest' ? 'mais barato' : 'mais caro'}.`;
     return ordered[0].priceReais !== ordered[1].priceReais
       && question.correctAnswer === ordered[0].id
       && JSON.stringify(question.options) === JSON.stringify(products.map(({ id, label }) => ({ value: id, label })))
-      && question.prompt === (taskId === 'cheapest' ? 'Qual item é o mais barato?' : 'Qual item é o mais caro?');
+      && question.prompt === (taskId === 'cheapest' ? 'Qual item é o mais barato?' : 'Qual item é o mais caro?')
+      && question.explanation === expectedExplanation;
   }
-  const expectedIds = taskId === 'pencil-eraser-scissors' ? ['pencil', 'eraser', 'scissors']
-    : taskId === 'notebook-glue' ? ['notebook', 'glue'] : null;
-  if (!expectedIds || JSON.stringify(productIds) !== JSON.stringify(expectedIds) || question.options.length !== 0) return false;
-  const selected = expectedIds.map((id) => products.find((product) => product.id === id));
+  const expectedCount = taskId === 'pencil-eraser-scissors' ? 3 : taskId === 'notebook-glue' ? 2 : 0;
+  if (!expectedCount || productIds.length !== expectedCount || new Set(productIds).size !== expectedCount
+    || productIds.some((id) => !products.some((product) => product.id === id)) || question.options.length !== 0) return false;
+  const selected = productIds.map((id) => products.find((product) => product.id === id));
   const totalCents = selected.reduce((sum, product) => sum + product.priceReais * 100, 0);
-  const names = taskId === 'pencil-eraser-scissors' ? 'o lápis, a borracha e a tesoura' : 'o caderno e a cola';
   return question.correctAnswer * 100 === totalCents
-    && question.prompt === `Quanto custam juntos ${names}?`
+    && question.prompt === `Quanto custam juntos ${joinProductNames(selected)}?`
     && question.speech === question.prompt;
 }
 
@@ -594,10 +723,11 @@ function validateNumberTableQuestion(question) {
     || table.gaps.some((index) => !Number.isInteger(index) || index < 0 || index >= table.values.length)
     || !Array.isArray(table.answers) || table.answers.length !== table.gaps.length
     || table.gaps.some((index, answerIndex) => table.answers[answerIndex] !== table.values[index])) return false;
-  if (question.questionId === 'official-number-table-200-239') {
-    return table.values[0] === 200 && table.values.length === 40 && table.columns === 10
+  if (question.questionId.startsWith('full-coverage-number-table-')) {
+    return table.values[0] >= 200 && table.values[0] <= 211 && table.values.length === 40 && table.columns === 10
       && table.gaps.length === 12
-      && [200, 205, 210, 219, 220, 225, 230, 238].every((value) => !table.gaps.includes(value - 200));
+      && [0, 5, 10, 19, 20, 25, 30, 38].every((index) => !table.gaps.includes(index))
+      && question.speech === 'Complete a tabela crescente, contando de um em um.';
   }
   return question.prompt === 'Complete os espaços vazios da tabela.';
 }
@@ -618,23 +748,29 @@ function validateTwoStepQuestion(question) {
   const addQuestion = addition?.question;
   const subtractQuestion = subtraction?.question;
   return data?.steps?.length === 4 && typeof question.prompt === 'string' && data?.context === 'biblioteca'
-    && data.initialAmount === 156 && data.donatedAmount === 195
-    && data.removedAmount === 147 && data.intermediate === 351 && data.finalAmount === 204
+    && [data.initialAmount, data.donatedAmount, data.removedAmount, data.intermediate, data.finalAmount]
+      .every((value) => Number.isInteger(value) && value >= 100 && value <= 999)
+    && data.intermediate === data.initialAmount + data.donatedAmount
+    && data.finalAmount === data.intermediate - data.removedAmount
+    && data.finalAmount >= 100
     && addition?.kind === 'operation' && addition.operation === 'addition' && addition.subjectId === 'addition'
     && validateAv2AdditionQuestionCandidate(addQuestion)
     && addQuestion.data.a === data.initialAmount && addQuestion.data.b === data.donatedAmount
     && addQuestion.data.result === data.intermediate && addition.result === data.intermediate
+    && (addQuestion.data.trace.carries.toTens > 0 || addQuestion.data.trace.carries.toHundreds > 0)
     && additionTerms?.kind === 'terms' && additionTerms.question?.questionId === addQuestion.questionId
     && JSON.stringify(additionTerms.expectedRoles) === JSON.stringify({ a: '1ª parcela', b: '2ª parcela', result: 'soma ou total' })
     && subtraction?.kind === 'operation' && subtraction.operation === 'subtraction' && subtraction.subjectId === 'subtraction'
     && validateAv2SubtractionQuestionCandidate(subtractQuestion)
     && subtractQuestion.data.a === addQuestion.data.result && subtractQuestion.data.b === data.removedAmount
     && subtractQuestion.data.result === data.finalAmount && subtraction.result === data.finalAmount
+    && subtractQuestion.data.trace.events.length > 0
     && subtractionTerms?.kind === 'terms' && subtractionTerms.question?.questionId === subtractQuestion.questionId
     && JSON.stringify(subtractionTerms.expectedRoles) === JSON.stringify({ a: 'minuendo', b: 'subtraendo', result: 'resto ou diferença' })
     && question.correctAnswer === data.finalAmount
-    && question.prompt.includes('156') && question.prompt.includes('195') && question.prompt.includes('147')
-    && !question.prompt.includes('351') && !question.prompt.includes('204') && question.speech === question.prompt;
+    && question.questionId === `two-step-library-${data.initialAmount}-${data.donatedAmount}-${data.removedAmount}`
+    && question.prompt === `A biblioteca tinha ${data.initialAmount} livros e recebeu mais ${data.donatedAmount}. Depois, ${data.removedAmount} livros foram retirados. Resolva uma etapa de cada vez.`
+    && question.speech === question.prompt;
 }
 
 export function validateAv2SimuladoQuestionCandidate(question) {
@@ -785,7 +921,7 @@ export function createAv2SimuladoRound(counts = {}, random = Math.random) {
       }));
     }
   }
-  if (includesTwoStep) questions.push(createTwoStepLibraryQuestion(random));
+  if (includesTwoStep) questions.push(createTwoStepLibraryQuestion(random, { varied: true }));
 
   const round = shuffled(questions, random);
   if (!validateAv2SimuladoRound(round, normalizedCounts)) {
@@ -796,20 +932,21 @@ export function createAv2SimuladoRound(counts = {}, random = Math.random) {
 }
 
 export function createAv2SimuladoFullCoverageRound(random = Math.random) {
-  const banknoteMatch = createCurrencyEquivalenceQuestion({
-    denominationIds: ['coin-1-real', 'coin-50-centavos', 'coin-25-centavos', 'coin-25-centavos'],
-    targetDenominationId: 'note-2-reais', random,
-  });
+  const banknoteMatch = createOfficialEquivalenceQuestion(random);
   const fullTable = createOfficialNumberTableQuestion(random);
+  const compositionChallenges = shuffled([
+    'equiv-1-from-50', 'equiv-5-from-1', 'equiv-10-from-5', 'equiv-20-from-10',
+  ].map((id) => getAv2MoneyCompositionChallenge(id)), random).slice(0, 2);
+  const writingValues = shuffled([...Array.from({ length: 51 }, (_, index) => 200 + index), 300, 400], random).slice(0, 2);
   const reviewGroups = [
     [attachSubject(banknoteMatch, 'money')],
     [createOfficialMoneyProductMatchingQuestion(random)],
-    createOfficialShoppingScenarioQuestions(),
-    ['equiv-1-from-50', 'equiv-5-from-1'].map((id) => attachSubject(getAv2MoneyCompositionChallenge(id), 'money')),
-    createOfficialProductBoardQuestions(),
+    createOfficialShoppingScenarioQuestions(random),
+    compositionChallenges.map((challenge) => attachSubject(challenge, 'money')),
+    createOfficialProductBoardQuestions(random),
     [fullTable],
-    [createWordWritingQuestion(208), createWordWritingQuestion(215)],
-    [createTwoStepLibraryQuestion(random)],
+    writingValues.map((value) => createWordWritingQuestion(value)),
+    [createTwoStepLibraryQuestion(random, { varied: true })],
   ];
   const round = shuffled(reviewGroups, random).flat();
   if (!validateAv2SimuladoFullCoverageRound(round)) {
@@ -861,19 +998,21 @@ export function validateAv2SimuladoFullCoverageRound(round) {
   if (!validateAv2SimuladoRound(round) || round.length !== 15) return false;
   const types = (type) => round.filter((question) => question.type === type);
   const equivalence = round.find((question) => question.type === 'equivalence'
-    && question.data?.targetDenominationId === 'note-2-reais');
-  const compositionIds = new Set(round.filter((question) => question.activityId === AV2_MONEY_COMPOSITION_ACTIVITY_ID)
-    .map(({ challengeId }) => challengeId));
+    && ['note-2-reais', 'note-5-reais', 'note-10-reais'].includes(question.data?.targetDenominationId));
+  const compositionQuestions = round.filter((question) => question.activityId === AV2_MONEY_COMPOSITION_ACTIVITY_ID);
+  const compositionIds = new Set(compositionQuestions.map(({ challengeId }) => challengeId));
   const shoppingTypes = ['simulado-shopping-total', 'simulado-shopping-affordability', 'simulado-shopping-change'];
   const boardTasks = new Set(types('simulado-product-board').map(({ data }) => data.taskId));
   const writingValues = new Set(types('simulado-word-write').map(({ data }) => data.value));
+  const table = types('simulado-number-table')[0]?.data.table;
   const library = types('simulado-two-step')[0];
   return Boolean(equivalence && types('simulado-money-product-match').length === 1
     && shoppingTypes.every((type) => types(type).length === 1)
-    && compositionIds.size === 2 && compositionIds.has('equiv-1-from-50') && compositionIds.has('equiv-5-from-1')
+    && compositionQuestions.length === 2 && compositionIds.size === 2
+    && compositionQuestions.every(({ pedagogicalCategory }) => pedagogicalCategory === 'COMP-04')
     && boardTasks.size === 4 && ['cheapest', 'most-expensive', 'pencil-eraser-scissors', 'notebook-glue'].every((id) => boardTasks.has(id))
-    && types('simulado-number-table').length === 1 && types('simulado-number-table')[0].data.table.values.length === 40
-    && writingValues.size === 2 && writingValues.has(208) && writingValues.has(215)
+    && types('simulado-number-table').length === 1 && table.values.length === 40 && table.columns === 10 && table.gaps.length === 12
+    && writingValues.size === 2
     && library?.data.steps.length === 4
     && round.filter(({ simulado }) => simulado.subjectId === 'money').length === 11
     && round.filter(({ simulado }) => simulado.subjectId === 'words').length === 2
