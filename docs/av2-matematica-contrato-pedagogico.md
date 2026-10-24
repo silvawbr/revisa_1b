@@ -130,11 +130,11 @@ A interação permite adicionar, remover e limpar moedas e cédulas sem arrastar
 
 ## 10. Bloco 07 — Simulado AV2
 
-O simulado combina questões validadas dos conteúdos implementados: sistema monetário, adição, subtração, sequências crescentes de um em um e números por extenso. A configuração permite habilitar assuntos e escolher de 1 a 5 questões por assunto; o padrão deixa todos habilitados com três questões cada. A ordem é sorteada em cada rodada.
+O simulado combina questões validadas dos conteúdos implementados: sistema monetário, adição, subtração, sequências crescentes de um em um e números por extenso. Ele começa direto, sem tela de configuração, com uma questão de cada assunto. A ordem é sorteada em cada rodada.
 
-Os formatos incluem associação de números e palavras, seleção múltipla para compras possíveis e problemas contextualizados. Quando adição e subtração estão habilitadas juntas, uma questão composta reserva uma vaga de cada assunto. Na referência oficial da biblioteca, a etapa 1 valida **156 + 195 = 351**; a etapa 2 usa o resultado intermediário e valida **351 − 147 = 204**.
+Os números por extenso usam uma questão de múltipla escolha por vez, com três alternativas, como na revisão original. O simulado também inclui seleção múltipla para compras possíveis e problemas contextualizados. Quando adição e subtração estão habilitadas juntas, uma questão composta reserva uma vaga de cada assunto. Na referência oficial da biblioteca, a etapa 1 valida **156 + 195 = 351**; a etapa 2 usa o resultado intermediário e valida **351 − 147 = 204**.
 
-O resultado mostra acertos na primeira tentativa, questões resolvidas e tentativas por assunto. Questões com erro podem gerar novas questões do mesmo assunto. O progresso é local e reutiliza o fluxo existente de leitura TTS, feedback e recompensas. O assunto de sistema monetário também pode selecionar desafios validados de Formar quantias com uma única solução, respeitando as regras do Bloco 06.
+Após a última resposta, a criança vai direto ao desenho da recompensa. O progresso é local e reutiliza o fluxo existente de leitura TTS, feedback e recompensas. O assunto de sistema monetário também pode selecionar desafios validados de Formar quantias com uma única solução, respeitando as regras do Bloco 06.
 
 ## 11. Contrato obrigatório de validação
 
