@@ -4,7 +4,7 @@ A atividade independente da AV2 reúne doze questões por rodada, duas de cada c
 
 `src/av2/sequences.js` contém geradores puros, conversão pt-BR, validadores de candidato/resposta e geração de rodada. Sequências e antecessor/sucessor ficam entre 0 e 250. As tabelas mantêm a ordem crescente e a tabela completa 200–239 tem 40 casas, com campos independentes para cada lacuna. As questões por extenso permitem 0–250 e também 300 e 400 exatos.
 
-A atividade usa entrada numérica para lacunas. Nas questões de reconhecimento, a criança vê o número e escolhe seu correspondente; nas questões NUM-06, vê o número e escolhe entre quatro grafias em fonte cursiva, seguindo o formato da primeira revisão. A resposta é confirmada pelo botão e pode ser tentada novamente após um erro. A fala inicial não pronuncia a alternativa correta.
+A atividade usa entrada numérica para lacunas. Nas questões de reconhecimento, a criança vê o número escrito por extenso e escolhe seu correspondente. Nas questões NUM-06, vê o número e escolhe entre quatro escritas por extenso, com seleção e confirmação iguais às da primeira revisão. A resposta pode ser tentada novamente após um erro. A fala inicial não pronuncia a alternativa correta.
 
 ## Limites verificados
 
@@ -22,6 +22,6 @@ A atividade usa entrada numérica para lacunas. Nas questões de reconhecimento,
 
 1. Abra AV2 Matemática e selecione **Sequências e números por extenso**.
 2. Em telefone, confira a tabela de 200 a 239 em cinco colunas, sem rolagem horizontal; preencha todas as lacunas.
-3. Na questão NUM-06, confira as quatro alternativas cursivas; selecione uma correta e uma incorreta para observar confirmação e feedback de nova tentativa.
+3. Na questão NUM-06, confira as quatro alternativas e selecione uma correta e uma incorreta para observar confirmação e feedback de nova tentativa.
 4. Use a leitura em voz alta na questão NUM-06 e confirme que o áudio inicial não fala a alternativa correta.
 5. Termine as doze questões, confira estrelas e desenho, inicie nova rodada e volte à seleção AV2.
