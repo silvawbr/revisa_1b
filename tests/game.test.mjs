@@ -21,6 +21,7 @@ import {
   validateAdditionAnswer,
   validateQuestionAnswer,
 } from '../src/game.js';
+import { AV2_ALLOWED_ANSWER_MODES, validateAv2AnswerMode } from '../src/av2/interaction-contract.js';
 
 const constantRandom = (value) => () => value;
 
@@ -213,6 +214,18 @@ test('uma rodada tem seis atividades na ordem definida', () => {
   assert.deepEqual(round.map((question) => question.type), ['flat', 'spatial', 'neighbor', 'word', 'addition', 'unknown']);
 });
 
+test('a revisão original declara um modo de resposta permitido para todas as atividades', () => {
+  const round = createRound(constantRandom(0.37));
+  assert.equal(round.length, 6);
+  for (const question of round) {
+    assert.ok(AV2_ALLOWED_ANSWER_MODES.includes(question.answerMode));
+    assert.equal(validateAv2AnswerMode(question, { requireDeclared: true }), true);
+  }
+  assert.equal(round.find(({ type }) => type === 'word').answerMode, 'single-choice');
+  assert.ok(round.filter(({ type }) => ['addition', 'neighbor', 'unknown'].includes(type))
+    .every(({ answerMode }) => answerMode === 'numeric-input'));
+});
+
 test('textos de voz não revelam as respostas das atividades', () => {
   for (let index = 0; index < 40; index += 1) {
     const random = () => ((index * 23) % 97) / 100 + 0.01;
@@ -274,7 +287,7 @@ test('a impressão reserva somente uma página A4 e a voz usa o endpoint interno
   assert.match(css, /\.reward-main,\s*\.reward-card\s*\{[\s\S]*?position:\s*static;/);
   assert.match(css, /\.reward-main\s*\{\s*display:\s*block;\s*overflow:\s*visible;/);
   assert.match(css, /\.print-sheet\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?inset:\s*10mm;/);
-  assert.match(css, /\.coloring-image\s*,[\s\S]*?max-width:\s*100%;[\s\S]*?max-height:/);
+  assert.match(css, /\.coloring-image\s*\{[^}]*max-width:\s*100%;[^}]*max-height:/);
   assert.doesNotMatch(app, /SpeechSynthesis/);
   assert.match(app, /createTtsClient/);
   assert.match(app, /AbortController/);

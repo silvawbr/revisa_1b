@@ -290,7 +290,7 @@ A atividade **Subtração com reagrupamento** oferece rodadas de 12 questões co
 
 ### AV2 — Bloco 05
 
-A atividade **Sequências e números por extenso** pratica contagem de um em um até 250, tabela 200–239, antecessor e sucessor, reconhecimento de números por extenso e escolha da grafia correspondente. Centenas exatas 300 e 400 aparecem somente nas questões por extenso. Veja [arquitetura, limites e verificação do Bloco 05](docs/av2-block-05-sequencias.md).
+A atividade **Sequências e números por extenso** pratica contagem de um em um até 250, tabela 200–239, antecessor e sucessor, reconhecimento de números por extenso e escolha da grafia ou do numeral correspondente. Respostas por extenso são sempre selecionadas; centenas exatas 300 e 400 aparecem somente nessas questões. Siga o [contrato permanente de interação infantil da AV2](docs/av2-child-interaction-contract.md) e veja [arquitetura, limites e verificação do Bloco 05](docs/av2-block-05-sequencias.md).
 
 ### AV2 — Bloco 06
 

@@ -30,7 +30,16 @@ import {
   createSubtractionQuestion,
 } from './subtraction.js';
 import { numberToPortuguese } from '../game.js';
-import { createNumberTableQuestion, NUMBER_WORD_VALUES, numberToWordsPtBr, validateNumberTable } from './sequences.js';
+import {
+  createNumberTableQuestion,
+  createNumberToWordQuestion,
+  createRecognitionQuestion,
+  NUMBER_WORD_VALUES,
+  numberToWordsPtBr,
+  validateAv2SequencesQuestion,
+  validateNumberTable,
+} from './sequences.js';
+import { validateAv2AnswerMode, withAv2AnswerMode } from './interaction-contract.js';
 import { getAv2ProductIllustrationId } from './product-illustrations.js';
 
 export const AV2_SIMULADO_ACTIVITY_ID = 'av2-simulado-block-07';
@@ -43,7 +52,7 @@ export const AV2_SIMULADO_SUBJECTS = Object.freeze([
   Object.freeze({ id: 'addition', label: 'Adição', description: 'Contas e problemas de adição.' }),
   Object.freeze({ id: 'subtraction', label: 'Subtração', description: 'Contas e problemas de subtração.' }),
   Object.freeze({ id: 'sequences', label: 'Sequências e tabelas', description: 'Complete sequências e tabelas numéricas.' }),
-  Object.freeze({ id: 'words', label: 'Números por extenso', description: 'Leia, escreva e relacione números.' }),
+  Object.freeze({ id: 'words', label: 'Números por extenso', description: 'Leia números e escolha sua escrita ou seu correspondente.' }),
 ]);
 
 const SUBJECT_IDS = new Set(AV2_SIMULADO_SUBJECTS.map(({ id }) => id));
@@ -72,7 +81,7 @@ function shuffled(values, random) {
 
 function attachSubject(question, subjectId, questionId = question.questionId) {
   return freezeDeep({
-    ...question,
+    ...withAv2AnswerMode(question),
     simulado: {
       questionId: String(questionId),
       subjectIds: [subjectId],
@@ -109,41 +118,82 @@ function createSequenceQuestion(random, requestedStart = null, requestedMissingI
   return attachSubject(question, 'sequences');
 }
 
-function createWordQuestion(random, requestedValue = null, requestedMode = null) {
-  const mode = requestedMode ?? (randomIndex(2, random) === 0 ? 'number-to-word' : 'word-to-number');
-  const value = requestedValue ?? (mode === 'number-to-word' && randomIndex(8, random) === 0
+export function createAv2SimuladoWordQuestion({ value = null, mode = null, random = Math.random, questionId = null } = {}) {
+  const resolvedMode = mode ?? (randomIndex(2, random) === 0 ? 'number-to-word' : 'word-to-number');
+  const resolvedValue = value ?? (resolvedMode === 'number-to-word' && randomIndex(8, random) === 0
     ? (randomIndex(2, random) === 0 ? 300 : 400)
     : 200 + randomIndex(51, random));
-  const distractorValues = [300, 400].includes(value)
-    ? [300, 400, 200, 250].filter((candidate) => candidate !== value)
-    : [...new Set([value - 1, value + 1, value - 10, value + 10, value - 2, value + 2])]
-      .filter((candidate) => candidate >= 200 && candidate <= 250 && candidate !== value);
-  const selected = shuffled([value, ...distractorValues].slice(0, 3), random);
-  const options = selected.map((option) => ({
-    value: option,
-    label: mode === 'number-to-word' ? numberToPortuguese(option) : String(option),
+  const isAllowedValue = Number.isInteger(resolvedValue) && ((resolvedValue >= 200 && resolvedValue <= 250)
+    || (resolvedMode === 'number-to-word' && [300, 400].includes(resolvedValue)));
+  if (!isAllowedValue || !['number-to-word', 'word-to-number'].includes(resolvedMode)) {
+    throw new RangeError('Número ou direção fora do domínio de números por extenso do Simulado AV2.');
+  }
+
+  const source = resolvedMode === 'number-to-word'
+    ? createNumberToWordQuestion(random, { value: resolvedValue })
+    : createRecognitionQuestion(random, { value: resolvedValue });
+  if (!validateAv2SequencesQuestion(source)) {
+    throw new TypeError('A questão de números por extenso do Block 05 não passou pelo contrato de alternativas.');
+  }
+
+  const options = source.options.map((optionValue, index) => ({
+    value: optionValue,
+    label: resolvedMode === 'number-to-word' ? source.optionLabels[index] : String(optionValue),
   }));
-  const word = numberToPortuguese(value);
-  const question = {
+  const word = numberToWordsPtBr(resolvedValue);
+  const prompt = resolvedMode === 'number-to-word'
+    ? source.prompt
+    : `Qual número corresponde a “${word}”?`;
+  const speech = resolvedMode === 'number-to-word'
+    ? source.speech
+    : `Qual número corresponde à escrita ${word}?`;
+  const candidate = attachSubject({
     revisionId: 'av2-matematica',
     activityId: AV2_SIMULADO_ACTIVITY_ID,
     pedagogicalCategory: 'NUMBER_WORDS',
-    questionId: `word-${mode}-${value}`,
+    questionId: questionId ?? `word-${resolvedMode}-${resolvedValue}`,
     type: 'simulado-word',
-    data: { value, mode, options },
-    correctAnswer: value,
+    data: { value: resolvedValue, mode: resolvedMode, options },
+    correctAnswer: resolvedValue,
     options,
-    prompt: mode === 'number-to-word'
-      ? `Como se escreve o número ${value} por extenso?`
-      : `Qual número corresponde a ${word}?`,
-    speech: mode === 'number-to-word'
-      ? `Como se escreve o número ${value} por extenso?`
-      : `Qual número corresponde a ${word}?`,
-    explanation: `${word} corresponde ao número ${value}.`,
-    hint: 'Leia cada parte do número e procure a escrita que corresponde a todas elas.',
-    feedback: { correct: 'Muito bem! Você encontrou a escrita correta.', retry: 'Leia as opções com calma e tente outra vez.' },
-  };
-  return attachSubject(question, 'words');
+    prompt,
+    speech,
+    explanation: `${word} corresponde ao número ${resolvedValue}.`,
+    hint: source.hint,
+    feedback: { correct: 'Muito bem! Você encontrou a resposta correta.', retry: 'Leia as alternativas com atenção e tente outra vez.' },
+  }, 'words');
+  if (!validateAv2SimuladoQuestionCandidate(candidate)) {
+    throw new TypeError('A questão de números por extenso do Simulado AV2 não passou pela validação.');
+  }
+  return candidate;
+}
+
+function createWordQuestion(random, requestedValue = null, requestedMode = null) {
+  return createAv2SimuladoWordQuestion({ value: requestedValue, mode: requestedMode, random });
+}
+
+export function upgradeLegacyAv2SimuladoQuestion(question, random = Math.random) {
+  if (question?.type !== 'simulado-word-write') {
+    return validateAv2SimuladoQuestionCandidate(question) ? question : null;
+  }
+  const value = question.data?.value;
+  if (!NUMBER_WORD_VALUES.includes(value)
+    || !((value >= 200 && value <= 250) || [300, 400].includes(value))) return null;
+  const legacyQuestionId = String(question.simulado?.questionId ?? question.questionId ?? `legacy-word-${value}`);
+  const replacement = createAv2SimuladoWordQuestion({
+    value,
+    mode: 'number-to-word',
+    random,
+    questionId: String(question.questionId ?? `word-number-to-word-${value}`),
+  });
+  return freezeDeep({
+    ...replacement,
+    simulado: {
+      ...replacement.simulado,
+      questionId: legacyQuestionId,
+      ...(question.simulado?.reviewTargetKey ? { reviewTargetKey: question.simulado.reviewTargetKey } : {}),
+    },
+  });
 }
 
 function createAssociationQuestion(random) {
@@ -380,20 +430,6 @@ function createOfficialNumberTableQuestion(random) {
   }, 'sequences');
 }
 
-function createWordWritingQuestion(value) {
-  const expectedWord = numberToWordsPtBr(value);
-  return attachSubject({
-    revisionId: 'av2-matematica', activityId: AV2_SIMULADO_ACTIVITY_ID,
-    pedagogicalCategory: 'NUMBER_WORD_WRITING', questionId: `word-writing-${value}`,
-    type: 'simulado-word-write', data: { value }, correctAnswer: expectedWord, options: [],
-    prompt: `Escreva o número ${value} por extenso.`,
-    speech: `Escreva o número ${value} por extenso.`,
-    explanation: `${value} se escreve ${expectedWord}.`,
-    hint: 'Pense nas centenas, dezenas e unidades. Escreva as palavras que representam cada parte.',
-    feedback: { correct: 'Muito bem! Você escreveu o número por extenso.', retry: 'Leia o número em partes e tente escrever novamente.' },
-  }, 'words');
-}
-
 function createTwoStepLibraryQuestion(random = Math.random, { varied = false } = {}) {
   let initialAmount = 156;
   let donatedAmount = 195;
@@ -447,6 +483,7 @@ function createTwoStepLibraryQuestion(random = Math.random, { varied = false } =
     pedagogicalCategory: 'CONTEXTUAL_TWO_STEP_PROBLEM',
     questionId: `two-step-library-${initialAmount}-${donatedAmount}-${removedAmount}`,
     type: 'simulado-two-step',
+    answerMode: 'composite',
     data: {
       context: 'biblioteca',
       item: 'livros',
@@ -548,9 +585,7 @@ function topicCandidates(subjectId, count, random, { preferContext = false } = {
     return fillUnique([table], sequenceCandidates, count);
   }
   if (subjectId === 'words') {
-    const writingValues = shuffled([208, 215, 220, 235, 250, 300, 400], random);
-    const selected = count > 0 ? [createWordWritingQuestion(writingValues[0])] : [];
-    if (count > 1) selected.push(createAssociationQuestion(random));
+    const selected = count > 1 ? [createAssociationQuestion(random)] : [];
     const wordCases = [];
     for (let value = 200; value <= 250; value += 1) {
       wordCases.push([value, 'number-to-word'], [value, 'word-to-number']);
@@ -598,14 +633,19 @@ function validateWordQuestion(question) {
   if (!Number.isInteger(value) || (value < 200 || value > 250) && !([300, 400].includes(value) && mode === 'number-to-word')
     || !['number-to-word', 'word-to-number'].includes(mode) || !Array.isArray(options) || options.length !== question.options?.length
     || JSON.stringify(options) !== JSON.stringify(question.options)) return false;
-  const uniqueValues = new Set(options.map(({ value: optionValue }) => optionValue));
-  return uniqueValues.size === options.length && options.some(({ value: optionValue }) => optionValue === value)
+  const word = numberToPortuguese(value);
+  return options.length === 4
+    && new Set(options.map(({ value: optionValue }) => optionValue)).size === 4
+    && new Set(options.map(({ label }) => label)).size === 4
+    && options.filter(({ value: optionValue }) => optionValue === value).length === 1
     && options.every(({ value: optionValue, label }) => Number.isInteger(optionValue)
-      && (optionValue >= 200 && optionValue <= 250 || [300, 400].includes(optionValue) && mode === 'number-to-word')
+      && (optionValue >= 0 && optionValue <= 250 || [300, 400].includes(optionValue) && mode === 'number-to-word')
       && typeof label === 'string' && label === (mode === 'number-to-word' ? numberToPortuguese(optionValue) : String(optionValue)))
     && question.correctAnswer === value
-    && question.prompt === (mode === 'number-to-word' ? `Como se escreve o número ${value} por extenso?` : `Qual número corresponde a ${numberToPortuguese(value)}?`)
-    && question.speech === question.prompt;
+    && question.answerMode === 'single-choice'
+    && question.prompt === (mode === 'number-to-word' ? `Como se escreve o número ${value} por extenso?` : `Qual número corresponde a “${word}”?`)
+    && question.speech === (mode === 'number-to-word' ? `Observe o número ${value} e escolha como ele é escrito.` : `Qual número corresponde à escrita ${word}?`)
+    && (mode !== 'number-to-word' || (!question.speech.includes(word) && !question.hint.includes(word)));
 }
 
 function validateAssociationQuestion(question) {
@@ -732,16 +772,6 @@ function validateNumberTableQuestion(question) {
   return question.prompt === 'Complete os espaços vazios da tabela.';
 }
 
-function validateWordWritingQuestion(question) {
-  const value = question.data?.value;
-  if (!NUMBER_WORD_VALUES.includes(value) || question.type !== 'simulado-word-write') return false;
-  const word = numberToWordsPtBr(value);
-  return question.correctAnswer === word
-    && question.prompt === `Escreva o número ${value} por extenso.`
-    && question.speech === question.prompt
-    && !question.hint.toLocaleLowerCase('pt-BR').includes(word.toLocaleLowerCase('pt-BR'));
-}
-
 function validateTwoStepQuestion(question) {
   const data = question.data;
   const [addition, additionTerms, subtraction, subtractionTerms] = data?.steps ?? [];
@@ -774,7 +804,8 @@ function validateTwoStepQuestion(question) {
 }
 
 export function validateAv2SimuladoQuestionCandidate(question) {
-  if (!question || question.revisionId !== 'av2-matematica' || !question.simulado
+  if (!validateAv2AnswerMode(question, { requireDeclared: true })
+    || question.revisionId !== 'av2-matematica' || !question.simulado
     || typeof question.simulado.questionId !== 'string' || !question.simulado.questionId
     || !Array.isArray(question.simulado.subjectIds) || question.simulado.subjectIds.length === 0
     || new Set(question.simulado.subjectIds).size !== question.simulado.subjectIds.length
@@ -788,10 +819,6 @@ export function validateAv2SimuladoQuestionCandidate(question) {
     && question.pedagogicalCategory === 'NUMBER_WORDS'
     && question.simulado.subjectId === 'words' && question.simulado.subjectIds.join('|') === 'words'
     && validateWordQuestion(question);
-  if (question.type === 'simulado-word-write') return question.activityId === AV2_SIMULADO_ACTIVITY_ID
-    && question.pedagogicalCategory === 'NUMBER_WORD_WRITING'
-    && question.simulado.subjectId === 'words' && question.simulado.subjectIds.join('|') === 'words'
-    && validateWordWritingQuestion(question);
   if (question.type === 'simulado-number-table') return question.activityId === AV2_SIMULADO_ACTIVITY_ID
     && question.pedagogicalCategory === 'NUMBER_TABLE_COMPLETION'
     && question.simulado.subjectId === 'sequences' && question.simulado.subjectIds.join('|') === 'sequences'
@@ -838,10 +865,6 @@ export function validateAv2SimuladoQuestionCandidate(question) {
 
 export function validateAv2SimuladoAnswer(question, answer, stage = 1) {
   if (!validateAv2SimuladoQuestionCandidate(question)) return false;
-  if (question.type === 'simulado-word-write') {
-    const normalize = (value) => String(value ?? '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('pt-BR');
-    return normalize(answer) === normalize(question.correctAnswer);
-  }
   if (question.type === 'simulado-number-table') return validateNumberTable(question.data.table, answer);
   if (question.type === 'simulado-money-product-match') {
     if (!answer || typeof answer !== 'object' || Array.isArray(answer)) return false;
@@ -937,7 +960,9 @@ export function createAv2SimuladoFullCoverageRound(random = Math.random) {
   const compositionChallenges = shuffled([
     'equiv-1-from-50', 'equiv-5-from-1', 'equiv-10-from-5', 'equiv-20-from-10',
   ].map((id) => getAv2MoneyCompositionChallenge(id)), random).slice(0, 2);
-  const writingValues = shuffled([...Array.from({ length: 51 }, (_, index) => 200 + index), 300, 400], random).slice(0, 2);
+  const numberToWordValues = shuffled([...Array.from({ length: 51 }, (_, index) => 200 + index), 300, 400], random);
+  const wordToNumberValues = shuffled(Array.from({ length: 51 }, (_, index) => 200 + index)
+    .filter((value) => value !== numberToWordValues[0]), random);
   const reviewGroups = [
     [attachSubject(banknoteMatch, 'money')],
     [createOfficialMoneyProductMatchingQuestion(random)],
@@ -945,7 +970,10 @@ export function createAv2SimuladoFullCoverageRound(random = Math.random) {
     compositionChallenges.map((challenge) => attachSubject(challenge, 'money')),
     createOfficialProductBoardQuestions(random),
     [fullTable],
-    writingValues.map((value) => createWordWritingQuestion(value)),
+    [
+      createWordQuestion(random, numberToWordValues[0], 'number-to-word'),
+      createWordQuestion(random, wordToNumberValues[0], 'word-to-number'),
+    ],
     [createTwoStepLibraryQuestion(random, { varied: true })],
   ];
   const round = shuffled(reviewGroups, random).flat();
@@ -1003,7 +1031,9 @@ export function validateAv2SimuladoFullCoverageRound(round) {
   const compositionIds = new Set(compositionQuestions.map(({ challengeId }) => challengeId));
   const shoppingTypes = ['simulado-shopping-total', 'simulado-shopping-affordability', 'simulado-shopping-change'];
   const boardTasks = new Set(types('simulado-product-board').map(({ data }) => data.taskId));
-  const writingValues = new Set(types('simulado-word-write').map(({ data }) => data.value));
+  const wordQuestions = types('simulado-word');
+  const numberToWordQuestions = wordQuestions.filter(({ data }) => data.mode === 'number-to-word');
+  const wordToNumberQuestions = wordQuestions.filter(({ data }) => data.mode === 'word-to-number');
   const table = types('simulado-number-table')[0]?.data.table;
   const library = types('simulado-two-step')[0];
   return Boolean(equivalence && types('simulado-money-product-match').length === 1
@@ -1012,7 +1042,8 @@ export function validateAv2SimuladoFullCoverageRound(round) {
     && compositionQuestions.every(({ pedagogicalCategory }) => pedagogicalCategory === 'COMP-04')
     && boardTasks.size === 4 && ['cheapest', 'most-expensive', 'pencil-eraser-scissors', 'notebook-glue'].every((id) => boardTasks.has(id))
     && types('simulado-number-table').length === 1 && table.values.length === 40 && table.columns === 10 && table.gaps.length === 12
-    && writingValues.size === 2
+    && wordQuestions.length === 2 && numberToWordQuestions.length === 1 && wordToNumberQuestions.length === 1
+    && new Set(wordQuestions.map(({ data }) => data.value)).size === 2
     && library?.data.steps.length === 4
     && round.filter(({ simulado }) => simulado.subjectId === 'money').length === 11
     && round.filter(({ simulado }) => simulado.subjectId === 'words').length === 2
