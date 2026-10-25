@@ -8,7 +8,7 @@ O gerador administrativo usa a API de imagens do OpenRouter pelo terminal. A cha
 
 ## Gerar na tela da recompensa
 
-O botão “Gerar desenho novo” chama `POST /api/coloring`. Ele usa a chave privada `api_key` (ou `OPENROUTER_API_KEY`) e `OPENROUTER_IMAGE_MODEL`, que devem estar configuradas no ambiente do servidor. O navegador envia somente `{}`; o servidor seleciona um tema permitido e aplica uma instrução fixa, sem receber dados da criança.
+O botão “Gerar desenho novo” chama `POST /api/coloring`. Ele usa a chave privada `api_key` (ou `OPENROUTER_API_KEY`) e `OPENROUTER_IMAGE_MODEL`, que devem estar configuradas no ambiente do servidor. Ao clicar, um popup permite à criança digitar o nome de um animal em português ou tocar em uma das 10 sugestões sorteadas. “Ver outros animais” renova as sugestões. O navegador envia `{ animal, source }`, com `source` igual a `typed` ou `suggestion`. O mapa `ANIMAL_DETAILS` em `src/data/coloringAnimals.js` associa cada sugestão a um cenário predefinido (por exemplo, peixe-boi em um rio). Para nomes digitados, o modelo escolhe um habitat natural apropriado. O servidor valida nomes de 2 a 60 caracteres com letras, espaços e hífens e mantém estilo infantil, contornos pretos, fundo branco, margens e formato retrato fixos. O nome da criança não é enviado.
 
 A resposta é validada como PNG ou JPEG em orientação retrato e entregue diretamente à tela para colorir e imprimir. Ela não é gravada, revisada nem incluída no catálogo. O fluxo administrativo abaixo continua documentado para manter os assets locais legados; ele exige inspeção visual e aprovação com metadados de licença, mas não alimenta o catálogo ativo do Wikimedia Commons.
 

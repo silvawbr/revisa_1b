@@ -182,9 +182,12 @@ em nova aba com `noopener,noreferrer` e recebe um link acessível de fallback se
 o navegador bloquear pop-ups. O botão e suas mensagens ficam ocultos na
 impressão; a impressão contém somente a página selecionada e seus créditos.
 As origens e licenças estão registradas em
-`public/coloring-pages/ATTRIBUTIONS.md`. O botão de geração envia somente
-uma solicitação vazia a `/api/coloring`; o servidor escolhe um tema infantil e
-usa uma instrução fixa, sem enviar nome ou informação da criança. A geração
+`public/coloring-pages/ATTRIBUTIONS.md`. O botão de geração abre um popup com um campo para o nome de um animal em português e
+10 sugestões sorteadas de `src/data/coloringAnimals.js`. O navegador envia
+`{ animal, source }` a `/api/coloring`: sugestões usam o mapa `ANIMAL_DETAILS`
+no servidor; nomes digitados pedem ao modelo um habitat natural apropriado.
+O estilo infantil em preto e branco e as configurações de impressão são fixos.
+O nome do animal é enviado ao provedor; o nome da criança não é enviado. A geração
 requer `OPENROUTER_IMAGE_MODEL` configurada no servidor.
 
 Mensagens personalizadas ficam apenas na interface. A versão enviada ao

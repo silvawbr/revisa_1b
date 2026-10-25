@@ -103,7 +103,7 @@ function parseElements(markup, selector) {
   const selectorMatch = selector.match(/^\[(data-[\w-]+)(?:="([^"]*)")?\]$/);
   if (!selectorMatch) return [];
   const [, attribute, expectedValue] = selectorMatch;
-  if (!['data-action', 'data-av2-answer', 'data-av2-add-field', 'data-av2-add-digit', 'data-av2-add-clear', 'data-sequence-answer', 'data-table-gap', 'data-add-money', 'data-remove-money-item', 'data-match-group', 'data-match-product', 'data-simulado-term-role', 'data-simulado-numeric-answer', 'data-av2-association-answer', 'data-simulado-subject', 'data-simulado-count'].includes(attribute)) return [];
+  if (!['data-animal-suggestion', 'data-action', 'data-av2-answer', 'data-av2-add-field', 'data-av2-add-digit', 'data-av2-add-clear', 'data-sequence-answer', 'data-table-gap', 'data-add-money', 'data-remove-money-item', 'data-match-group', 'data-match-product', 'data-simulado-term-role', 'data-simulado-numeric-answer', 'data-av2-association-answer', 'data-simulado-subject', 'data-simulado-count'].includes(attribute)) return [];
   return [...markup.matchAll(/<(?:button|input|a|select)\b[^>]*>/g)].flatMap(([tag]) => {
     const attributes = Object.fromEntries([...tag.matchAll(/\s([\w:-]+)(?:="([^"]*)")?/g)].map((match) => [match[1], match[2] ?? '']));
     if (tag.startsWith('<select')) {
@@ -305,6 +305,47 @@ test('a criança entra na AV2, termina dez questões, inicia outra rodada e reto
     assert.match(app.innerHTML, /Voltar às revisões/);
     assert.equal(JSON.parse(storage.getItem(AV2_PROGRESS_STORAGE_KEY)).roundsCompleted, 1);
     assert.equal(storage.getItem(CHILD_NAME_STORAGE_KEY), 'Ana');
+
+    clickAction(document, 'generate-coloring-page');
+    assert.match(app.innerHTML, /<dialog[^>]*data-animal-dialog/);
+    assert.match(app.innerHTML, /id="coloring-animal"/);
+    assert.equal(document.querySelectorAll('[data-animal-suggestion]').length, 10);
+    clickAction(document, 'refresh-animal-suggestions');
+    assert.equal(document.querySelectorAll('[data-animal-suggestion]').length, 10);
+    clickAction(document, 'cancel-animal-picker');
+    assert.doesNotMatch(app.innerHTML, /<dialog[^>]*data-animal-dialog/);
+
+    const previousFetch = globalThis.fetch;
+    try {
+      let finishGeneration;
+      let sentAnimal;
+      globalThis.fetch = (_url, options) => {
+        sentAnimal = JSON.parse(options.body).animal;
+        return new Promise((resolve) => { finishGeneration = resolve; });
+      };
+      clickAction(document, 'generate-coloring-page');
+      document.querySelectorAll('[data-animal-suggestion]')[0].click();
+      assert.match(app.innerHTML, /data-animal-generation/);
+      assert.ok(app.innerHTML.includes(sentAnimal));
+      assert.match(app.innerHTML, /drawing-pencil/);
+      assert.doesNotMatch(app.innerHTML, /data-animal-form/);
+      finishGeneration({ ok: true, json: async () => ({ image: 'data:image/png;base64,dGVzdA==' }) });
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.doesNotMatch(app.innerHTML, /data-animal-generation/);
+      assert.match(app.innerHTML, /data-generated-coloring-image/);
+
+      clickAction(document, 'generate-coloring-page');
+      document.querySelectorAll('[data-animal-suggestion]')[0].click();
+      finishGeneration({ ok: false, json: async () => ({ error: 'Tente criar outro desenho.' }) });
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.doesNotMatch(app.innerHTML, /data-animal-generation/);
+      assert.match(app.innerHTML, /data-animal-form/);
+      assert.match(app.innerHTML, /Tente criar outro desenho/);
+      clickAction(document, 'cancel-animal-picker');
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+
 
     clickAction(document, 'restart');
     assert.match(app.innerHTML, /Questão 1 de 10/);

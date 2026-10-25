@@ -17,6 +17,7 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml',
 };
 const PUBLIC_FILES = new Set([
+  'src/data/coloringAnimals.js',
   'index.html',
   'styles.css',
   'app.js',
