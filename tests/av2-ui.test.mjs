@@ -529,7 +529,8 @@ test('simulado completo percorre os formatos oficiais, registra erro, pratica de
         input('[data-simulado-numeric-answer]', question.correctAnswer);
         submit();
       } else if (question.type === 'simulado-shopping-affordability') {
-        assert.match(app.innerHTML, /Pode haver mais de uma resposta/);
+        assert.match(app.innerHTML, /Some os preços dos dois brinquedos escolhidos/);
+        assert.equal(question.correctAnswers.length, 2);
         for (const productId of question.correctAnswers) {
           document.querySelectorAll('[data-av2-answer]').find((button) => button.dataset.av2Answer === productId).click();
         }

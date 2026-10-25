@@ -227,7 +227,8 @@ export function createColoringHandler({ env = process.env, fetchImpl = globalThi
           model: config.model,
           prompt: `${STYLE_PROMPT} Theme: ${theme}`,
           n: 1,
-          size: '1024x1536',
+          aspect_ratio: '3:4',
+          resolution: '1K',
         }),
         signal: controller.signal,
       });

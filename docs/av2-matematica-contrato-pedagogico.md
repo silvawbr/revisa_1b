@@ -130,9 +130,9 @@ A interação permite adicionar, remover e limpar moedas e cédulas sem arrastar
 
 ## 10. Bloco 07 — Simulado AV2
 
-O simulado combina duas modalidades: **Revisão completa AV2** cobre todas as famílias apresentadas pela revisão oficial; a configuração personalizada mantém assuntos habilitáveis e de 1 a 5 questões por assunto, sem prometer cobertura completa em rodadas curtas. Além das questões existentes dos Blocks, a revisão completa inclui equivalência moedas/cédula; pareamento de grupos de cédulas e preços de brinquedos; cenário conectado de disponibilidade, compra e troco; composição de moedas reaproveitada do Block 06; quadro de cinco preços; tabela numérica completa dentro de 200–250; reconhecimento de números por extenso nos dois sentidos; e problema encadeado da biblioteca. Os formatos e a cobertura se mantêm entre rodadas, enquanto os valores, produtos, opções e respostas são sorteados novamente.
+O simulado combina duas modalidades: **Revisão completa AV2** cobre todas as famílias apresentadas pela revisão oficial; a configuração personalizada mantém assuntos habilitáveis e de 1 a 5 questões por assunto, sem prometer cobertura completa em rodadas curtas. Além das questões existentes dos Blocks, a revisão completa inclui equivalência moedas/cédula; pareamento de grupos de cédulas e preços de brinquedos; cenário conectado de disponibilidade, compra de um conjunto de dois brinquedos e troco; composição de moedas reaproveitada do Block 06; quadro de cinco preços; tabela numérica completa dentro de 200–250; reconhecimento de números por extenso nos dois sentidos; e problema encadeado da biblioteca. Os formatos e a cobertura se mantêm entre rodadas, enquanto os valores, produtos, opções e respostas são sorteados novamente.
 
-O pareamento exige quatro associações únicas e corretas; a compra possível exige selecionar exatamente os produtos que cabem no dinheiro sorteado; a tabela confere todas as lacunas. As duas somas do quadro de materiais requerem a entrada de um total numérico após identificar os itens no quadro compartilhado. Os números por extenso usam alternativas selecionáveis e nunca exigem digitação de letras. Perguntas compostas só contam como completas após todas as etapas.
+O pareamento exige quatro associações únicas e corretas. No cenário de Rael, a criança marca os dois brinquedos que podem ser comprados juntos; o total do conjunto precisa caber no dinheiro disponível, e o troco é calculado sobre esse total. O gerador cria valores dinâmicos com um único par possível, e a validação confere o conjunto, o total e o troco a partir da mesma instância sorteada. A tabela confere todas as lacunas. As duas somas do quadro de materiais requerem o total digitado após identificar os itens no quadro compartilhado. Os números por extenso usam alternativas selecionáveis nos dois sentidos e nunca exigem digitação de letras. Perguntas compostas só contam como completas após todas as etapas.
 
 Na biblioteca, a adição C/D/U sorteada é validada antes da identificação das parcelas e da soma. A subtração usa o resultado guardado pela primeira etapa; depois são identificados minuendo, subtraendo e resto/diferença. Os traces e componentes visuais vêm dos Blocks 03/04.
 
@@ -145,13 +145,22 @@ Todo candidato é validado antes de chegar à interface. Cada questão deve decl
 1. Validar a categoria pedagógica, os dados e o tipo de resposta de cada candidato.
 2. Usar centavos inteiros internamente para dinheiro e números inteiros para operações.
 3. Conferir concordância entre texto, produtos, denominações ilustradas e resposta.
-4. Questão de resposta única tem exatamente uma alternativa correta; questão de múltiplas respostas declara o conjunto exato.
+4. Questão de resposta única tem exatamente uma alternativa correta; questão de múltiplas respostas declara o conjunto exato ou uma regra de validação completa para as respostas permitidas.
 5. Questões de associação têm correspondências exatas conforme a regra do formato.
 6. Rejeitar composições impossíveis, respostas ausentes e alternativas duplicadas.
 7. Uma equivalência monetária não autoriza cálculo decimal não relacionado.
 8. Usar tentativas de geração limitadas e fallback válido; jamais renderizar um candidato inválido.
 9. Testar propriedades com sementes variadas e casos inválidos deliberados.
 10. Manter independentes as chaves de progresso e os geradores da revisão anterior.
+
+### 11.1. Contrato de adaptação semântica e unidade de compra
+
+1. A revisão aprovada define o que a criança deve fazer e a unidade da compra: um produto individual ou um conjunto de produtos. Os números e produtos podem variar dinamicamente; não precisam copiar os exemplos da revisão.
+2. A adaptação não acrescenta qualificadores que mudem essa unidade. Expressões como “um de cada vez” ou “cada produto” só podem aparecer quando a referência aprovada pede comparação de compras individuais.
+3. Em uma questão de conjunto, os preços dos itens marcados são somados como uma compra só e comparados ao orçamento total. A interface, a validação e o feedback devem aplicar essa mesma regra.
+4. Se a questão pede um conjunto específico, o gerador deve garantir que esse conjunto seja a única resposta válida conforme o enunciado. No cenário de Rael, o conjunto contém dois brinquedos e deve ser o único par que cabe no orçamento.
+5. O gabarito é derivado dos valores gerados para a própria questão. Se houver pergunta de troco, subtrair do orçamento o custo total do conjunto. Não reutilizar respostas de um exemplo fixo nem calcular o troco pelo preço de apenas um dos itens.
+6. Antes de aprovar uma adaptação, verificar que uma paráfrase simples preserva a ação da revisão: o que a criança precisa somar e se os itens são comprados juntos ou individualmente.
 
 ## 12. Escopo e manutenção
 

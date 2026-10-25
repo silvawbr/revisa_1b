@@ -1079,11 +1079,12 @@ function renderSimuladoShoppingScenario(question) {
   const { moneyDenominationIds, products } = question.data;
   const isAffordability = question.type === 'simulado-shopping-affordability';
   const showProducts = question.type !== 'simulado-shopping-total';
+  const bundleSize = question.data.bundleProductIds?.length ?? 0;
   return `<div class="av2-exercise is-simulado is-shopping" data-av2-question-type="${question.type}">
     ${renderSimuladoMoneyGroup(moneyDenominationIds, 'Dinheiro de Rael')}
-    ${showProducts ? `<section class="simulado-context-section"><h2>Brinquedos e preços</h2>${renderSimuladoProductBoard(products, { label: isAffordability ? 'Marque todos os brinquedos que Rael pode comprar' : 'Brinquedos e preços' , selectable: isAffordability, selectedIds: Array.isArray(state.av2Selected) ? state.av2Selected : [] })}</section>` : ''}
+    ${showProducts ? `<section class="simulado-context-section"><h2>Brinquedos e preços</h2>${renderSimuladoProductBoard(products, { label: isAffordability ? 'Marque os dois brinquedos que podem ser comprados juntos' : 'Brinquedos e preços' , selectable: isAffordability, selectedIds: Array.isArray(state.av2Selected) ? state.av2Selected : [] })}</section>` : ''}
     ${isAffordability
-      ? `<p class="simulado-multiple-select-note">Pode haver mais de uma resposta. Marque todas as opções e depois confira.</p><button class="primary-button" type="button" data-action="submit-av2" ${!Array.isArray(state.av2Selected) || !state.av2Selected.length || state.av2Correct ? 'disabled' : ''}>Conferir escolhas</button>`
+      ? `<p class="simulado-multiple-select-note">Some os preços dos dois brinquedos escolhidos. O conjunto precisa caber no dinheiro de Rael.</p><button class="primary-button" type="button" data-action="submit-av2" ${!Array.isArray(state.av2Selected) || state.av2Selected.length !== bundleSize || state.av2Correct ? 'disabled' : ''}>Conferir conjunto</button>`
       : renderSimuladoNumericEntry(question)}
     ${state.av2SimuladoInputError && isAffordability ? `<p class="av2-addition-input-error" role="alert">${escapeHtml(state.av2SimuladoInputError)}</p>` : ''}
   </div>`;
@@ -2106,8 +2107,8 @@ function submitAv2Answer() {
   }
   if (state.av2Block === 'block-07' && question.type === 'simulado-shopping-affordability') {
     const answer = Array.isArray(state.av2Selected) ? state.av2Selected : [];
-    if (!answer.length) {
-      state.av2SimuladoInputError = 'Marque os brinquedos que podem ser comprados.';
+    if (answer.length !== question.data.bundleProductIds.length) {
+      state.av2SimuladoInputError = 'Marque dois brinquedos para formar o conjunto.';
       render(); return;
     }
     const isCorrect = validateAv2SimuladoAnswer(question, answer);
