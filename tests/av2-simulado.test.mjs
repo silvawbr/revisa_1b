@@ -41,7 +41,7 @@ test('REV-01 e REV-02: equivalência de moedas e quatro associações de cédula
   }), /contrato pedagógico/i, 'R$ 4,60 não pode ser associado a uma cédula oferecida com outro valor');
 });
 
-test('REV-03: cenário de Rael calcula total, produtos possíveis e troco com os valores sorteados', () => {
+test('REV-03: cenário de Rael calcula o conjunto de brinquedos e o troco com valores sorteados', () => {
   const round = createAv2SimuladoFullCoverageRound(seededRandom(202));
   const total = findType(round, 'simulado-shopping-total');
   const afford = findType(round, 'simulado-shopping-affordability');
@@ -51,15 +51,30 @@ test('REV-03: cenário de Rael calcula total, produtos possíveis e troco com os
   assert.equal(total.correctAnswer, total.data.availableReais);
   assert.equal(total.correctAnswer * 100, availableCents);
   assert.equal(afford.data.scenarioId, total.data.scenarioId);
-  const expectedAffordable = afford.data.products.filter(({ priceReais }) => priceReais <= afford.data.availableReais).map(({ id }) => id);
-  assert.deepEqual([...afford.correctAnswers].sort(), [...expectedAffordable].sort());
-  assert.equal(validateAv2SimuladoAnswer(afford, expectedAffordable), true);
-  assert.equal(validateAv2SimuladoAnswer(afford, [expectedAffordable[0]]), false);
-  const unaffordable = afford.data.products.find(({ id }) => !expectedAffordable.includes(id));
-  assert.equal(validateAv2SimuladoAnswer(afford, [...expectedAffordable, unaffordable.id]), false);
-  const purchase = change.data.products.find(({ id }) => id === change.data.purchaseProductId);
-  const changeAmount = change.data.availableReais - purchase.priceReais;
+  assert.equal(afford.data.purchaseUnit, 'two-toy-set');
+  assert.equal(afford.data.bundleProductIds.length, 2);
+  const selectedProducts = afford.data.bundleProductIds.map((id) => afford.data.products.find((product) => product.id === id));
+  const bundleTotal = selectedProducts.reduce((sum, product) => sum + product.priceReais, 0);
+  assert.equal(bundleTotal, afford.data.bundlePriceReais);
+  assert.ok(bundleTotal <= afford.data.availableReais);
+  const affordablePairs = [];
+  for (let firstIndex = 0; firstIndex < afford.data.products.length; firstIndex += 1) {
+    for (let secondIndex = firstIndex + 1; secondIndex < afford.data.products.length; secondIndex += 1) {
+      const pair = [afford.data.products[firstIndex], afford.data.products[secondIndex]];
+      if (pair[0].priceReais + pair[1].priceReais <= afford.data.availableReais) affordablePairs.push(pair.map(({ id }) => id));
+    }
+  }
+  assert.equal(affordablePairs.length, 1);
+  assert.deepEqual([...afford.correctAnswers].sort(), [...afford.data.bundleProductIds].sort());
+  assert.equal(validateAv2SimuladoAnswer(afford, afford.data.bundleProductIds), true);
+  assert.equal(validateAv2SimuladoAnswer(afford, [afford.data.bundleProductIds[0]]), false);
+  const decoy = afford.data.products.find(({ id }) => !afford.data.bundleProductIds.includes(id));
+  assert.equal(validateAv2SimuladoAnswer(afford, [afford.data.bundleProductIds[0], decoy.id]), false);
+  assert.deepEqual(change.data.bundleProductIds, afford.data.bundleProductIds);
+  assert.equal(change.data.bundlePriceReais, bundleTotal);
+  const changeAmount = change.data.availableReais - bundleTotal;
   assert.equal(change.correctAnswer, changeAmount);
+  assert.match(change.prompt, /juntos/);
   assert.equal(validateAv2SimuladoAnswer(change, changeAmount), true);
 });
 
