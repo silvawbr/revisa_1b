@@ -41,7 +41,7 @@ test('REV-01 e REV-02: equivalência de moedas e quatro associações de cédula
   }), /contrato pedagógico/i, 'R$ 4,60 não pode ser associado a uma cédula oferecida com outro valor');
 });
 
-test('REV-03: cenário de Rael calcula total, produtos possíveis e troco com os valores sorteados', () => {
+test('REV-03: cenário de Rael marca brinquedos individualmente compráveis e calcula o troco com valores sorteados', () => {
   const round = createAv2SimuladoFullCoverageRound(seededRandom(202));
   const total = findType(round, 'simulado-shopping-total');
   const afford = findType(round, 'simulado-shopping-affordability');
@@ -52,7 +52,10 @@ test('REV-03: cenário de Rael calcula total, produtos possíveis e troco com os
   assert.equal(total.correctAnswer * 100, availableCents);
   assert.equal(afford.data.scenarioId, total.data.scenarioId);
   const expectedAffordable = afford.data.products.filter(({ priceReais }) => priceReais <= afford.data.availableReais).map(({ id }) => id);
+  assert.equal(expectedAffordable.length, 2);
   assert.deepEqual([...afford.correctAnswers].sort(), [...expectedAffordable].sort());
+  assert.equal(afford.prompt, 'Marque todos os brinquedos que Rael pode comprar com o dinheiro que juntou.');
+  assert.doesNotMatch(`${afford.prompt} ${afford.speech}`, /um de cada vez/i);
   assert.equal(validateAv2SimuladoAnswer(afford, expectedAffordable), true);
   assert.equal(validateAv2SimuladoAnswer(afford, [expectedAffordable[0]]), false);
   const unaffordable = afford.data.products.find(({ id }) => !expectedAffordable.includes(id));

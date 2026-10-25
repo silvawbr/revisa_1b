@@ -527,6 +527,9 @@ test('simulado completo percorre os formatos oficiais, registra erro, pratica de
         submit();
       } else if (question.type === 'simulado-shopping-affordability') {
         assert.match(app.innerHTML, /Pode haver mais de uma resposta/);
+        assert.match(app.innerHTML, /Marque todos os brinquedos que Rael pode comprar com o dinheiro que juntou/);
+        assert.doesNotMatch(app.innerHTML, /um de cada vez/i);
+        assert.equal(question.correctAnswers.length, 2);
         for (const productId of question.correctAnswers) {
           document.querySelectorAll('[data-av2-answer]').find((button) => button.dataset.av2Answer === productId).click();
         }

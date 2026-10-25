@@ -130,9 +130,9 @@ A interação permite adicionar, remover e limpar moedas e cédulas sem arrastar
 
 ## 10. Bloco 07 — Simulado AV2
 
-O simulado combina duas modalidades: **Revisão completa AV2** cobre todas as famílias apresentadas pela revisão oficial; a configuração personalizada mantém assuntos habilitáveis e de 1 a 5 questões por assunto, sem prometer cobertura completa em rodadas curtas. Além das questões existentes dos Blocks, a revisão completa inclui equivalência moedas/cédula; pareamento de grupos de cédulas e preços de brinquedos; cenário conectado de disponibilidade, compra e troco; composição de moedas reaproveitada do Block 06; quadro de cinco preços; tabela numérica completa dentro de 200–250; escrita digitada de números por extenso; e problema encadeado da biblioteca. Os formatos e a cobertura se mantêm entre rodadas, enquanto os valores, produtos, opções e respostas são sorteados novamente.
+O simulado combina duas modalidades: **Revisão completa AV2** cobre todas as famílias apresentadas pela revisão oficial; a configuração personalizada mantém assuntos habilitáveis e de 1 a 5 questões por assunto, sem prometer cobertura completa em rodadas curtas. Além das questões existentes dos Blocks, a revisão completa inclui equivalência moedas/cédula; pareamento de grupos de cédulas e preços de brinquedos; cenário conectado de dinheiro disponível, brinquedos que Rael pode comprar e troco; composição de moedas reaproveitada do Block 06; quadro de cinco preços; tabela numérica completa dentro de 200–250; escrita digitada de números por extenso; e problema encadeado da biblioteca. Os formatos e a cobertura se mantêm entre rodadas, enquanto os valores, produtos, opções e respostas são sorteados novamente.
 
-O pareamento exige quatro associações únicas e corretas; a compra possível exige selecionar exatamente os produtos que cabem no dinheiro sorteado; a tabela confere todas as lacunas. As duas somas do quadro de materiais requerem o total digitado após identificar os itens no quadro compartilhado. A escrita por extenso é entrada textual, com normalização apenas de caixa e espaços. Perguntas compostas só contam como completas após todas as etapas.
+O pareamento exige quatro associações únicas e corretas. No cenário de Rael, a criança compara individualmente o preço de cada brinquedo ao dinheiro disponível e marca todos os brinquedos que pode comprar. A pergunta seguinte calcula o troco de uma compra de um brinquedo. O gabarito e o troco usam os valores sorteados naquela rodada. A tabela confere todas as lacunas. As duas somas do quadro de materiais requerem o total digitado após identificar os itens no quadro compartilhado. A escrita por extenso é entrada textual, com normalização apenas de caixa e espaços. Perguntas compostas só contam como completas após todas as etapas.
 
 Na biblioteca, a adição C/D/U sorteada é validada antes da identificação das parcelas e da soma. A subtração usa o resultado guardado pela primeira etapa; depois são identificados minuendo, subtraendo e resto/diferença. Os traces e componentes visuais vêm dos Blocks 03/04.
 
@@ -145,13 +145,22 @@ Todo candidato é validado antes de chegar à interface. Cada questão deve decl
 1. Validar a categoria pedagógica, os dados e o tipo de resposta de cada candidato.
 2. Usar centavos inteiros internamente para dinheiro e números inteiros para operações.
 3. Conferir concordância entre texto, produtos, denominações ilustradas e resposta.
-4. Questão de resposta única tem exatamente uma alternativa correta; questão de múltiplas respostas declara o conjunto exato.
+4. Questão de resposta única tem exatamente uma alternativa correta; questão de múltiplas respostas declara o conjunto exato ou uma regra de validação completa para as respostas permitidas.
 5. Questões de associação têm correspondências exatas conforme a regra do formato.
 6. Rejeitar composições impossíveis, respostas ausentes e alternativas duplicadas.
 7. Uma equivalência monetária não autoriza cálculo decimal não relacionado.
 8. Usar tentativas de geração limitadas e fallback válido; jamais renderizar um candidato inválido.
 9. Testar propriedades com sementes variadas e casos inválidos deliberados.
 10. Manter independentes as chaves de progresso e os geradores da revisão anterior.
+
+### 11.1. Contrato de adaptação semântica e unidade de compra
+
+1. A revisão aprovada define a ação matemática e a relação entre preços e orçamento. Os números e produtos podem variar dinamicamente; não precisam copiar os exemplos da revisão.
+2. Se a revisão pede marcar os brinquedos que Rael consegue comprar com o dinheiro que tem, comparar o preço de cada brinquedo individualmente com o total disponível e marcar todos os que cabem nesse valor.
+3. Não mudar a operação para compensar um enunciado confuso. Simplificar o texto sem acrescentar uma compra em conjunto, uma sequência ou outro requisito que a revisão não pede. Em particular, não acrescentar “um de cada vez” se a fonte não usa esse termo.
+4. Somar os preços marcados como uma compra conjunta somente quando a revisão pedir que os itens sejam comprados juntos. Nesse caso, a regra de seleção, a validação e o feedback precisam usar o total do conjunto.
+5. Derivar o gabarito dos valores gerados para a própria questão. Se houver pergunta de troco, calcular o valor pago e o troco conforme a compra descrita na revisão. Não reutilizar respostas de um exemplo fixo.
+6. Antes de aprovar a adaptação, conferir que uma paráfrase simples preserva exatamente o que a criança deve comparar, somar e marcar.
 
 ## 12. Escopo e manutenção
 

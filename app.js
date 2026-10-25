@@ -2076,7 +2076,7 @@ function submitAv2Answer() {
   if (state.av2Block === 'block-07' && question.type === 'simulado-shopping-affordability') {
     const answer = Array.isArray(state.av2Selected) ? state.av2Selected : [];
     if (!answer.length) {
-      state.av2SimuladoInputError = 'Marque os brinquedos que podem ser comprados.';
+      state.av2SimuladoInputError = 'Marque os brinquedos que Rael pode comprar.';
       render(); return;
     }
     const isCorrect = validateAv2SimuladoAnswer(question, answer);

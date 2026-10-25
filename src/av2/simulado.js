@@ -282,7 +282,6 @@ function createOfficialShoppingScenarioQuestions(random) {
   const common = {
     revisionId: 'av2-matematica', activityId: AV2_SIMULADO_ACTIVITY_ID,
     pedagogicalCategory: 'CONNECTED_SHOPPING_SCENARIO',
-    speech: 'Rael está escolhendo brinquedos. Observe o dinheiro e os preços.',
     hint: 'Observe o dinheiro de Rael e compare os valores com calma.',
   };
   const questions = [
@@ -297,8 +296,9 @@ function createOfficialShoppingScenarioQuestions(random) {
       data: { ...baseData, task: 'affordability', availableReais },
       correctAnswers: affordableProducts.map(({ id }) => id),
       options: products.map(({ id }) => id),
-      prompt: 'Marque todos os brinquedos que Rael pode comprar, um de cada vez.',
+      prompt: 'Marque todos os brinquedos que Rael pode comprar com o dinheiro que juntou.',
       explanation: `Rael pode comprar ${affordableProducts.map(({ article, label, priceReais }) => `${article} ${label.toLocaleLowerCase('pt-BR')} de ${priceReais} reais`).join(' e ')}.`,
+      hint: 'Compare o preço de cada brinquedo com o dinheiro que Rael tem.',
     },
     {
       ...common, questionId: `${scenarioId}-change`, type: 'simulado-shopping-change',
@@ -306,11 +306,20 @@ function createOfficialShoppingScenarioQuestions(random) {
       correctAnswer: availableReais - purchaseProduct.priceReais,
       prompt: `Rael comprou ${purchaseProduct.article} ${purchaseProduct.label.toLocaleLowerCase('pt-BR')} por ${purchaseProduct.priceReais} reais. Quanto recebeu de troco?`,
       explanation: `${availableReais} reais menos ${purchaseProduct.priceReais} reais são ${availableReais - purchaseProduct.priceReais} reais de troco.`,
+      hint: 'Subtraia o preço do brinquedo do dinheiro que Rael tem.',
     },
   ];
   return questions.map((question) => attachSubject({
     ...question,
-    feedback: { correct: 'Muito bem! Você resolveu esta parte da compra.', retry: 'Observe o dinheiro e os preços. Tente novamente.' },
+    speech: `Rael está escolhendo brinquedos. ${question.prompt}`,
+    feedback: {
+      correct: question.type === 'simulado-shopping-affordability'
+        ? 'Muito bem! Você marcou os brinquedos que Rael consegue comprar.'
+        : 'Muito bem! Você resolveu esta parte da compra.',
+      retry: question.type === 'simulado-shopping-affordability'
+        ? 'Compare o preço dos brinquedos com o dinheiro de Rael.'
+        : 'Observe o dinheiro e os preços. Tente novamente.',
+    },
   }, 'money'));
 }
 
@@ -657,27 +666,31 @@ function validateOfficialScenarioQuestion(question) {
       return !prototype || product.id !== `${prototype.id}-${product.priceReais}`
         || product.label !== prototype.label || product.article !== prototype.article
         || product.illustrationId !== prototype.illustrationId
-        || !Number.isInteger(product.priceReais) || product.priceReais < 1 || product.priceReais > 50;
+        || !Number.isInteger(product.priceReais) || product.priceReais < 1 || product.priceReais > 47;
     })) return false;
   const expectedScenarioId = `rael-${availableReais}-${products.map(({ id }) => id).join('-')}`;
-  if (scenarioId !== expectedScenarioId || question.speech !== 'Rael está escolhendo brinquedos. Observe o dinheiro e os preços.') return false;
+  if (scenarioId !== expectedScenarioId || question.speech !== `Rael está escolhendo brinquedos. ${question.prompt}`) return false;
   const expectedAffordable = products.filter(({ priceReais }) => priceReais * 100 <= availableCents).map(({ id }) => id);
   if (question.type === 'simulado-shopping-total') return task === 'available-total'
     && question.correctAnswer * 100 === availableCents && question.prompt === 'Quanto dinheiro Rael tem ao todo?'
     && question.explanation === `O dinheiro de Rael soma ${availableReais} reais.`;
   if (question.type === 'simulado-shopping-affordability') return task === 'affordability'
-    && availableReais * 100 === availableCents && JSON.stringify([...question.correctAnswers].sort()) === JSON.stringify([...expectedAffordable].sort())
+    && availableReais * 100 === availableCents && Array.isArray(question.correctAnswers)
+    && JSON.stringify([...question.correctAnswers].sort()) === JSON.stringify([...expectedAffordable].sort())
+    && Array.isArray(question.options)
     && JSON.stringify([...question.options].sort()) === JSON.stringify(products.map(({ id }) => id).sort())
     && expectedAffordable.length === 2
-    && question.prompt === 'Marque todos os brinquedos que Rael pode comprar, um de cada vez.'
+    && question.prompt === 'Marque todos os brinquedos que Rael pode comprar com o dinheiro que juntou.'
     && question.explanation === `Rael pode comprar ${products.filter(({ id }) => expectedAffordable.includes(id))
-      .map(({ article, label, priceReais }) => `${article} ${label.toLocaleLowerCase('pt-BR')} de ${priceReais} reais`).join(' e ')}.`;
+      .map(({ article, label, priceReais }) => `${article} ${label.toLocaleLowerCase('pt-BR')} de ${priceReais} reais`).join(' e ')}.`
+    && question.hint === 'Compare o preço de cada brinquedo com o dinheiro que Rael tem.';
   if (question.type === 'simulado-shopping-change') {
     const purchase = products.find(({ id }) => id === purchaseProductId);
     return task === 'change' && purchase && purchase.priceReais < availableReais
       && question.correctAnswer === availableReais - purchase.priceReais
       && question.prompt === `Rael comprou ${purchase.article} ${purchase.label.toLocaleLowerCase('pt-BR')} por ${purchase.priceReais} reais. Quanto recebeu de troco?`
-      && question.explanation === `${availableReais} reais menos ${purchase.priceReais} reais são ${question.correctAnswer} reais de troco.`;
+      && question.explanation === `${availableReais} reais menos ${purchase.priceReais} reais são ${question.correctAnswer} reais de troco.`
+      && question.hint === 'Subtraia o preço do brinquedo do dinheiro que Rael tem.';
   }
   return false;
 }
