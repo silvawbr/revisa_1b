@@ -103,7 +103,7 @@ function parseElements(markup, selector) {
   const selectorMatch = selector.match(/^\[(data-[\w-]+)(?:="([^"]*)")?\]$/);
   if (!selectorMatch) return [];
   const [, attribute, expectedValue] = selectorMatch;
-  if (!['data-action', 'data-av2-answer', 'data-av2-add-field', 'data-av2-add-digit', 'data-av2-add-clear', 'data-sequence-answer', 'data-table-gap', 'data-add-money', 'data-remove-money-item', 'data-match-group', 'data-match-product', 'data-simulado-term-role', 'data-simulado-word-answer', 'data-simulado-numeric-answer', 'data-av2-association-answer', 'data-simulado-subject', 'data-simulado-count'].includes(attribute)) return [];
+  if (!['data-action', 'data-av2-answer', 'data-av2-add-field', 'data-av2-add-digit', 'data-av2-add-clear', 'data-sequence-answer', 'data-table-gap', 'data-add-money', 'data-remove-money-item', 'data-match-group', 'data-match-product', 'data-simulado-term-role', 'data-simulado-numeric-answer', 'data-av2-association-answer', 'data-simulado-subject', 'data-simulado-count'].includes(attribute)) return [];
   return [...markup.matchAll(/<(?:button|input|a|select)\b[^>]*>/g)].flatMap(([tag]) => {
     const attributes = Object.fromEntries([...tag.matchAll(/\s([\w:-]+)(?:="([^"]*)")?/g)].map((match) => [match[1], match[2] ?? '']));
     if (tag.startsWith('<select')) {
@@ -381,6 +381,7 @@ test('a criança entra na AV2, termina dez questões, inicia outra rodada e reto
     clickAction(document, 'start');
     assert.match(app.innerHTML, /Atividade 1/);
     assert.match(app.innerHTML, /Progresso: atividade 1 de 6/);
+    assert.match(app.innerHTML, /data-answer-mode="single-choice"/);
     assert.doesNotMatch(app.innerHTML, /data-av2-answer=/);
   } finally {
     globalThis.document = previousDocument;
@@ -429,7 +430,7 @@ test('simulado personalizado mantém seleção de assunto e quantidade de quest�
     assert.match(app.innerHTML, /1 assunto selecionado/);
     clickAction(document, 'start-av2-simulado');
     assert.match(app.innerHTML, /Questão 1 de 3/);
-    assert.match(app.innerHTML, /data-av2-question-type="simulado-(?:word-write|association|word)"/);
+    assert.match(app.innerHTML, /data-av2-question-type="simulado-(?:association|word)"/);
   } finally {
     globalThis.document = previousDocument;
     if (previousWindow === undefined) delete globalThis.window;
@@ -459,9 +460,12 @@ test('simulado completo percorre os formatos oficiais, registra erro, pratica de
   globalThis.window = { innerWidth: 390, addEventListener() {} };
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage });
 
-  const seed = 20261024;
+  const seed = 13;
   const expectedRound = createAv2SimuladoFullCoverageRound(seededRandom(seed));
-  let incorrectWritingChecked = false;
+  assert.ok(expectedRound.some((question) => question.type === 'simulado-word'
+    && question.data.value === 246 && question.data.mode === 'number-to-word'),
+  'a rodada reproduz o cenário de regressão móvel do número 246');
+  let incorrectWordChoiceChecked = false;
   const submit = () => clickAction(document, 'submit-av2');
   const input = (selector, value) => {
     const field = document.querySelector(selector);
@@ -507,16 +511,15 @@ test('simulado completo percorre os formatos oficiais, registra erro, pratica de
         answer.click();
       } else if (question.type === 'simulado-money-product-match') {
         assert.match(app.innerHTML, /Toque em um grupo de cédulas/);
-        for (let groupIndex = 0; groupIndex < question.data.groups.length; groupIndex += 1) {
-          const group = question.data.groups[groupIndex];
-          const nextGroup = question.data.groups[(groupIndex + 1) % question.data.groups.length];
-          document.querySelectorAll('[data-match-group]').find((button) => button.dataset.matchGroup === group.id).click();
-          document.querySelectorAll('[data-match-product]').find((button) => button.dataset.matchProduct === question.correctAnswer[nextGroup.id]).click();
-        }
-        submit();
-        assert.match(app.innerHTML, /Confira os grupos destacados/);
+        const [firstGroup, secondGroup, ...otherGroups] = question.data.groups;
+        document.querySelectorAll('[data-match-group]').find((button) => button.dataset.matchGroup === firstGroup.id).click();
+        document.querySelectorAll('[data-match-product]').find((button) => button.dataset.matchProduct === question.correctAnswer[secondGroup.id]).click();
+        assert.match(app.innerHTML, /Esse brinquedo tem outro preço/);
         assert.match(app.innerHTML, /is-pair-incorrect/);
-        for (const group of question.data.groups) {
+        for (const group of [firstGroup, secondGroup, ...otherGroups]) {
+          if (group === firstGroup) {
+            document.querySelectorAll('[data-match-group]').find((button) => button.dataset.matchGroup === group.id).click();
+          }
           document.querySelectorAll('[data-match-group]').find((button) => button.dataset.matchGroup === group.id).click();
           document.querySelectorAll('[data-match-product]').find((button) => button.dataset.matchProduct === question.correctAnswer[group.id]).click();
         }
@@ -571,20 +574,36 @@ test('simulado completo percorre os formatos oficiais, registra erro, pratica de
           field.dispatchEvent(new Event('input', { bubbles: true }));
         }
         submit();
-      } else if (question.type === 'simulado-word-write') {
-        assert.match(app.innerHTML, /data-simulado-word-answer/);
-        assert.doesNotMatch(app.innerHTML, new RegExp(question.correctAnswer, 'i'), 'a escrita não aparece antes da resposta');
-        if (!incorrectWritingChecked) {
-          const wrongAnswer = numberToWordsPtBr(question.data.value === 208 ? 215 : 208);
-          input('[data-simulado-word-answer]', wrongAnswer);
-          submit();
-          assert.match(app.innerHTML, /tente escrever novamente/i);
-          clickAction(document, 'av2-hint');
-          assert.match(app.innerHTML, /Pense nas centenas, dezenas e unidades/);
-          assert.doesNotMatch(app.innerHTML, new RegExp(question.correctAnswer, 'i'), 'a dica não revela a resposta por extenso');
-          incorrectWritingChecked = true;
+      } else if (question.type === 'simulado-word') {
+        assert.equal(question.answerMode, 'single-choice');
+        assert.equal(app.innerHTML.match(/data-answer-mode="single-choice"/g)?.length, 1);
+        assert.match(app.innerHTML, /Como se escreve o número \d+ por extenso\?|Qual número corresponde a/);
+        assert.doesNotMatch(app.innerHTML, /<textarea\b|<input\b|data-simulado-word-answer|inputmode="text"/i);
+        const options = document.querySelectorAll('[data-av2-answer]');
+        assert.equal(options.length, 4);
+        assert.ok(options.every((button) => /^Alternativa [1-4]: .+/.test(button.attributes['aria-label'] ?? '')),
+          'cada alternativa tem um rótulo acessível');
+        const correct = options.find((button) => button.dataset.av2Answer === String(question.correctAnswer));
+        assert.ok(correct, 'a resposta correta aparece como uma alternativa selecionável');
+        if (question.data.value === 246) {
+          assert.equal(question.prompt, 'Como se escreve o número 246 por extenso?');
+          assert.equal(correct.attributes['aria-label'].replace(/^Alternativa \d+: /, ''), 'duzentos e quarenta e seis');
+          assert.equal(options.filter((button) => button.attributes['aria-label'].includes('duzentos e quarenta e seis')).length, 1);
         }
-        input('[data-simulado-word-answer]', question.correctAnswer);
+        if (question.data.mode === 'number-to-word') {
+          const spoken = app.innerHTML.match(/data-speech-button="question"[^>]*data-speech-text="([^"]*)"/)?.[1] ?? '';
+          assert.doesNotMatch(spoken, /duzentos e quarenta e seis/i, 'a fala inicial não anuncia a alternativa correta');
+        }
+        if (!incorrectWordChoiceChecked) {
+          options.find((button) => button !== correct).click();
+          assert.match(app.innerHTML, /class="word-option[^\"]*is-selected/);
+          assert.match(app.innerHTML, /aria-checked="true"/);
+          submit();
+          assert.match(app.innerHTML, /Leia as alternativas com atenção e tente outra vez/);
+          assert.match(app.innerHTML, /Dica:/);
+          incorrectWordChoiceChecked = true;
+        }
+        document.querySelectorAll('[data-av2-answer]').find((button) => button.dataset.av2Answer === String(question.correctAnswer)).click();
         submit();
       } else if (question.type === 'simulado-two-step') {
         assert.match(app.innerHTML, /role="columnheader">C<\/b>/);
@@ -642,9 +661,14 @@ test('simulado completo percorre os formatos oficiais, registra erro, pratica de
         }
         submit();
       } else {
-        assert.equal(focusedType, 'simulado-word-write');
-        const focusedValue = Number(app.innerHTML.match(/Escreva o número (\d+) por extenso/)?.[1]);
-        input('[data-simulado-word-answer]', numberToWordsPtBr(focusedValue));
+        assert.equal(focusedType, 'simulado-word');
+        assert.doesNotMatch(app.innerHTML, /<textarea\b|<input\b|data-simulado-word-answer|inputmode="text"/i);
+        const value = Number(app.innerHTML.match(/Como se escreve o número (\d+) por extenso/)?.[1]);
+        const targetWord = app.innerHTML.match(/Qual número corresponde a “([^”]+)”\?/)?.[1];
+        const answer = value || [...Array(251).keys()].find((candidate) => numberToWordsPtBr(candidate) === targetWord);
+        const answerButton = document.querySelectorAll('[data-av2-answer]').find((button) => button.dataset.av2Answer === String(answer));
+        assert.ok(answerButton);
+        answerButton.click();
         submit();
       }
       clickAction(document, 'next-av2');

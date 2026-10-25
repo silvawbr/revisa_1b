@@ -1,4 +1,5 @@
 import { numberToPortuguese } from '../game.js';
+import { validateAv2AnswerMode, withAv2AnswerMode } from './interaction-contract.js';
 
 export const AV2_SEQUENCES_ACTIVITY_ID = 'av2-sequences';
 export const AV2_SEQUENCES_PROGRESS_STORAGE_KEY = 'av2-matematica.block-05.sequencias.progress.v1';
@@ -8,7 +9,7 @@ export const NUMBER_WORD_VALUES = Object.freeze([...Array(251).keys(), 300, 400]
 export const numberToWordsPtBr = numberToPortuguese;
 const rnd=(random,max)=>Math.floor(random()*max);
 const pick=(random,values)=>values[rnd(random,values.length)];
-function question(base) { return Object.freeze({...base,activityId:AV2_SEQUENCES_ACTIVITY_ID,feedback:base.feedback??{correct:'Muito bem! Você conseguiu!',retry:'Quase! Observe os números e tente de novo.'}}); }
+function question(base) { return Object.freeze({...withAv2AnswerMode(base),activityId:AV2_SEQUENCES_ACTIVITY_ID,feedback:base.feedback??{correct:'Muito bem! Você conseguiu!',retry:'Quase! Observe os números e tente de novo.'}}); }
 export function createSequenceQuestion(direction='increasing',random=Math.random,{start=null,gap=null,length=5}={}) {
  const step=direction==='increasing'?1:-1;if(!['increasing','decreasing'].includes(direction))throw new RangeError('Sequência inválida');
  let s=start;
@@ -37,7 +38,7 @@ export function validateAv2SequencesAnswer(q,answer){
 }
 
 export function validateAv2SequencesQuestion(q){
- if(!q||q.activityId!==AV2_SEQUENCES_ACTIVITY_ID||!q.feedback?.correct||!q.feedback?.retry)return false;
+ if(!validateAv2AnswerMode(q,{requireDeclared:true})||q.activityId!==AV2_SEQUENCES_ACTIVITY_ID||!q.feedback?.correct||!q.feedback?.retry)return false;
  if(q.type==='sequence')return validateSequenceQuestion(q)&&q.hint&&q.explanation&&!q.speech.split(/\\D+/).includes(String(q.correctAnswer));
  if(q.type==='number-table')return q.category==='NUM-04'&&q.values.length>=2&&Number.isInteger(q.columns)&&q.columns>0&&q.values.every((n,i)=>Number.isInteger(n)&&n>=0&&n<=250&&(!i||n===q.values[i-1]+1))&&new Set(q.gaps).size===q.gaps.length&&q.gaps.length>0&&q.gaps.every(i=>Number.isInteger(i)&&i>=0&&i<q.values.length)&&q.answers.length===q.gaps.length&&q.gaps.every((i,index)=>q.answers[index]===q.values[i]);
  if(q.type==='number-choice'){

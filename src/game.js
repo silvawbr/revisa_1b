@@ -1,3 +1,5 @@
+import { validateAv2AnswerMode, withAv2AnswerMode } from './av2/interaction-contract.js';
+
 export const ACTIVITY_NAMES = [
   'Figuras planas',
   'Figuras espaciais',
@@ -279,7 +281,13 @@ export function createRound(random = Math.random) {
     createWordQuestion(random),
     createAdditionQuestion(random),
     createUnknownQuestion(random),
-  ];
+  ].map((question) => {
+    const candidate = withAv2AnswerMode(question);
+    if (!validateAv2AnswerMode(candidate, { requireDeclared: true })) {
+      throw new TypeError(`A questão ${question.type} não passou pelo contrato de interação.`);
+    }
+    return candidate;
+  });
 }
 
 export function validateAdditionAnswer(question, answer) {

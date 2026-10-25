@@ -2,8 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createCurrencyEquivalenceQuestion, MONEY_DENOMINATIONS, validateAv2MoneyQuestionCandidate } from '../src/av2/money.js';
 import { getAv2MoneyCompositionChallenge, validateAv2MoneyCompositionChallenge, validateAv2MoneyCompositionSelection } from '../src/av2/money-composition.js';
-import { AV2_SIMULADO_FULL_COVERAGE_PRESET_ID, createAv2SimuladoFocusRound, createAv2SimuladoFullCoverageRound, createAv2SimuladoRound, validateAv2SimuladoAnswer, validateAv2SimuladoFullCoverageRound, validateAv2SimuladoQuestionCandidate } from '../src/av2/simulado.js';
-import { validateNumberTable } from '../src/av2/sequences.js';
+import {
+  AV2_SIMULADO_FULL_COVERAGE_PRESET_ID,
+  createAv2SimuladoFocusRound,
+  createAv2SimuladoFullCoverageRound,
+  createAv2SimuladoRound,
+  createAv2SimuladoWordQuestion,
+  upgradeLegacyAv2SimuladoQuestion,
+  validateAv2SimuladoAnswer,
+  validateAv2SimuladoFullCoverageRound,
+  validateAv2SimuladoQuestionCandidate,
+  validateAv2SimuladoRound,
+} from '../src/av2/simulado.js';
+import { AV2_ALLOWED_ANSWER_MODES, getAv2AnswerMode, validateAv2AnswerMode } from '../src/av2/interaction-contract.js';
+import { createNumberToWordQuestion, createRecognitionQuestion, numberToWordsPtBr, validateAv2SequencesQuestion, validateNumberTable } from '../src/av2/sequences.js';
 
 function seededRandom(seed) {
   let value = seed;
@@ -110,17 +122,64 @@ test('REV-06: tabela mantém 40 números ordenados e exige todos os espaços cor
   assert.ok(table.gaps.every((index, order) => table.values[index] === table.answers[order]));
 });
 
-test('REV-07: os dois números sorteados exigem escrita digitada e aceitam normalização de caixa e espaços', () => {
+test('REV-07: as duas direções de números por extenso usam quatro alternativas válidas', () => {
   const round = createAv2SimuladoFullCoverageRound(seededRandom(505));
-  const questions = round.filter((question) => question.type === 'simulado-word-write');
+  const questions = round.filter((question) => question.type === 'simulado-word');
   assert.equal(questions.length, 2);
   assert.equal(new Set(questions.map(({ data }) => data.value)).size, 2);
+  assert.deepEqual(questions.map(({ data }) => data.mode).sort(), ['number-to-word', 'word-to-number']);
   for (const question of questions) {
-    assert.equal(validateAv2SimuladoAnswer(question, ` ${question.correctAnswer.toLocaleUpperCase('pt-BR')} `), true);
-    assert.equal(validateAv2SimuladoAnswer(question, `${question.correctAnswer} errado`), false);
-    assert.equal(question.options.length, 0);
-    assert.doesNotMatch(`${question.prompt} ${question.speech} ${question.hint}`, new RegExp(question.correctAnswer, 'i'));
+    assert.equal(question.answerMode, 'single-choice');
+    assert.equal(getAv2AnswerMode(question), 'single-choice');
+    assert.equal(question.options.length, 4);
+    assert.equal(new Set(question.options.map(({ value }) => value)).size, 4);
+    assert.equal(new Set(question.options.map(({ label }) => label)).size, 4);
+    assert.equal(question.options.filter(({ value }) => value === question.correctAnswer).length, 1);
+    assert.ok(question.options.every(({ value }) => Number.isInteger(value)
+      && (value >= 0 && value <= 250 || [300, 400].includes(value) && question.data.mode === 'number-to-word')));
+    assert.equal(validateAv2SimuladoAnswer(question, question.correctAnswer), true);
+    assert.equal(validateAv2SimuladoAnswer(question, numberToWordsPtBr(question.data.value)), false);
+    if (question.data.mode === 'number-to-word') {
+      assert.ok(question.options.every(({ value, label }) => label === numberToWordsPtBr(value)));
+      assert.doesNotMatch(`${question.prompt} ${question.speech} ${question.hint}`, new RegExp(numberToWordsPtBr(question.data.value), 'i'));
+    } else {
+      assert.ok(question.options.every(({ value, label }) => label === String(value)));
+      assert.match(question.prompt, new RegExp(numberToWordsPtBr(question.data.value), 'i'));
+    }
   }
+});
+
+test('o caso móvel 246 é sempre uma pergunta de reconhecimento com a alternativa correta selecionável', () => {
+  const question = createAv2SimuladoWordQuestion({ value: 246, mode: 'number-to-word', random: seededRandom(246) });
+  assert.equal(question.prompt, 'Como se escreve o número 246 por extenso?');
+  assert.equal(question.answerMode, 'single-choice');
+  assert.equal(question.options.length, 4);
+  assert.deepEqual(question.options.filter(({ value }) => value === 246).map(({ label }) => label), ['duzentos e quarenta e seis']);
+  assert.equal(validateAv2SimuladoAnswer(question, 246), true);
+  assert.equal(validateAv2SimuladoAnswer(question, 'duzentos e quarenta e seis'), false);
+});
+
+test('perguntas legadas por extenso são rejeitadas e convertidas antes de renderizar', () => {
+  const legacy = {
+    revisionId: 'av2-matematica', activityId: 'av2-simulado-block-07',
+    pedagogicalCategory: 'NUMBER_WORD_WRITING', questionId: 'word-writing-246', type: 'simulado-word-write',
+    data: { value: 246 }, correctAnswer: 'duzentos e quarenta e seis', options: [],
+    prompt: 'Escreva o número 246 por extenso.', speech: 'Escreva o número 246 por extenso.',
+    simulado: { questionId: 'legacy-word-246', subjectId: 'words', subjectIds: ['words'], reviewTargetKey: 'words-0' },
+  };
+  assert.equal(getAv2AnswerMode(legacy), 'alphabetic-input');
+  assert.equal(validateAv2AnswerMode(legacy), false);
+  assert.equal(validateAv2SimuladoQuestionCandidate(legacy), false);
+  const converted = upgradeLegacyAv2SimuladoQuestion(legacy, seededRandom(247));
+  assert.equal(converted.type, 'simulado-word');
+  assert.equal(converted.answerMode, 'single-choice');
+  assert.equal(converted.data.value, 246);
+  assert.equal(converted.simulado.questionId, 'legacy-word-246');
+  assert.equal(converted.simulado.reviewTargetKey, 'words-0');
+  assert.equal(converted.options.length, 4);
+  assert.equal(validateAv2SimuladoQuestionCandidate(converted), true);
+  assert.equal(validateAv2SimuladoAnswer(converted, 'duzentos e quarenta e seis'), false);
+  assert.equal(upgradeLegacyAv2SimuladoQuestion({ ...legacy, data: { value: '246' } }, seededRandom(1)), null);
 });
 
 test('REV-08: biblioteca usa C/D/U, valida as duas operações e associa os termos em quatro etapas', () => {
@@ -153,28 +212,95 @@ test('preset completo cobre REV-01 a REV-08; rodadas personalizadas continuam fl
   assert.equal(createAv2SimuladoRound({ words: 1 }, seededRandom(8)).length, 1);
   assert.equal(createAv2SimuladoRound({ money: 2, sequences: 1 }, seededRandom(9)).length, 3);
   const matching = findType(complete, 'simulado-money-product-match');
-  const writing = findType(complete, 'simulado-word-write');
+  const writing = findType(complete, 'simulado-word');
   assert.equal(createAv2SimuladoFocusRound([{
     subjectId: 'money', sourceQuestionId: matching.simulado.questionId, sourceType: matching.type,
   }], seededRandom(10))[0].type, 'simulado-money-product-match');
   assert.equal(createAv2SimuladoFocusRound([{
     subjectId: 'words', sourceQuestionId: writing.simulado.questionId, sourceType: writing.type,
-  }], seededRandom(11))[0].type, 'simulado-word-write');
+  }], seededRandom(11))[0].type, 'simulado-word');
 });
 
-test('geração completa com 256 sementes mantém contratos, contagens, alternativas e atribuição de assunto', () => {
-  for (let seed = 1; seed <= 256; seed += 1) {
-    const round = createAv2SimuladoFullCoverageRound(seededRandom(seed));
-    assert.equal(validateAv2SimuladoFullCoverageRound(round), true, `semente ${seed}`);
+test('1.000 rodadas AV2 semeadas respeitam o contrato em presets, configurações personalizadas e reforço', () => {
+  const correctOptionPositions = new Set();
+  for (let seed = 1; seed <= 1000; seed += 1) {
+    const configuration = seed % 5;
+    const count = 1 + (Math.floor(seed / 5) % 5);
+    const customCounts = configuration === 0
+      ? { money: count, addition: count, subtraction: count, sequences: count, words: count }
+      : configuration === 1 ? { money: 1, sequences: 3, words: 5 }
+        : configuration === 2 ? { money: 3, addition: 3, subtraction: 3, sequences: 3, words: 3 }
+          : configuration === 3 ? { addition: 5, words: 1 }
+            : { money: count, subtraction: 2, words: 4 };
+    const full = configuration === 4 && seed % 2 === 0;
+    const round = full
+      ? createAv2SimuladoFullCoverageRound(seededRandom(seed))
+      : createAv2SimuladoRound(customCounts, seededRandom(seed));
+    assert.equal(validateAv2SimuladoRound(round), true, `rodada ${seed}`);
+    if (!full) assert.equal(validateAv2SimuladoRound(round, customCounts), true, `contagens da rodada ${seed}`);
+    if (full) assert.equal(validateAv2SimuladoFullCoverageRound(round), true, `revisão completa ${seed}`);
     const questionIds = round.map((question) => question.simulado.questionId);
     assert.equal(new Set(questionIds).size, questionIds.length, `sem duplicatas na semente ${seed}`);
     for (const question of round) {
       assert.equal(validateAv2SimuladoQuestionCandidate(question), true, `${question.questionId}, semente ${seed}`);
+      assert.ok(AV2_ALLOWED_ANSWER_MODES.includes(question.answerMode), `${question.type} declara um modo permitido`);
+      assert.notEqual(question.type, 'simulado-word-write');
       assert.ok(question.simulado.subjectIds.every((id) => ['money', 'addition', 'subtraction', 'sequences', 'words'].includes(id)));
+      if (question.type === 'simulado-word') {
+        assert.equal(question.answerMode, 'single-choice');
+        assert.equal(question.options.length, 4);
+        assert.equal(question.options.filter(({ value }) => value === question.correctAnswer).length, 1);
+        correctOptionPositions.add(question.options.findIndex(({ value }) => value === question.correctAnswer));
+      }
       if (question.type === 'simulado-word' || question.type === 'simulado-sequence') {
         assert.equal(new Set(question.options.map((option) => typeof option === 'object' ? option.value : option)).size, question.options.length);
         assert.equal(question.options.filter((option) => (typeof option === 'object' ? option.value : option) === question.correctAnswer).length, 1);
       }
     }
+    if (seed % 20 === 0) {
+      const target = round.find((question) => question.simulado.subjectId === 'words');
+      if (target) {
+        const focus = createAv2SimuladoFocusRound([{
+          subjectId: 'words', sourceQuestionId: target.simulado.questionId, sourceType: target.type,
+        }], seededRandom(seed + 100000));
+        assert.equal(validateAv2SimuladoRound(focus), true, `reforço da semente ${seed}`);
+        assert.ok(focus.every((question) => question.type !== 'simulado-word-write'));
+        assert.ok(focus.every((question) => AV2_ALLOWED_ANSWER_MODES.includes(question.answerMode)));
+      }
+    }
   }
+  assert.ok(correctOptionPositions.size > 1, 'a posição da resposta correta varia entre as alternativas');
+});
+
+test('Block 05 e AV2 usam o mesmo contrato de seleção para reconhecer números por extenso', () => {
+  const block05 = createNumberToWordQuestion(seededRandom(7), { value: 246 });
+  const simulado = createAv2SimuladoWordQuestion({ value: 246, mode: 'number-to-word', random: seededRandom(8) });
+  assert.equal(validateAv2SequencesQuestion(block05), true);
+  assert.equal(block05.answerMode, 'single-choice');
+  assert.equal(block05.options.length, 4);
+  assert.equal(validateAv2SimuladoQuestionCandidate(simulado), true);
+  assert.equal(simulado.answerMode, block05.answerMode);
+});
+
+test('1.000 perguntas do Block 05 mantêm quatro opções escritas ou numéricas e ordem aleatória', () => {
+  const correctPositions = new Set();
+  for (let seed = 1; seed <= 1000; seed += 1) {
+    const questions = [
+      createNumberToWordQuestion(seededRandom(seed)),
+      createRecognitionQuestion(seededRandom(seed + 10000)),
+    ];
+    for (const question of questions) {
+      assert.equal(validateAv2SequencesQuestion(question), true, `questão ${question.category}, semente ${seed}`);
+      assert.equal(question.answerMode, 'single-choice');
+      assert.equal(question.options.length, 4);
+      assert.equal(new Set(question.options).size, 4);
+      assert.equal(question.options.filter((value) => value === question.correctAnswer).length, 1);
+      correctPositions.add(question.options.indexOf(question.correctAnswer));
+      if (question.category === 'NUM-06') {
+        assert.equal(new Set(question.optionLabels).size, 4);
+        assert.deepEqual(question.optionLabels, question.options.map(numberToWordsPtBr));
+      }
+    }
+  }
+  assert.ok(correctPositions.size > 1);
 });

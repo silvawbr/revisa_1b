@@ -95,6 +95,7 @@ test('o servidor entrega os módulos do catálogo; as imagens vêm do Wikimedia 
     '/src/data/officialColoringPages.js',
     '/src/child-profile.js',
     '/src/av2/money.js',
+    '/src/av2/interaction-contract.js',
     '/src/av2/progress.js',
     '/public/coloring-pages/ATTRIBUTIONS.md',
   ]) {

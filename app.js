@@ -70,8 +70,10 @@ import {
   createAv2SimuladoFullCoverageRound,
   createAv2SimuladoRound,
   normalizeAv2SimuladoCounts,
+  upgradeLegacyAv2SimuladoQuestion,
   validateAv2SimuladoAnswer,
 } from './src/av2/simulado.js';
+import { getAv2AnswerMode, validateAv2AnswerMode } from './src/av2/interaction-contract.js';
 import {
   createChildProfileStore,
   createPersonalizedMessage,
@@ -144,7 +146,7 @@ const state = {
   av2CompositeStage: 1,
   av2CompositeIntermediate: null,
   av2SimuladoInputError: '',
-  av2SimuladoTextAnswer: '',
+  av2SimuladoNumericAnswer: '',
   av2Pairing: { selectedGroupId: null, selectedProductId: null, matches: {}, matchColors: {} },
   av2CompositeFirstTry: { addition: true, subtraction: true },
   av2CompositeNotice: '',
@@ -607,6 +609,9 @@ function renderExercise(question) {
 
 function renderGame() {
   const question = state.round[state.currentIndex];
+  if (!validateAv2AnswerMode(question, { requireDeclared: true })) {
+    throw new TypeError(`A questão ${question?.type ?? 'sem tipo'} não declarou uma interação permitida.`);
+  }
   const guideMessage = state.correct ? 'Que conquista linda! Observe a explicação.' : 'Vamos com calma! Você consegue!';
   const prompt = question.type === 'flat' || question.type === 'spatial'
     ? `<span class="shape-prompt-label">${escapeHtml(question.promptLabel)}</span> <strong class="shape-name-prompt">${escapeHtml(question.shapeName)}</strong>`
@@ -619,7 +624,7 @@ function renderGame() {
       <section class="question-card" aria-labelledby="question-title">
         <div class="prompt-row"><p class="prompt" id="question-prompt">${prompt}</p>${renderSpeechButton('question', question.speech)}</div>
         <span class="speech-status" data-speech-status role="status" aria-live="polite"></span>
-        <div class="exercise-area">${renderExercise(question)}</div>
+        <div class="exercise-area" data-answer-mode="${question.answerMode}">${renderExercise(question)}</div>
         ${renderFeedback(question)}
       </section>
     </main>
@@ -786,7 +791,7 @@ function renderAv2SimuladoSetup() {
         <p class="home-subtitle">Pratique alguns assuntos ou faça a revisão completa da escola.</p>
         <section class="simulado-full-preset" aria-labelledby="simulado-full-preset-title">
           <h2 id="simulado-full-preset-title">Revisão completa AV2</h2>
-          <p>Pratique equivalências, compras, tabela numérica, escrita por extenso e o problema encadeado da biblioteca.</p>
+          <p>Pratique equivalências, compras, tabela numérica, reconhecimento de números por extenso e o problema encadeado da biblioteca.</p>
           <button class="primary-button" type="button" data-action="start-av2-full-simulado">Começar revisão completa <span aria-hidden="true">→</span></button>
         </section>
         <p class="simulado-custom-heading">Ou personalize sua prática</p>
@@ -1013,12 +1018,10 @@ function renderSimuladoProductBoard(products, { label = 'Produtos e preços', se
   })).join('')}</div>`;
 }
 
-function renderSimuladoNumericEntry(question, { mode = 'numeric' } = {}) {
-  const isWord = mode === 'text';
-  const dataAttribute = isWord ? 'data-simulado-word-answer' : 'data-simulado-numeric-answer';
-  const label = isWord ? 'Sua resposta por extenso' : 'Resposta em reais';
+function renderSimuladoNumericEntry(question) {
+  const label = question.prompt.includes('soma') ? 'Total em reais' : 'Resposta em reais';
   return `<div class="simulado-answer-entry-wrap">
-    <label class="simulado-answer-entry"><span>${label}</span><input type="text" inputmode="${isWord ? 'text' : 'numeric'}" autocomplete="off" autocapitalize="${isWord ? 'sentences' : 'off'}" maxlength="${isWord ? '80' : '3'}" ${dataAttribute} aria-label="${label}" value="${escapeAttribute(state.av2SimuladoTextAnswer)}" ${state.av2Correct ? 'disabled' : ''}></label>
+    <label class="simulado-answer-entry"><span>${label}</span><input type="text" inputmode="numeric" autocomplete="off" maxlength="3" data-simulado-numeric-answer aria-label="${label}" value="${escapeAttribute(state.av2SimuladoNumericAnswer)}" ${state.av2Correct ? 'disabled' : ''}></label>
     ${state.av2SimuladoInputError ? `<p class="av2-addition-input-error" role="alert">${escapeHtml(state.av2SimuladoInputError)}</p>` : ''}
     <button class="primary-button simulado-submit-button" type="button" data-action="submit-av2" ${state.av2Correct ? 'disabled' : ''}>Conferir resposta <span aria-hidden="true">→</span></button>
   </div>`;
@@ -1101,7 +1104,6 @@ function renderAv2SimuladoQuestion(question) {
   if (question.type.startsWith('simulado-shopping-')) return renderSimuladoShoppingScenario(question);
   if (question.type === 'simulado-product-board') return renderSimuladoProductPriceQuestion(question);
   if (question.type === 'simulado-number-table') return `<div class="av2-exercise is-simulado is-table" data-av2-question-type="simulado-number-table">${renderSimuladoNumberTable(question)}</div>`;
-  if (question.type === 'simulado-word-write') return `<div class="av2-exercise is-simulado is-word-write" data-av2-question-type="simulado-word-write">${renderSimuladoNumericEntry(question, { mode: 'text' })}</div>`;
   if (question.type === 'simulado-association') {
     const { pairs, options } = question.data;
     return `<div class="av2-exercise is-simulado is-association" data-av2-question-type="simulado-association">
@@ -1384,7 +1386,32 @@ function renderAv2Feedback(question) {
 }
 
 function renderAv2Game() {
-  const question = state.av2Round[state.av2Index];
+  let question = state.av2Round[state.av2Index];
+  if (state.av2Block === 'block-07') {
+    let safeQuestion = upgradeLegacyAv2SimuladoQuestion(question);
+    if (!safeQuestion) {
+      const knownSubjects = ['money', 'addition', 'subtraction', 'sequences', 'words'];
+      const subjectId = knownSubjects.includes(question?.simulado?.subjectId) ? question.simulado.subjectId
+        : (question?.simulado?.subjectIds ?? []).find((id) => knownSubjects.includes(id)) ?? 'words';
+      safeQuestion = createAv2SimuladoRound({ [subjectId]: 1 })[0];
+    }
+    if (safeQuestion !== question) {
+      state.av2Round = [...state.av2Round];
+      state.av2Round[state.av2Index] = safeQuestion;
+      state.av2Selected = null;
+      state.av2Correct = false;
+      state.av2Attempts = 0;
+      state.av2HintIndex = -1;
+      state.av2SequenceAnswer = {};
+      state.av2SimuladoInputError = '';
+      state.av2SimuladoNumericAnswer = '';
+      state.av2Pairing = { selectedGroupId: null, selectedProductId: null, matches: {}, matchColors: {} };
+    }
+    question = safeQuestion;
+  }
+  if (!validateAv2AnswerMode(question, { requireDeclared: ['block-05', 'block-07'].includes(state.av2Block) })) {
+    throw new TypeError(`A questão AV2 ${question?.type ?? 'sem tipo'} não declarou uma interação permitida.`);
+  }
   const activityName = state.av2Block === 'block-07'
     ? question.type === 'simulado-two-step' ? 'Problema em duas etapas'
       : AV2_SIMULADO_SUBJECTS.find(({ id }) => id === question.simulado?.subjectId)?.label ?? 'Simulado AV2'
@@ -1395,15 +1422,19 @@ function renderAv2Game() {
     : state.av2Block === 'block-02' ? 'Compras e troco'
     : question.type === 'identification' || question.type === 'equivalence' || question.type === 'composition'
       ? 'Reconhecer o dinheiro' : 'Comparar valores';
+  const heading = question.type === 'simulado-word'
+    ? question.data.mode === 'number-to-word' ? 'Escolha a escrita correta' : 'Escolha o número correspondente'
+    : state.av2Block === 'block-05' && question.category === 'NUM-06' ? 'Escolha a escrita correta'
+      : state.av2Block === 'block-05' && question.category === 'NUM-05' ? 'Escolha o número correspondente' : activityName;
   return `<div class="site-shell game-screen av2-game-screen">
     ${renderAv2Header()}
     <main class="main-content av2-main-content">
       <div class="question-topline"><span class="activity-badge">Questão ${state.av2Index + 1} de ${state.av2Round.length}</span><span class="activity-count">${activityName}</span></div>
-      <div class="question-heading"><div><h1 id="av2-question-title">${activityName}</h1></div>${renderGuide(state.av2Correct ? 'Que conquista linda! Vamos continuar.' : 'Vamos com calma! Você consegue!')}</div>
+      <div class="question-heading"><div><h1 id="av2-question-title">${heading}</h1></div>${renderGuide(state.av2Correct ? 'Que conquista linda! Vamos continuar.' : 'Vamos com calma! Você consegue!')}</div>
       <section class="question-card av2-question-card" aria-labelledby="av2-question-title">
         <div class="prompt-row"><p class="prompt" id="av2-question-prompt">${escapeHtml(question.prompt)}</p>${renderSpeechButton('question', question.speech)}</div>
         <span class="speech-status" data-speech-status role="status" aria-live="polite"></span>
-        <div class="exercise-area av2-exercise-area${['SHOPPING_PROBLEM', 'CONNECTED_SHOPPING_SCENARIO', 'PRODUCT_PRICE_BOARD'].includes(question.pedagogicalCategory) ? ' is-shopping-question' : ''}">${renderAv2Question(question)}</div>
+        <div class="exercise-area av2-exercise-area${['SHOPPING_PROBLEM', 'CONNECTED_SHOPPING_SCENARIO', 'PRODUCT_PRICE_BOARD'].includes(question.pedagogicalCategory) ? ' is-shopping-question' : ''}" data-answer-mode="${question.answerMode ?? getAv2AnswerMode(question)}">${renderAv2Question(question)}</div>
         ${renderAv2Feedback(question)}
       </section>
     </main>
@@ -1707,7 +1738,7 @@ function beginAv2Round(block = 'block-01') {
   state.av2MoneyNextItemId = 0;
   state.av2MoneySolutions = [];
   state.av2MoneyFeedback = null;
-  state.av2SimuladoTextAnswer = '';
+  state.av2SimuladoNumericAnswer = '';
   state.av2Pairing = { selectedGroupId: null, selectedProductId: null, matches: {}, matchColors: {} };
   state.av2CompositeFirstTry = { addition: true, subtraction: true };
   state.av2CompositeNotice = '';
@@ -1749,7 +1780,7 @@ function beginAv2SimuladoRound(counts, { mode = 'full', preset = 'custom', targe
   state.av2CompositeFirstTry = { addition: true, subtraction: true };
   state.av2CompositeNotice = '';
   state.av2SimuladoInputError = '';
-  state.av2SimuladoTextAnswer = '';
+  state.av2SimuladoNumericAnswer = '';
   state.av2Pairing = { selectedGroupId: null, selectedProductId: null, matches: {}, matchColors: {} };
   state.av2MoneySelection = [];
   state.av2MoneyNextItemId = 0;
@@ -1817,7 +1848,7 @@ function nextAv2Question() {
   state.av2CompositeFirstTry = { addition: true, subtraction: true };
   state.av2CompositeNotice = '';
   state.av2SimuladoInputError = '';
-  state.av2SimuladoTextAnswer = '';
+  state.av2SimuladoNumericAnswer = '';
   state.av2Pairing = { selectedGroupId: null, selectedProductId: null, matches: {}, matchColors: {} };
   state.av2MoneySelection = [];
   state.av2MoneyNextItemId = 0;
@@ -2102,11 +2133,11 @@ function submitAv2Answer() {
     if (!isCorrect) state.av2Attempts += 1;
     cancelSpeech(); render(); return;
   }
-  if (state.av2Block === 'block-07' && ['simulado-word-write', 'simulado-shopping-total', 'simulado-shopping-change'].includes(question.type)) {
-    const answer = state.av2SimuladoTextAnswer;
-    state.av2SimuladoTextAnswer = answer;
+  if (state.av2Block === 'block-07' && ['simulado-shopping-total', 'simulado-shopping-change'].includes(question.type)) {
+    const answer = state.av2SimuladoNumericAnswer;
+    state.av2SimuladoNumericAnswer = answer;
     if (!String(answer).trim()) {
-      state.av2SimuladoInputError = 'Digite sua resposta antes de conferir.';
+      state.av2SimuladoInputError = 'Informe o valor em reais antes de conferir.';
       render(); return;
     }
     state.av2SimuladoInputError = '';
@@ -2117,10 +2148,10 @@ function submitAv2Answer() {
     cancelSpeech(); render(); return;
   }
   if (state.av2Block === 'block-07' && question.type === 'simulado-product-board' && question.options.length === 0) {
-    const answer = state.av2SimuladoTextAnswer;
-    state.av2SimuladoTextAnswer = answer;
+    const answer = state.av2SimuladoNumericAnswer;
+    state.av2SimuladoNumericAnswer = answer;
     if (!String(answer).trim()) {
-      state.av2SimuladoInputError = 'Digite a soma antes de conferir.';
+      state.av2SimuladoInputError = 'Informe o total em reais antes de conferir.';
       render(); return;
     }
     state.av2SimuladoInputError = '';
@@ -2509,14 +2540,10 @@ function bindEvents() {
     });
   });
 
-  const simuladoTextInputs = [
-    ...document.querySelectorAll('[data-simulado-word-answer]'),
-    ...document.querySelectorAll('[data-simulado-numeric-answer]'),
-  ];
-  simuladoTextInputs.forEach((input) => {
+  document.querySelectorAll('[data-simulado-numeric-answer]').forEach((input) => {
     input.addEventListener('input', () => {
       if (input.dataset.simuladoNumericAnswer !== undefined) sanitizeDigitInput(input, 3);
-      state.av2SimuladoTextAnswer = input.value;
+      state.av2SimuladoNumericAnswer = input.value;
       state.av2SimuladoInputError = '';
     });
     input.addEventListener('keydown', (event) => {
