@@ -1149,3 +1149,43 @@ h1 span { color: var(--blue-deep); }
   .simulation-feature-content { width: 100%; }
   .home-review-section .revision-choices { grid-template-columns: 1fr; }
 }
+
+.animal-picker { margin: auto; width: min(620px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; box-sizing: border-box; color: var(--ink); padding: 22px; max-width: 620px; border: 2px solid #d7cff1; border-radius: 18px; background: #faf7ff; text-align: left; }
+.animal-picker h2 { margin-top: 0; }
+.animal-picker label { font-weight: 800; }
+.animal-picker p { line-height: 1.5; }
+.animal-entry { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+.animal-entry input { flex: 1 1 180px; min-width: 0; padding: 12px; border: 2px solid #9184b8; border-radius: 12px; font: inherit; }
+.animal-suggestions { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+.animal-picker button { min-height: 44px; }
+.animal-picker input:focus-visible, .animal-picker button:focus-visible { outline: 3px solid #174ea6; outline-offset: 3px; }
+
+.animal-picker::backdrop { background: rgba(37, 38, 56, 0.58); }
+
+.animal-generation { text-align: center; padding: 12px 0; }
+.animal-generation h2 { font-size: clamp(1.4rem, 5vw, 1.9rem); line-height: 1.3; }
+.animal-generation h2 span { color: #6b469d; }
+.drawing-animation { position: relative; width: min(260px, 100%); margin: 0 auto 16px; }
+.drawing-paper { display: block; width: 100%; }
+.drawing-traces > * { stroke-dasharray: 100; animation: animal-sketch 5s ease-in-out infinite; }
+.drawing-traces > :nth-child(2) { animation-delay: .2s; }
+.drawing-traces > :nth-child(3) { animation-delay: .4s; }
+.drawing-traces > :nth-child(4) { animation-delay: .6s; }
+.drawing-traces > :nth-child(5) { animation-delay: .8s; }
+.drawing-pencil { position: absolute; right: 15%; top: 25%; font-size: 3rem; animation: animal-pencil 1.8s ease-in-out infinite; }
+.drawing-spark { position: absolute; color: #bd8312; font-size: 2rem; animation: animal-spark 2s ease-in-out infinite; }
+.drawing-spark-one { left: 0; top: 10%; }
+.drawing-spark-two { right: 0; bottom: 8%; animation-delay: 1s; }
+.drawing-wait-dots { display: flex; justify-content: center; gap: 9px; margin: 20px 0; }
+.drawing-wait-dots span { width: 10px; height: 10px; border-radius: 50%; background: #8b6abb; animation: animal-dot 1.4s ease-in-out infinite; }
+.drawing-wait-dots span:nth-child(2) { animation-delay: .2s; }
+.drawing-wait-dots span:nth-child(3) { animation-delay: .4s; }
+.drawing-wait-message { min-height: 3em; font-weight: 700; }
+.drawing-wait-help { color: var(--muted); font-size: .95rem; }
+@keyframes animal-sketch { 0% { stroke-dashoffset: 100; } 65%, 85% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 100; } }
+@keyframes animal-pencil { 0%, 100% { transform: translate(0, 0) rotate(-12deg); } 50% { transform: translate(-32px, 24px) rotate(5deg); } }
+@keyframes animal-spark { 0%, 100% { opacity: .35; transform: scale(.8); } 50% { opacity: 1; transform: scale(1); } }
+@keyframes animal-dot { 0%, 70%, 100% { transform: translateY(0); opacity: .4; } 35% { transform: translateY(-6px); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .drawing-traces > *, .drawing-pencil, .drawing-spark, .drawing-wait-dots span { animation: none; }
+}

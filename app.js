@@ -1,3 +1,4 @@
+import { normalizeAnimal, isValidAnimal, pickAnimalSuggestions } from './src/data/coloringAnimals.js';
 import { AV2_SUBTRACTION_ACTIVITY_ID, createAv2SubtractionRound, validateAv2SubtractionAnswer } from './src/av2/subtraction.js';
 import { AV2_SEQUENCES_PROGRESS_STORAGE_KEY, createAv2SequencesRound, validateAv2SequencesAnswer } from './src/av2/sequences.js';
 import { renderSubtractionQuestion } from './src/av2/subtraction-layout.js';
@@ -128,6 +129,10 @@ const state = {
   generatedRewardImage: null,
   generatingRewardImage: false,
   rewardGenerationError: '',
+  animalPickerOpen: false,
+  animalDraft: '',
+  generatingAnimal: '',
+  animalSuggestions: [],
   lastOfficialColoringPageId: null,
   officialOpenFailure: null,
   av2Round: [],
@@ -534,7 +539,7 @@ function renderColoringAttribution(page) {
 function renderColoringPage(page) {
   if (state.generatedRewardImage) {
     return `<div class="print-sheet" data-coloring-page-id="generated-openrouter" data-orientation="portrait">
-      <img class="coloring-image" data-generated-coloring-image src="${escapeAttribute(state.generatedRewardImage.src)}" alt="Desenho novo para colorir." decoding="async">
+      <img class="coloring-image" data-generated-coloring-image src="${escapeAttribute(state.generatedRewardImage.src)}" alt="${escapeAttribute(`Desenho de ${state.generatedRewardImage.animal} para colorir.`)}" decoding="async">
       <p class="coloring-attribution">Desenho criado sob demanda com OpenRouter.</p>
     </div>`;
   }
@@ -1442,6 +1447,8 @@ function renderAv2Game() {
 }
 
 function selectRewardPage() {
+  state.animalPickerOpen = false;
+  state.animalDraft = '';
   state.generatedRewardImage = null;
   state.generatingRewardImage = false;
   state.rewardGenerationError = '';
@@ -1484,29 +1491,54 @@ function handleColoringAssetError(pageId) {
   showAnotherColoringPage();
 }
 
-async function generateRewardColoringPage() {
+async function generateRewardColoringPage(animal, source = 'typed') {
   if (state.generatingRewardImage) return;
+  if (!isValidAnimal(animal)) {
+    state.rewardGenerationError = 'Digite o nome de um animal, como peixe-boi.';
+    render();
+    document.querySelector('#coloring-animal')?.focus();
+    return;
+  }
+  animal = normalizeAnimal(animal);
   state.generatingRewardImage = true;
+  state.generatingAnimal = animal;
   state.rewardGenerationError = '';
   render();
+  const loadingStartedAt = Date.now();
+  const waitingMessages = [
+    'Enquanto o desenho chega, quais cores você quer usar?',
+    'Você pode imaginar os sons desse animal?',
+    'Já pode separar seus lápis de cor!',
+  ];
+  let messageIndex = 0;
+  const loadingTimer = setInterval(() => {
+    const message = document.querySelector('[data-coloring-wait-message]');
+    if (message) message.textContent = Date.now() - loadingStartedAt >= 30000
+      ? 'Seu desenho ainda está sendo criado. Alguns animais demoram um pouquinho mais!'
+      : waitingMessages[messageIndex++ % waitingMessages.length];
+  }, 7000);
   try {
     const response = await fetch('/api/coloring', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: '{}',
+      body: JSON.stringify({ animal, source }),
     });
     const payload = await response.json().catch(() => null);
     if (!response.ok || typeof payload?.image !== 'string') {
       throw new Error(payload?.error || 'Não foi possível criar o desenho agora. Tente de novo.');
     }
-    state.generatedRewardImage = { src: payload.image };
+    state.generatedRewardImage = { src: payload.image, animal };
+    state.animalPickerOpen = false;
   } catch (error) {
     state.rewardGenerationError = error instanceof Error
       ? error.message
       : 'Não foi possível criar o desenho agora. Tente de novo.';
   } finally {
+    clearInterval(loadingTimer);
+    state.generatingAnimal = '';
     state.generatingRewardImage = false;
     render();
+    document.querySelector(state.animalPickerOpen ? '#coloring-animal' : '[data-action="generate-coloring-page"]')?.focus();
   }
 }
 
@@ -1543,6 +1575,58 @@ function renderOfficialColoringAction() {
   </div>`;
 }
 
+function openAnimalPicker() {
+  if (state.generatingRewardImage) return;
+  state.animalPickerOpen = true;
+  state.rewardGenerationError = '';
+  state.animalSuggestions = pickAnimalSuggestions();
+  render();
+  document.querySelector('#coloring-animal')?.focus();
+}
+
+function renderAnimalGeneration() {
+  return `<div class="animal-generation" data-animal-generation>
+    <div class="drawing-animation" aria-hidden="true">
+      <svg class="drawing-paper" viewBox="0 0 220 180" fill="none">
+        <rect x="20" y="10" width="180" height="160" rx="14" fill="white" stroke="#d7cff1" stroke-width="3"/>
+        <g class="drawing-traces" stroke="#6b56a5" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+          <path pathLength="100" d="M66 126 Q72 104 88 107 Q110 88 132 107 Q148 104 154 126 Q158 148 137 144 Q110 134 83 144 Q62 148 66 126Z"/>
+          <ellipse pathLength="100" cx="67" cy="89" rx="11" ry="15" transform="rotate(-25 67 89)"/>
+          <ellipse pathLength="100" cx="94" cy="68" rx="11" ry="15"/>
+          <ellipse pathLength="100" cx="126" cy="68" rx="11" ry="15"/>
+          <ellipse pathLength="100" cx="153" cy="89" rx="11" ry="15" transform="rotate(25 153 89)"/>
+        </g>
+      </svg>
+      <span class="drawing-pencil">✏️</span><span class="drawing-spark drawing-spark-one">✦</span><span class="drawing-spark drawing-spark-two">✧</span>
+    </div>
+    <h2 id="animal-picker-title" tabindex="-1">Criando seu desenho de <span>${escapeHtml(state.generatingAnimal)}</span>!</h2>
+    <p>Seu animal vai aparecer no habitat dele, prontinho para colorir.</p>
+    <div class="drawing-wait-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+    <p class="drawing-wait-message" role="status" aria-live="polite" data-coloring-wait-message>Enquanto o desenho chega, quais cores você quer usar?</p>
+    <p class="drawing-wait-help">Pode levar até um minutinho. O desenho aparece aqui quando estiver pronto.</p>
+  </div>`;
+}
+
+function renderAnimalPicker() {
+  if (!state.animalPickerOpen) return '';
+  if (state.generatingRewardImage) return `<dialog class="animal-picker animal-picker-loading" data-animal-dialog aria-labelledby="animal-picker-title">${renderAnimalGeneration()}</dialog>`;
+  const disabled = state.generatingRewardImage ? 'disabled' : '';
+  return `<dialog class="animal-picker" data-animal-dialog aria-labelledby="animal-picker-title" aria-busy="${state.generatingRewardImage}">
+    <h2 id="animal-picker-title">Qual animal você quer colorir?</h2>
+    <form data-animal-form>
+      <label for="coloring-animal">Digite o nome do animal</label>
+      <p id="animal-help">Pode escrever em português! Por exemplo: peixe-boi. Ele vai aparecer no seu habitat natural.</p>
+      <div class="animal-entry"><input id="coloring-animal" name="animal" type="text" minlength="2" maxlength="60" required autocomplete="off" placeholder="Ex.: peixe-boi" aria-describedby="animal-help" autofocus value="${escapeAttribute(state.animalDraft)}" ${disabled}>
+      <button class="primary-button" type="submit" ${disabled}>Criar meu desenho</button></div>
+    </form>
+    <p>Ou toque em um destes animais para criar o desenho:</p>
+    <div class="animal-suggestions">${state.animalSuggestions.map((animal) => `<button class="secondary-button" type="button" data-animal-suggestion="${escapeAttribute(animal)}" ${disabled}>${escapeHtml(animal)}</button>`).join('')}</div>
+    <button class="secondary-button" type="button" data-action="refresh-animal-suggestions" ${disabled}>Ver outros animais</button>
+    <p role="status" aria-live="polite">${state.generatingRewardImage ? 'Criando seu desenho…' : escapeHtml(state.rewardGenerationError)}</p>
+    <button class="secondary-button" type="button" data-action="cancel-animal-picker" ${disabled}>Cancelar</button>
+  </dialog>`;
+}
+
 function renderReward() {
   const rewardPage = getColoringPageById(state.rewardPageId);
   const rewardMessage = createRewardMessage();
@@ -1562,6 +1646,7 @@ function renderReward() {
         <p class="reward-copy">${simuladoReward ? 'Você concluiu o Simulado AV2. Agora é hora de colorir!' : av2Reward && state.av2Block === 'block-06' ? 'Você concluiu os 12 desafios de formar quantias. Agora é hora de colorir!' : av2Reward && state.av2Block === 'block-05' ? 'Você concluiu as 12 questões de sequências e números. Agora é hora de colorir!' : subtractionReward ? 'Você concluiu as 12 questões de subtração. Agora é hora de colorir!' : additionReward ? 'Você concluiu as 12 questões de adição. Agora é hora de colorir!' : av2Reward ? 'Você concluiu as 10 questões sobre dinheiro. Agora é hora de colorir!' : 'Você passou por todas as atividades. Agora é hora de colorir!'}</p>
         ${state.rewardFallback && !state.generatedRewardImage ? renderColoringPage(null) : renderColoringPage(rewardPage)}
         <p class="coloring-generation-status" role="status" aria-live="polite">${state.generatingRewardImage ? 'Criando um desenho novo…' : state.rewardGenerationError ? escapeHtml(state.rewardGenerationError) : ''}</p>
+        ${renderAnimalPicker()}
         <div class="reward-actions">
           <button class="primary-button" type="button" data-action="print">🖨 Imprimir meu desenho</button>
           <button class="secondary-button" type="button" data-action="another-coloring-page" ${state.generatingRewardImage ? 'disabled' : ''}>🎨 Ver outro desenho</button>
@@ -2378,7 +2463,14 @@ function bindEvents() {
         const targets = state.av2Simulation?.errors.map((target) => ({ ...target })) ?? [];
         if (targets.length) beginAv2SimuladoRound(null, { mode: 'focus', targets });
       }
-      if (action === 'generate-coloring-page') generateRewardColoringPage();
+      if (action === 'generate-coloring-page') openAnimalPicker();
+      if (action === 'refresh-animal-suggestions') openAnimalPicker();
+      if (action === 'cancel-animal-picker' && !state.generatingRewardImage) {
+        state.animalPickerOpen = false;
+        state.rewardGenerationError = '';
+        render();
+        document.querySelector('[data-action="generate-coloring-page"]')?.focus();
+      }
       if (action === 'start-av2-sequences') beginAv2Round('block-05');
       if (action === 'start-av2-money-composition') beginAv2Round('block-06');
       if (action === 'restart') {
@@ -2426,6 +2518,26 @@ function bindEvents() {
       if (action === 'open-official-coloring') openOfficialColoringPage();
       if (action === 'print') window.print();
     });
+  });
+
+  const animalDialog = document.querySelector('[data-animal-dialog]');
+  animalDialog?.showModal?.();
+  if (state.generatingRewardImage) document.querySelector('#animal-picker-title')?.focus();
+  animalDialog?.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    if (state.generatingRewardImage) return;
+    state.animalPickerOpen = false;
+    state.rewardGenerationError = '';
+    render();
+    document.querySelector('[data-action="generate-coloring-page"]')?.focus();
+  });
+  document.querySelector('#coloring-animal')?.addEventListener('input', (event) => { state.animalDraft = event.target.value; });
+  document.querySelector('[data-animal-form]')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    generateRewardColoringPage(state.animalDraft, 'typed');
+  });
+  document.querySelectorAll('[data-animal-suggestion]').forEach((button) => {
+    button.addEventListener('click', () => generateRewardColoringPage(button.dataset.animalSuggestion, 'suggestion'));
   });
 
   document.querySelector('[data-child-name-form]')?.addEventListener('submit', submitChildName);
